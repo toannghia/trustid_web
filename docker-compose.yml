@@ -8,5 +8,5 @@ services:
     image: trustid-web
     container_name: trustid_web
     ports:
-      - "5173:80"
+      - "5174:80"
     restart: always
