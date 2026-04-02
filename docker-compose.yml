@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: trustid-web
+    container_name: trustid_web
+    ports:
+      - "5173:80"
+    restart: always

@@ -1,0 +1,26 @@
+:root {
+  /* Primary Palette */
+  --tid-primary: #0F2B46;         /* Trust Navy */
+  --tid-secondary: #1A73E8;       /* Action Blue */
+  --tid-success: #00875A;         /* Verify Green */
+
+  /* Supporting Palette */
+  --tid-warning: #E65100;         /* Alert Amber */
+  --tid-danger: #D32F2F;          /* Danger Red */
+  --tid-organic: #8D6E63;         /* Earth Warm */
+
+  /* Backgrounds & Surfaces */
+  --tid-bg: #F0F4F8;              /* Cloud Grey */
+  --tid-card-bg: #FFFFFF;
+  --tid-border: #E2E8F0;
+
+  /* Text */
+  --tid-text-primary: #0F2B46;
+  --tid-text-secondary: #64748B;
+  --tid-text-muted: #94A3B8;
+
+  /* Sidebar */
+  --tid-sidebar-bg: #0F2B46;      /* Trust Navy */
+  --tid-sidebar-active: #1A73E8;  /* Action Blue */
+  --tid-sidebar-hover: rgba(255,255,255,0.1);
+}

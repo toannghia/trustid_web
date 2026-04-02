@@ -1,0 +1,38 @@
+{
+  "name": "trustid-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.19.2",
+    "@turf/area": "^7.3.4",
+    "@turf/helpers": "^7.3.4",
+    "@turf/turf": "^7.3.4",
+    "@types/leaflet": "^1.9.21",
+    "@vueup/vue-quill": "^1.0.0-alpha.40",
+    "axios": "^1.x.x",
+    "echarts": "^6.0.0",
+    "element-plus": "^2.x.x",
+    "html5-qrcode": "^2.3.8",
+    "leaflet": "^1.9.4",
+    "mapbox-gl": "^3.20.0",
+    "pinia": "^2.x.x",
+    "vue": "^3.x.x",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.6",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^x.x.x",
+    "vite": "^x.x.x",
+    "vue-tsc": "^x.x.x"
+  }
+}

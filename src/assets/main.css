@@ -1,0 +1,32 @@
+@import './trustid-theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  --lte-sidebar-bg: var(--tid-sidebar-bg);
+  --lte-main-bg: var(--tid-bg);
+}
+
+body {
+  @apply bg-[var(--tid-bg)] text-[var(--tid-text-primary)];
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+}
+
+/* Tùy chỉnh Element Plus để khớp AdminLTE */
+.el-aside {
+  @apply transition-all duration-300 ease-in-out;
+  background-color: var(--tid-sidebar-bg);
+}
+
+.el-header {
+  @apply bg-white border-b border-gray-200 flex items-center shadow-sm;
+  height: 56px !important;
+}
+
+.el-menu {
+  border-right: none !important;
+}
