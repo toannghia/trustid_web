@@ -9,6 +9,7 @@ import logo from '@/assets/images/logo.png';
 const authStore = useAuthStore();
 const router = useRouter();
 const loading = ref(false);
+const errorDetail = ref('');
 
 const loginForm = reactive({
   username: '',
@@ -22,6 +23,7 @@ const handleLogin = async () => {
   }
 
   loading.value = true;
+  errorDetail.value = '';
   try {
     await authStore.login({
       username: loginForm.username,
@@ -31,18 +33,50 @@ const handleLogin = async () => {
     ElMessage.success('Đăng nhập thành công');
     router.push('/');
   } catch (error: any) {
-    // TRƯỜNG HỢP 1: Không kết nối được đến Server (Lỗi mạng, Server sập, sai URL)
+    console.error('[Login Error]', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+    });
+
+    // TRƯỜNG HỢP 1: Không kết nối được đến Server (CORS, mạng, server sập, timeout)
     if (!error.response) {
-      ElMessage.error('Lỗi kết nối: không thể kết nối đến máy chủ API. vui lòng kiểm tra lại đường truyền hoặc backend.');
-      console.error('Network Error:', error);
-    } 
-    // TRƯỜNG HỢP 2: Server có phản hồi nhưng trả về lỗi (Sai pass, user không tồn tại...)
-    else {
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorDetail.value = `⏱ Hết thời gian chờ kết nối đến API (${error.config?.baseURL || 'N/A'}).\nVui lòng kiểm tra backend có đang chạy không.`;
+      } else if (error.message === 'Network Error') {
+        errorDetail.value = `🔌 Không thể kết nối đến máy chủ API.\n\n` +
+          `🔗 URL đang gọi: ${error.config?.baseURL || 'N/A'}${error.config?.url || ''}\n\n` +
+          `Nguyên nhân có thể:\n` +
+          `• Backend chưa chạy hoặc đã sập\n` +
+          `• Lỗi CORS - domain hiện tại chưa được cho phép\n` +
+          `• Sai URL API trong cấu hình (.env)\n` +
+          `• Mất kết nối internet`;
+      } else {
+        errorDetail.value = `❌ Lỗi không xác định: ${error.message}`;
+      }
+      ElMessage.error('Lỗi kết nối: không thể kết nối đến máy chủ API');
+    }
+    // TRƯỜNG HỢP 2: Server trả về lỗi xác thực (401)
+    else if (error.response.status === 401) {
       let serverMessage = error.response?.data?.message;
       if (Array.isArray(serverMessage)) {
         serverMessage = serverMessage[0];
       }
+      errorDetail.value = '';
       ElMessage.error(serverMessage || 'Tài khoản hoặc mật khẩu không chính xác');
+    }
+    // TRƯỜNG HỢP 3: Lỗi server khác (500, 502, 503...)
+    else {
+      const status = error.response.status;
+      let serverMessage = error.response?.data?.message;
+      if (Array.isArray(serverMessage)) {
+        serverMessage = serverMessage[0];
+      }
+      errorDetail.value = `⚠️ Máy chủ trả về lỗi HTTP ${status}.\n${serverMessage || 'Không có thông tin chi tiết.'}`;
+      ElMessage.error(`Lỗi máy chủ (HTTP ${status}). Vui lòng thử lại sau.`);
     }
   } finally {
     loading.value = false;
@@ -102,6 +136,12 @@ const handleLogin = async () => {
               Đăng nhập
             </el-button>
           </el-form>
+
+          <!-- Chi tiết lỗi kết nối (hiển thị khi có lỗi) -->
+          <div v-if="errorDetail" class="error-detail-box mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p class="text-xs text-red-700 font-semibold mb-1">📋 Chi tiết lỗi:</p>
+            <pre class="text-xs text-red-600 whitespace-pre-wrap break-words leading-relaxed">{{ errorDetail }}</pre>
+          </div>
 
           <div class="social-auth-links text-center mt-6 pt-4 border-t border-gray-100">
             <div class="mt-4 space-y-2">
