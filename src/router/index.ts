@@ -117,6 +117,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/modules/core/views/RoleManagement.vue'),
         meta: { roles: ['ADMIN'], title: 'Quản lý Phân quyền' }
       },
+      {
+        path: 'notifications/send',
+        name: 'notification-send',
+        component: () => import('@/modules/core/views/NotificationManagement.vue'),
+        meta: { roles: ['ADMIN'], title: 'Gửi Thông báo' }
+      },
       // DỮ LIỆU NỀN TẢNG (ADMIN & TENANT_ADMIN)
       {
         path: 'categories',

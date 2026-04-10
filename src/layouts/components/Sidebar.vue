@@ -133,6 +133,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Quản lý Doanh nghiệp', path: '/tenants', roles: ['ADMIN'], icon: Operation },
       { title: 'NDA Gateway', path: '/gateway-dashboard', roles: ['ADMIN'], icon: Connection },
       { title: 'Người dùng', path: '/users', roles: ['ADMIN', 'TENANT_ADMIN'], icon: User },
+      { title: 'Gửi Thông báo', path: '/notifications/send', roles: ['ADMIN'], icon: Bell },
       { title: 'Phân quyền (Roles)', path: '/admin/roles', roles: ['ADMIN'], icon: Key },
       { title: 'Khách hàng App', path: '/app-users', roles: ['ADMIN'], icon: UserFilled },
       { title: 'Cấu hình OTP', path: '/app-users/config', roles: ['ADMIN'], icon: Setting },
