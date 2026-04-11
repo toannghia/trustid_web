@@ -7,7 +7,7 @@ import {
   Coordinate, Setting, Files, Odometer, ArrowRight, SwitchButton,
   Monitor, Document, List, View, Calendar, Connection, Collection,
   Sell, Goods, UserFilled, Key, Bell, Operation, Finished, DataLine, Postcard,
-  Download, Upload, Check
+  Download, Upload, Check, TrendCharts
 } from '@element-plus/icons-vue';
 
 interface MenuItem {
@@ -139,6 +139,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Cấu hình OTP', path: '/app-users/config', roles: ['ADMIN'], icon: Setting },
       { title: 'Báo cáo OTP', path: '/app-users/reports', roles: ['ADMIN'], icon: DataLine },
       { title: 'Cấu hình EUDR', path: '/admin/eudr-config', roles: ['ADMIN'], icon: Coordinate },
+      { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN', 'TENANT_ADMIN'], icon: TrendCharts },
       { title: 'Quản lý Sao lưu', path: '/admin/backups', roles: ['ADMIN'], icon: Document },
     ]
   }

@@ -110,6 +110,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/modules/farm/views/GfwConfig.vue'),
         meta: { roles: ['ADMIN'], title: 'Cấu hình EUDR' }
       },
+      {
+        path: 'admin/home-stats',
+        name: 'home-stats-config',
+        component: () => import('@/modules/core/views/HomeStatsConfig.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Số liệu App' }
+      },
       // HỆ THỐNG
       {
         path: 'admin/roles',
