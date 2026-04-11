@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { useAuthStore } from '../store/auth';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Check, Refresh, TrendCharts, DataLine, InfoFilled } from '@element-plus/icons-vue';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import api from '@/common/utils/api';
 
-const authStore = useAuthStore();
-const user = computed(() => authStore.user);
 const loading = ref(false);
 const saving = ref(false);
 
@@ -103,10 +100,7 @@ const removeCertification = (index: number) => {
 const fetchConfig = async () => {
   loading.value = true;
   try {
-    const tenantId = user.value?.tenantId || user.value?.tenant_id;
-    if (!tenantId) return;
-
-    const { data } = await api.get(`/tenants/${tenantId}/home-stats/config`);
+    const { data } = await api.get(`/admin/home-stats/config`);
     if (data) {
       Object.assign(form, data);
     }
@@ -120,12 +114,6 @@ const fetchConfig = async () => {
 const saveConfig = async () => {
   saving.value = true;
   try {
-    const tenantId = user.value?.tenantId || user.value?.tenant_id;
-    if (!tenantId) {
-      ElMessage.error('Không tìm thấy tenant');
-      return;
-    }
-
     // Set baseDate to today if empty
     const today = new Date().toISOString().split('T')[0];
     for (const key of ['totalVerifications', 'successRate', 'totalProducts', 'blockchainTransactions', 'counterfeitDetected']) {
@@ -134,7 +122,7 @@ const saveConfig = async () => {
       }
     }
 
-    await api.put(`/tenants/${tenantId}/home-stats/config`, { ...form });
+    await api.put(`/admin/home-stats/config`, { ...form });
     ElMessage.success('Đã lưu cấu hình số liệu trang chủ!');
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || 'Lỗi khi lưu');
@@ -142,12 +130,6 @@ const saveConfig = async () => {
     saving.value = false;
   }
 };
-
-watch(() => user.value, (newVal) => {
-  if (newVal?.tenantId || newVal?.tenant_id) {
-    fetchConfig();
-  }
-}, { immediate: true });
 
 onMounted(() => fetchConfig());
 </script>
