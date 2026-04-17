@@ -135,11 +135,14 @@ const getGovStatusType = (status: string) => {
 
 const fetchData = async () => {
     try {
-        const query = `?province=${selectedProvince.value}&ward=${selectedWard.value}`;
+        const params = new URLSearchParams();
+        if (selectedProvince.value) params.append('province', selectedProvince.value);
+        if (selectedWard.value) params.append('ward', selectedWard.value);
+        const query = params.toString() ? `?${params.toString()}` : '';
         
         const [statsRes, productsRes, enterprisesRes, farmsRes] = await Promise.all([
             api.get(`/api/gov/stats${query}`),
-            api.get(`/api/gov/products${query}&limit=10`),
+            api.get(`/api/gov/products${query ? query + '&' : '?'}limit=10`),
             api.get(`/api/gov/enterprises${query}`),
             api.get(`/api/gov/farms${query}`)
         ]);
@@ -156,11 +159,15 @@ const fetchData = async () => {
 const requestRecall = async (id: string) => {
     try {
         await ElMessageBox.confirm('Gửi yêu cầu cảnh báo/thu hồi sản phẩm này tới Doanh nghiệp?', 'Xác nhận', { type: 'warning' });
-        await api.post(`/gov/products/${id}/recall-request`, { reason: 'Phát hiện vi phạm tiêu chuẩn chất lượng' });
+        await api.post(`/api/gov/products/${id}/recall-request`, { reason: 'Phát hiện vi phạm tiêu chuẩn chất lượng' });
         ElMessage.success('Đã gửi yêu cầu thu hồi thành công');
         fetchData();
-    } catch (e) {
-        if (e !== 'cancel') ElMessage.error('Xử lý thất bại');
+    } catch (e: any) {
+        if (e === 'cancel' || e === 'close') return;
+        
+        console.error('Lỗi khi gọi API requestRecall:', e);
+        const errMsg = e.response?.data?.message || e.message || JSON.stringify(e);
+        ElMessage.error(`Lỗi hệ thống: ${errMsg}`);
     }
 }
 
