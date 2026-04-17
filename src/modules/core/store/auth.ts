@@ -15,7 +15,15 @@ export const useAuthStore = defineStore('auth', {
       if (!userData) return null;
       // Xử lý trường hợp role là object (nếu backend trả về relation) hoặc string
       const rawRole = userData.role || userData.ROLE || userData.roles || userData.ROLES;
-      const roleName = (typeof rawRole === 'object' && rawRole?.name) ? rawRole.name : (rawRole || userData.NAME || 'GUEST');
+      let roleName = (typeof rawRole === 'object' && rawRole?.name) ? rawRole.name : (rawRole || userData.NAME || 'GUEST');
+
+      if (typeof roleName === 'string') {
+        roleName = roleName.toUpperCase();
+        // Fallback map cho role gov -> REGULATOR
+        if (roleName === 'GOV' || roleName === 'CƠ QUAN QUẢN LÝ' || roleName === 'REGULATOR_OFFICER') {
+          roleName = 'REGULATOR';
+        }
+      }
 
       return {
         id: userData.ID || userData.id,
@@ -32,7 +40,9 @@ export const useAuthStore = defineStore('auth', {
           : (userData.avatar || ''),
         permissions: userData.PERMISSIONS || userData.permissions || [],
         tenantId: userData.tenantId || userData.tenant_id || userData.TENANT_ID,
-        tenant_name: (userData.tenant && userData.tenant.name) ? userData.tenant.name : (roleName === 'ADMIN' ? 'System Administrator' : 'Unknown Enterprise')
+        tenant_name: (userData.tenant && userData.tenant.name) 
+          ? userData.tenant.name 
+          : (roleName === 'ADMIN' ? 'System Administrator' : (roleName === 'REGULATOR' ? 'Cơ quan Quản lý Nhà nước' : 'Unknown Enterprise'))
       };
     },
 

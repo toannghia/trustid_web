@@ -44,8 +44,10 @@ const props = withDefaults(defineProps<{
   scans?: any[];
   height?: string;
   autoFitBounds?: boolean;
+  centerCoordinate?: { lat: number; lng: number } | null;
 }>(), {
-  autoFitBounds: true
+  autoFitBounds: true,
+  centerCoordinate: null
 });
 
 const emit = defineEmits<{
@@ -56,6 +58,7 @@ const mapContainer = ref<HTMLElement | null>(null);
 const loading = ref(true);
 let map: mapboxgl.Map | null = null;
 let popup: mapboxgl.Popup | null = null;
+let mapListenersAdded = false;
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -222,28 +225,6 @@ const renderLocations = () => {
         'line-width': 2.5,
       },
     });
-
-    // Click on polygon
-    map!.on('click', 'farm-polygons-fill', (e) => {
-      if (!e.features?.length) return;
-      const props_data = e.features[0].properties;
-      const loc = rebuildLocation(props_data);
-
-      if (popup) popup.remove();
-      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-        .setLngLat(e.lngLat)
-        .setHTML(buildPopupHTML(loc))
-        .addTo(map!);
-
-      emit('select', loc);
-    });
-
-    map!.on('mouseenter', 'farm-polygons-fill', () => {
-      if (map) map.getCanvas().style.cursor = 'pointer';
-    });
-    map!.on('mouseleave', 'farm-polygons-fill', () => {
-      if (map) map.getCanvas().style.cursor = '';
-    });
   }
 
   // Add Point layer
@@ -264,29 +245,6 @@ const renderLocations = () => {
         'circle-stroke-color': '#fff',
         'circle-opacity': 0.9,
       },
-    });
-
-    // Click on point
-    map!.on('click', 'farm-points', (e) => {
-      if (!e.features?.length) return;
-      const props_data = e.features[0].properties;
-      const loc = rebuildLocation(props_data);
-      const coordinates = (e.features[0].geometry as any).coordinates.slice();
-
-      if (popup) popup.remove();
-      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-        .setLngLat(coordinates)
-        .setHTML(buildPopupHTML(loc))
-        .addTo(map!);
-
-      emit('select', loc);
-    });
-
-    map!.on('mouseenter', 'farm-points', () => {
-      if (map) map.getCanvas().style.cursor = 'pointer';
-    });
-    map!.on('mouseleave', 'farm-points', () => {
-      if (map) map.getCanvas().style.cursor = '';
     });
   }
 
@@ -309,38 +267,83 @@ const renderLocations = () => {
         'circle-opacity': 0.9,
       },
     });
+  }
 
-    // Click on scan
-    map!.on('click', 'farm-scans', (e) => {
-      if (!e.features?.length) return;
-      const scan = e.features[0].properties as any;
-      const coordinates = (e.features[0].geometry as any).coordinates.slice();
+  if (!mapListenersAdded) {
+    // Click on polygon
+      map!.on('click', 'farm-polygons-fill', (e) => {
+        if (!e.features?.length) return;
+        const props_data = e.features[0].properties;
+        const loc = rebuildLocation(props_data);
 
-      if (popup) popup.remove();
-      
-      const scanDate = new Date(scan.createdAt).toLocaleDateString() + ' ' + new Date(scan.createdAt).toLocaleTimeString();
-      const codeString = scan.codeString || scan.code_string || 'N/A';
-      
-      const popupHtml = `
-        <div class="mapbox-popup-content">
-          <div class="popup-title text-red-600">Quét mã: ${codeString}</div>
-          ${scan.address ? `<div class="popup-row popup-address">📍 ${scan.address}</div>` : ''}
-          <div class="popup-row mt-2 text-gray-500">🕒 ${scanDate}</div>
-        </div>
-      `;
+        if (popup) popup.remove();
+        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+          .setLngLat(e.lngLat)
+          .setHTML(buildPopupHTML(loc))
+          .addTo(map!);
 
-      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-        .setLngLat(coordinates as [number, number])
-        .setHTML(popupHtml)
-        .addTo(map!);
-    });
+        emit('select', loc);
+      });
 
-    map!.on('mouseenter', 'farm-scans', () => {
-      if (map) map.getCanvas().style.cursor = 'pointer';
-    });
-    map!.on('mouseleave', 'farm-scans', () => {
-      if (map) map.getCanvas().style.cursor = '';
-    });
+      map!.on('mouseenter', 'farm-polygons-fill', () => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+      });
+      map!.on('mouseleave', 'farm-polygons-fill', () => {
+        if (map) map.getCanvas().style.cursor = '';
+      });
+      map!.on('click', 'farm-points', (e) => {
+        if (!e.features?.length) return;
+        const props_data = e.features[0].properties;
+        const loc = rebuildLocation(props_data);
+        const coordinates = (e.features[0].geometry as any).coordinates.slice();
+
+        if (popup) popup.remove();
+        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+          .setLngLat(coordinates)
+          .setHTML(buildPopupHTML(loc))
+          .addTo(map!);
+
+        emit('select', loc);
+      });
+
+      map!.on('mouseenter', 'farm-points', () => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+      });
+      map!.on('mouseleave', 'farm-points', () => {
+        if (map) map.getCanvas().style.cursor = '';
+      });
+      map!.on('click', 'farm-scans', (e) => {
+        if (!e.features?.length) return;
+        const scan = e.features[0].properties as any;
+        const coordinates = (e.features[0].geometry as any).coordinates.slice();
+
+        if (popup) popup.remove();
+        
+        const scanDate = new Date(scan.createdAt).toLocaleDateString() + ' ' + new Date(scan.createdAt).toLocaleTimeString();
+        const codeString = scan.codeString || scan.code_string || 'N/A';
+        
+        const popupHtml = `
+          <div class="mapbox-popup-content">
+            <div class="popup-title text-red-600">Quét mã: ${codeString}</div>
+            ${scan.address ? `<div class="popup-row popup-address">📍 ${scan.address}</div>` : ''}
+            <div class="popup-row mt-2 text-gray-500">🕒 ${scanDate}</div>
+          </div>
+        `;
+
+        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+          .setLngLat(coordinates as [number, number])
+          .setHTML(popupHtml)
+          .addTo(map!);
+      });
+
+      map!.on('mouseenter', 'farm-scans', () => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+      });
+      map!.on('mouseleave', 'farm-scans', () => {
+        if (map) map.getCanvas().style.cursor = '';
+      });
+    
+    mapListenersAdded = true;
   }
 
   // Add Archipelago Labels
@@ -367,8 +370,21 @@ const renderLocations = () => {
   });
 
   // Fit bounds
-  if (hasValidData && props.autoFitBounds !== false) {
-    map!.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 1000 });
+  try {
+    if (hasValidData && props.autoFitBounds !== false) {
+      // Mapbox LngLatBounds is empty if both _sw and _ne are undefined.
+      // isEmpty() will check this safely.
+      if (!bounds.isEmpty()) {
+        map!.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 1000 });
+      }
+    } else if (!hasValidData && props.centerCoordinate) {
+      map!.flyTo({ center: [props.centerCoordinate.lng, props.centerCoordinate.lat], zoom: 9, duration: 1000 });
+    } else if (!hasValidData && !props.centerCoordinate) {
+      // Zoom out to whole country if no location selected and no data
+      map!.flyTo({ center: [108.2772, 14.0583], zoom: 5, duration: 1000 });
+    }
+  } catch (err) {
+    console.error('Error fitting bounds in mapbox:', err);
   }
 };
 
@@ -379,7 +395,7 @@ const rebuildLocation = (props: any): MapLocation => {
   return loc;
 };
 
-watch(() => [props.locations, props.scans], () => {
+watch(() => [props.locations, props.scans, props.centerCoordinate], () => {
   if (map && map.isStyleLoaded()) {
     renderLocations();
   }

@@ -167,12 +167,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('../modules/batch-sync/views/BatchSyncManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
       },
-      // PHÊ DUYỆT (ADMIN & REGULATOR)
+      // PHÊ DUYỆT / GIÁM SÁT (ADMIN & REGULATOR)
       {
         path: 'regulator/audit',
         name: 'regulator-audit',
-        component: () => import('../modules/core/views/RegulatorAudit.vue'),
-        meta: { roles: ['ADMIN', 'REGULATOR'] }
+        component: () => import('../modules/gov/views/GovDashboard.vue'),
+        meta: { roles: ['ADMIN', 'REGULATOR'], title: 'Giám sát (Gov)' }
       },
       // SẢN XUẤT (FARM - TENANT)
       {
@@ -382,14 +382,20 @@ router.beforeEach(async (to, from, next) => {
     if (role === 'TENANT_ADMIN' || role === 'TENANT') {
       return next({ name: 'tenant-dashboard' });
     }
+    if (role === 'REGULATOR') {
+      return next({ name: 'regulator-audit' });
+    }
     return next({ name: 'dashboard' });
   }
 
-  // 4. Redirect root path for Tenant Admin
+  // 4. Redirect root path
   if (to.path === '/' && token) {
     const role = authStore.user?.role;
     if (role === 'TENANT_ADMIN' || role === 'TENANT') {
       return next({ name: 'tenant-dashboard' });
+    }
+    if (role === 'REGULATOR') {
+      return next({ name: 'regulator-audit' });
     }
   }
 

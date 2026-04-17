@@ -30,3 +30,9 @@ body {
 .el-menu {
   border-right: none !important;
 }
+
+/* Ẩn attribution của các thư viện Map (Leaflet, Mapbox) */
+.leaflet-control-attribution,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
