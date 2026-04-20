@@ -114,7 +114,7 @@ const routes: Array<RouteRecordRaw> = [
         path: 'admin/home-stats',
         name: 'home-stats-config',
         component: () => import('@/modules/core/views/HomeStatsConfig.vue'),
-        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Số liệu App' }
+        meta: { roles: ['ADMIN'], title: 'Số liệu App' }
       },
       // HỆ THỐNG
       {
@@ -222,6 +222,31 @@ const routes: Array<RouteRecordRaw> = [
         name: 'farm-batches',
         component: () => import('../modules/farm/views/BatchManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'] }
+      },
+      // MODULE ĐẠI LÝ (DEALER)
+      {
+        path: 'dealer/dashboard',
+        name: 'dealer-dashboard',
+        component: () => import('../modules/dealer/views/DealerHome.vue'),
+        meta: { roles: ['DEALER'], title: 'Tổng quan Đại lý' }
+      },
+      {
+        path: 'dealer/receive',
+        name: 'dealer-receive',
+        component: () => import('../modules/dealer/views/DealerReceive.vue'),
+        meta: { roles: ['DEALER'], title: 'Nhận hàng' }
+      },
+      {
+        path: 'dealer/stock',
+        name: 'dealer-stock',
+        component: () => import('../modules/dealer/views/DealerStock.vue'),
+        meta: { roles: ['DEALER'], title: 'Tồn kho Đại lý' }
+      },
+      {
+        path: 'dealer/sale',
+        name: 'dealer-sale',
+        component: () => import('../modules/dealer/views/DealerSale.vue'),
+        meta: { roles: ['DEALER'], title: 'Bán lẻ' }
       },
       // MODULE CÂY LÂU NĂM / TÀI SẢN (ASSET)
       {

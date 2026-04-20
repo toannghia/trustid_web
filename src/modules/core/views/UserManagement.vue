@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { userApi } from '../api/user';
 import { tenantApi } from '../api/tenant';
+import { dealerApi } from '@/modules/supply/api/dealerApi';
 import type { Tenant } from '@/types/core';
 import { ElMessage } from 'element-plus';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
@@ -15,11 +16,13 @@ const roleMap: Record<string, string> = {
   'ADMIN': 'Quản trị hệ thống',
   'TENANT_ADMIN': 'Quản lý doanh nghiệp',
   'REGULATOR_OFFICER': 'Cơ quan quản lý',
+  'DEALER': 'Đại lý',
   'FARMER': 'Nông dân',
   'WORKER': 'Công nhân sản xuất',
   'TRANSPORTER': 'Nhân viên vận chuyển',
   'PACKER': 'Nhân viên đóng gói',
   'WAREHOUSE_MANAGER': 'Thủ kho',
+  'ACCOUNTANT': 'Kế toán',
   'END_USER': 'Người tiêu dùng'
 };
 
@@ -48,6 +51,7 @@ const getRoleName = (roleCode: string | any) => {
 // Trạng thái dữ liệu
 const users = ref([]);
 const tenants = ref<Tenant[]>([]);
+const dealers = ref<any[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
 const showModal = ref(false);
@@ -187,9 +191,19 @@ const fetchFilterData = async () => {
   }
 };
 
+const getDealerForUser = (user: any) => {
+  const tenantId = user.tenant_id || user.tenant?.id;
+  if (!tenantId) return null;
+  return dealers.value.find(d => d.dealerTenantId === tenantId);
+};
+
 onMounted(() => {
   fetchUsers();
   fetchFilterData();
+  // Fetch dealers for column lookup
+  dealerApi.getList().then(res => {
+    dealers.value = res.data || [];
+  }).catch(() => {});
 });
 </script>
 
@@ -253,6 +267,17 @@ onMounted(() => {
               🏛️ {{ scope.row.regulator?.name || scope.row.regulator_name }}
             </span>
             <span v-else class="badge bg-secondary text-white px-2 py-1 rounded text-xs">System</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Đại lý" min-width="160">
+          <template #default="scope">
+            <template v-if="(scope.row.role?.name || scope.row.role_name || scope.row.role) === 'DEALER'">
+              <span v-if="getDealerForUser(scope.row)" class="text-orange-600 font-medium">
+                🏪 {{ getDealerForUser(scope.row)?.name }}
+              </span>
+              <span v-else class="text-xs text-gray-400 italic">Chưa gán đại lý</span>
+            </template>
+            <span v-else class="text-xs text-gray-300">—</span>
           </template>
         </el-table-column>
         <el-table-column label="Vai trò" width="180">

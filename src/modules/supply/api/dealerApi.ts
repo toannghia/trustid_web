@@ -12,6 +12,15 @@ export interface DealerDto {
     contactPerson?: string;
     provinces?: string[];
     dealerTenantId?: string;
+    managerId?: string;
+    manager?: any;
+    dealerTenant?: any;
+    coordinate?: any;
+    projectedInfo?: {
+        province?: string;
+        district?: string;
+        ward?: string;
+    };
     createAccount?: boolean;
     accountInfo?: {
         username?: string;

@@ -125,6 +125,17 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
+    label: 'ĐẠI LÝ PHÂN PHỐI',
+    icon: Connection,
+    roles: ['DEALER'],
+    items: [
+      { title: 'Tổng quan', path: '/dealer/dashboard', roles: ['DEALER'], icon: DataLine },
+      { title: 'Nhận hàng', path: '/dealer/receive', roles: ['DEALER'], icon: Box },
+      { title: 'Tồn kho', path: '/dealer/stock', roles: ['DEALER'], icon: Collection },
+      { title: 'Bán lẻ', path: '/dealer/sale', roles: ['DEALER'], icon: ShoppingCart }
+    ]
+  },
+  {
     label: 'THIẾT LẬP HỆ THỐNG',
     icon: Setting,
     roles: ['ADMIN', 'TENANT_ADMIN'],
@@ -139,7 +150,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Cấu hình OTP', path: '/app-users/config', roles: ['ADMIN'], icon: Setting },
       { title: 'Báo cáo OTP', path: '/app-users/reports', roles: ['ADMIN'], icon: DataLine },
       { title: 'Cấu hình EUDR', path: '/admin/eudr-config', roles: ['ADMIN'], icon: Coordinate },
-      { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN', 'TENANT_ADMIN'], icon: TrendCharts },
+      { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN'], icon: TrendCharts },
       { title: 'Quản lý Sao lưu', path: '/admin/backups', roles: ['ADMIN'], icon: Document },
     ]
   }
