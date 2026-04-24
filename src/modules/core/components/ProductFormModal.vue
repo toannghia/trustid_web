@@ -136,7 +136,7 @@ watch(() => productForm.tenant_id, async (newVal) => {
 const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.veritrust.vn';
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.trustid.com.vn';
     return `${baseUrl}${path}`;
 };
 

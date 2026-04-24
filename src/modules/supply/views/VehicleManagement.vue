@@ -160,7 +160,7 @@ const formRef = ref<FormInstance>();
 const getImageUrl = (path: string | undefined) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.veritrust.vn';
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.trustid.com.vn';
     // Ensure one slash between base and path
     const safeBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     const safePath = path.startsWith('/') ? path : `/${path}`;

@@ -26,7 +26,7 @@ export default defineConfig({
 
       // Gateway API Proxy (để tránh CORS)
       '/gateway-api': {
-        target: 'https://nda.veritrust.vn',
+        target: 'https://nda.trustid.com.vn',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/gateway-api/, '/admin/v1')
       }

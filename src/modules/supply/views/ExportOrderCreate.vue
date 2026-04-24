@@ -1,488 +1,292 @@
-<script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { shipmentV2Api } from '../api/shipmentV2Api';
-import { dealerApi, type DealerDto } from '../api/dealerApi';
-import { transportApi } from '../api/transportApi';
-import { userApi } from '../../core/api/user';
-import { ElMessage } from 'element-plus';
-import { 
-  Plus, Delete, Search, Box, OfficeBuilding, User, 
-  Van, Timer, Warning, InfoFilled, Check, ArrowRight,
-  ShoppingBag, WarningFilled, Search as SearchIcon
-} from '@element-plus/icons-vue';
-import { useRouter } from 'vue-router';
-import DealerCreateDialog from '../components/DealerCreateDialog.vue';
-import dayjs from 'dayjs';
-
-const router = useRouter();
-const loading = ref(false);
-const warehouses = ref<any[]>([]);
-const dealers = ref<DealerDto[]>([]);
-const drivers = ref<any[]>([]);
-const vehicles = ref<any[]>([]);
-const warehouseStock = ref<any[]>([]);
-const stockLoading = ref(false);
-const showDealerCreate = ref(false);
-const productSearchText = ref('');
-
-const form = reactive({
-    type: 'INTERNAL_TRANSFER',
-    priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH',
-    source_warehouse_id: '',
-    destination_warehouse_id: '',
-    dealer_id: '',
-    expected_delivery_time: '',
-    driver_id: '',
-    vehicle_id: '',
-    notes: '',
-    items: [] as any[]
-});
-
-const filteredStock = computed(() => {
-    if (!productSearchText.value) return warehouseStock.value;
-    const lowerSearch = productSearchText.value.toLowerCase();
-    return warehouseStock.value.filter(item => 
-        item.batch?.product?.name?.toLowerCase().includes(lowerSearch) ||
-        item.batch?.batchCode?.toLowerCase().includes(lowerSearch)
-    );
-});
-
-const fetchData = async () => {
-    try {
-        const [wRes, dRes, uRes, vRes] = await Promise.all([
-            transportApi.getWarehouses(),
-            dealerApi.getList(),
-            userApi.getList({ page: 1, limit: 100, roleName: 'DRIVER' }),
-            transportApi.getVehicles()
-        ]);
-        warehouses.value = wRes.data;
-        dealers.value = dRes.data;
-        drivers.value = uRes.data;
-        vehicles.value = vRes.data;
-    } catch (e) {
-        ElMessage.error('Lỗi tải dữ liệu danh mục');
-    }
-};
-
-const onDealerCreated = (newDealer: DealerDto) => {
-    dealers.value.unshift(newDealer);
-    form.dealer_id = newDealer.id!;
-};
-
-const loadStock = async () => {
-    if (!form.source_warehouse_id) {
-        warehouseStock.value = [];
-        return;
-    }
-    stockLoading.value = true;
-    try {
-        const res = await transportApi.getStock(form.source_warehouse_id);
-        warehouseStock.value = res.data;
-    } catch (e) {
-        ElMessage.error('Lỗi tải tồn kho');
-    } finally {
-        stockLoading.value = false;
-    }
-};
-
-watch(() => form.source_warehouse_id, loadStock);
-
-const addItem = (row: any) => {
-    const existing = form.items.find(i => i.productId === row.batch.product.id && i.batchCode === row.batch.batchCode);
-    if (existing) {
-        ElMessage.warning('Sản phẩm cùng lô này đã có trong danh sách');
-        return;
-    }
-    form.items.push({
-        productId: row.batch.product.id,
-        productName: row.batch.product.name,
-        batchId: row.batch.id,
-        batchCode: row.batch.batchCode,
-        quantity: 1,
-        maxQty: row.quantity
-    });
-};
-
-const removeItem = (index: number) => {
-    form.items.splice(index, 1);
-};
-
-const submit = async () => {
-    if (!form.source_warehouse_id) return ElMessage.warning('Vui lòng chọn kho xuất');
-    if (form.type === 'INTERNAL_TRANSFER' && !form.destination_warehouse_id) return ElMessage.warning('Vui lòng chọn kho nhận');
-    if (form.type === 'DEALER_EXPORT' && !form.dealer_id) return ElMessage.warning('Vui lòng chọn đại lý');
-    if (form.items.length === 0) return ElMessage.warning('Vui lòng chọn ít nhất 1 sản phẩm');
-    
-    // Check if any quantity exceeds stock
-    const overStockItems = form.items.filter(i => i.quantity > i.maxQty);
-    if (overStockItems.length > 0) {
-        return ElMessage.error('Có sản phẩm vượt quá tồn kho. Vui lòng kiểm tra lại!');
-    }
-
-    loading.value = true;
-    try {
-        const payload: any = {
-            priority: form.priority,
-            source_warehouse_id: form.source_warehouse_id,
-            notes: form.notes,
-            items: form.items,
-            driver_id: form.driver_id || undefined,
-            vehicle_id: form.vehicle_id || undefined,
-            expected_delivery_time: form.expected_delivery_time || undefined
-        };
-
-        if (form.type === 'INTERNAL_TRANSFER') {
-            await shipmentV2Api.createInternal({
-                ...payload,
-                destination_warehouse_id: form.destination_warehouse_id
-            });
-        } else {
-            await shipmentV2Api.createDealerExport({
-                ...payload,
-                dealer_id: form.dealer_id,
-                quantity: form.items.reduce((sum, i) => sum + i.quantity, 0)
-            });
-        }
-        ElMessage.success('Tạo lệnh xuất kho thành công');
-        router.push('/supply/export-order');
-    } catch (e: any) {
-        ElMessage.error('Lỗi: ' + (e.response?.data?.message || e.message));
-    } finally {
-        loading.value = false;
-    }
-};
-
-onMounted(fetchData);
-</script>
-
 <template>
-  <div class="export-order-create p-6 bg-[#f8fafc] min-h-screen">
-    <div class="max-w-6xl mx-auto">
-      <!-- HEADER -->
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <el-icon class="text-blue-600"><Plus /></el-icon>
-            Tạo Mới Lệnh Xuất Hàng
-          </h2>
-          <p class="text-gray-500 text-sm mt-1">Vui lòng điền đầy đủ thông tin để khởi tạo quy trình vận chuyển.</p>
-        </div>
-        <el-button @click="router.push('/supply/export-order')" class="rounded-xl px-6 h-11 border-gray-200">
-          Hủy bỏ & Quay lại
-        </el-button>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- LEFT COLUMN: MAIN INFO -->
-        <div class="lg:col-span-2 space-y-6">
-          <!-- SECTION 1: THÔNG TIN CƠ BẢN -->
-          <el-card class="section-card shadow-sm border-none rounded-2xl overflow-hidden">
-            <template #header>
-              <div class="flex items-center gap-2 font-bold text-gray-700">
-                <el-icon class="text-blue-500"><InfoFilled /></el-icon>
-                THÔNG TIN CƠ BẢN
-              </div>
-            </template>
-            
-            <el-form :model="form" label-position="top">
-              <el-row :gutter="20">
-                <el-col :span="12">
-                  <el-form-item label="Loại hình lệnh" required>
-                    <el-select v-model="form.type" class="w-full custom-select" size="large">
-                      <el-option label="Chuyển kho nội bộ" value="INTERNAL_TRANSFER">
-                        <div class="flex items-center gap-2">
-                          <el-icon><OfficeBuilding /></el-icon> <span>Chuyển kho nội bộ</span>
-                        </div>
-                      </el-option>
-                      <el-option label="Xuất bán đại lý" value="DEALER_EXPORT">
-                        <div class="flex items-center gap-2">
-                          <el-icon><User /></el-icon> <span>Xuất bán đại lý</span>
-                        </div>
-                      </el-option>
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="Mức độ ưu tiên" required>
-                    <el-select v-model="form.priority" class="w-full" size="large">
-                      <el-option label="⚡ Cao (High)" value="HIGH" />
-                      <el-option label="🔔 Thường (Medium)" value="MEDIUM" />
-                      <el-option label="💤 Thấp (Low)" value="LOW" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="20" class="mt-2">
-                <el-col :span="12">
-                  <el-form-item label="Kho xuất hàng (Nguồn)" required>
-                    <el-select v-model="form.source_warehouse_id" placeholder="Chọn kho đi" class="w-full" size="large" filterable>
-                      <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item v-if="form.type === 'INTERNAL_TRANSFER'" label="Kho nhận hàng (Đích)" required>
-                    <el-select v-model="form.destination_warehouse_id" placeholder="Chọn kho đến" class="w-full" size="large" filterable>
-                      <el-option v-for="w in warehouses.filter(x => x.id !== form.source_warehouse_id)" :key="w.id" :label="w.name" :value="w.id" />
-                    </el-select>
-                  </el-form-item>
-                  <el-form-item v-else label="Đại lý nhận hàng" required>
-                    <div class="flex gap-2">
-                      <el-select v-model="form.dealer_id" placeholder="Chọn đại lý" class="flex-1" size="large" filterable>
-                        <el-option v-for="d in dealers" :key="d.id" :label="d.name" :value="d.id" />
-                      </el-select>
-                      <el-button type="primary" :icon="Plus" class="h-11 rounded-lg" @click="showDealerCreate = true" />
-                    </div>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </el-form>
-          </el-card>
-
-          <!-- SECTION 2: DANH SÁCH SẢN PHẨM -->
-          <el-card class="section-card shadow-sm border-none rounded-2xl overflow-hidden">
-            <template #header>
-              <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2 font-bold text-gray-700">
-                  <el-icon class="text-orange-500"><Box /></el-icon>
-                  DANH SÁCH SẢN PHẨM XUẤT
-                </div>
-                
-                <el-popover placement="bottom-end" :width="500" trigger="click" :disabled="!form.source_warehouse_id">
-                  <template #reference>
-                    <el-button 
-                        type="primary" 
-                        :icon="Plus" 
-                        class="rounded-lg shadow-sm"
-                        :disabled="!form.source_warehouse_id"
-                    >
-                        Thêm sản phẩm
-                    </el-button>
-                  </template>
-                  
-                  <div class="p-2">
-                    <div class="flex items-center gap-2 mb-4">
-                        <el-input 
-                            v-model="productSearchText" 
-                            placeholder="Tìm sản phẩm, số lô..." 
-                            :prefix-icon="SearchIcon"
-                            clearable
-                        />
-                    </div>
-                    <el-table 
-                        :data="filteredStock" 
-                        v-loading="stockLoading" 
-                        size="small" 
-                        max-height="400"
-                        class="selection-table"
-                    >
-                        <el-table-column label="Sản phẩm / Lô">
-                            <template #default="{row}">
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-gray-700">{{ row.batch?.product?.name }}</span>
-                                    <span class="text-[10px] text-gray-400">Lô: {{ row.batch?.batchCode }}</span>
-                                </div>
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="quantity" label="Tồn" width="80" align="center" />
-                        <el-table-column width="60" align="center">
-                            <template #default="{row}">
-                                <el-button type="primary" link :icon="Plus" @click="addItem(row)" />
-                            </template>
-                        </el-table-column>
-                    </el-table>
-                  </div>
-                </el-popover>
-              </div>
-            </template>
-
-            <!-- SELECTED ITEMS TABLE -->
-            <div class="selected-items-list">
-              <el-table :data="form.items" size="default" empty-text="Chưa có sản phẩm nào. Nhấn 'Thêm sản phẩm' để bắt đầu.">
-                <el-table-column label="SẢN PHẨM & LÔ">
-                  <template #default="{row}">
-                    <div class="flex flex-col">
-                      <span class="font-bold text-gray-800">{{ row.productName }}</span>
-                      <span class="text-[11px] text-gray-400 font-mono">Lô: {{ row.batchCode }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
-                
-                <el-table-column label="SỐ LƯỢNG XUẤT" width="220">
-                  <template #default="{row}">
-                    <div class="flex flex-col gap-1">
-                      <el-input-number 
-                        v-model="row.quantity" 
-                        :min="1" 
-                        size="default" 
-                        class="!w-full"
-                        :class="{'is-error': row.quantity > row.maxQty}"
-                      />
-                      <div v-if="row.quantity > row.maxQty" class="flex items-center gap-1 text-red-500 text-[11px] mt-1 font-medium">
-                        <el-icon><WarningFilled /></el-icon>
-                        Vượt tồn kho (Hiện có: {{ row.maxQty }})
-                      </div>
-                      <div v-else class="text-gray-400 text-[11px] mt-1 italic">
-                        Tồn khả dụng: {{ row.maxQty }}
-                      </div>
-                    </div>
-                  </template>
-                </el-table-column>
-
-                <el-table-column width="80" align="center">
-                  <template #default="{$index}">
-                    <el-button type="danger" link :icon="Delete" @click="removeItem($index)" />
-                  </template>
-                </el-table-column>
-              </el-table>
-              
-              <div v-if="!form.source_warehouse_id" class="text-center py-12 bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 mb-6">
-                <el-icon class="text-4xl text-gray-200 mb-2"><ShoppingBag /></el-icon>
-                <p class="text-gray-400 text-sm">Vui lòng chọn <b>Kho xuất hàng</b> để hiển thị danh sách tồn kho</p>
-              </div>
-            </div>
-          </el-card>
-
-          <!-- GHI CHÚ -->
-          <el-card class="section-card shadow-sm border-none rounded-2xl overflow-hidden mt-6">
-            <template #header>
-              <div class="flex items-center gap-2 font-bold text-gray-700">
-                <el-icon class="text-purple-500"><InfoFilled /></el-icon>
-                GHI CHÚ CHI TIẾT
-              </div>
-            </template>
-            <el-input 
-              v-model="form.notes" 
-              type="textarea" 
-              :rows="3" 
-              placeholder="Nhập ghi chú quan trọng cho thủ kho hoặc đơn vị vận chuyển..." 
-              class="rounded-xl custom-textarea"
-            />
-          </el-card>
-        </div>
-
-        <!-- RIGHT COLUMN: LOGISTICS & SUBMIT -->
-        <div class="space-y-6">
-          <el-card class="section-card shadow-sm border-none rounded-2xl overflow-hidden">
-            <template #header>
-              <div class="flex items-center gap-2 font-bold text-gray-700">
-                <el-icon class="text-green-500"><Van /></el-icon>
-                ĐIỀU PHỐI VẬN CHUYỂN
-              </div>
-            </template>
-            
-            <el-form :model="form" label-position="top">
-              <el-form-item label="Thời gian dự kiến giao">
-                <el-date-picker
-                  v-model="form.expected_delivery_time"
-                  type="datetime"
-                  placeholder="Chọn thời gian"
-                  class="!w-full"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item label="Tài xế">
-                <el-select v-model="form.driver_id" placeholder="Chọn tài xế" class="w-full" size="large" filterable clearable>
-                  <el-option v-for="d in drivers" :key="d.id" :label="d.fullName" :value="d.id" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="Phương tiện">
-                <el-select v-model="form.vehicle_id" placeholder="Chọn xe" class="w-full" size="large" filterable clearable>
-                  <el-option v-for="v in vehicles" :key="v.id" :label="`${v.licensePlate} (${v.type})`" :value="v.id" />
-                </el-select>
-              </el-form-item>
-            </el-form>
-          </el-card>
-
-          <!-- SUMMARY & SUBMIT -->
-          <el-card class="summary-card shadow-lg border-none rounded-2xl p-2 bg-white ring-1 ring-gray-100">
-            <div class="p-4 border-b border-gray-50 mb-4">
-                <h4 class="font-bold text-gray-800 mb-4">Tổng quan Lệnh</h4>
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-gray-500 text-sm">Số lượng sản phẩm:</span>
-                    <span class="font-bold text-gray-800">{{ form.items.length }} SP</span>
-                </div>
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-gray-500 text-sm">Tổng số lượng xuất:</span>
-                    <span class="text-2xl font-black text-blue-600">{{ form.items.reduce((sum, i) => sum + i.quantity, 0) }}</span>
-                </div>
-                <div v-if="form.items.some(i => i.quantity > i.maxQty)" class="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-xs flex items-center gap-2 font-medium animate-pulse">
-                    <el-icon><WarningFilled /></el-icon> Có sản phẩm vượt tồn kho
-                </div>
-            </div>
-            
-            <div class="p-2">
-                <el-button 
-                    type="primary" 
-                    size="large" 
-                    class="w-full !h-14 rounded-xl !text-lg font-bold shadow-md gradient-btn"
-                    :loading="loading"
-                    :disabled="form.items.some(i => i.quantity > i.maxQty)"
-                    @click="submit"
-                >
-                    Tạo Lệnh Ngay
-                </el-button>
-            </div>
-          </el-card>
-
-          <div class="text-center">
-            <el-button type="info" link @click="fetchData" :icon="Timer">Làm mới danh mục</el-button>
-          </div>
-        </div>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <div class="flex items-center gap-4 mb-6">
+      <el-button circle icon="Back" @click="router.back()" />
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Tạo lệnh xuất kho</h1>
+        <p class="text-sm text-gray-500">Nhập thông tin kho, đại lý nhận và danh sách mã sản phẩm cần xuất</p>
       </div>
     </div>
 
-    <DealerCreateDialog v-model="showDealerCreate" @created="onDealerCreated" />
+    <!-- UPPER ROW: COMPACT DETAILS & ACTION -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 flex-align-stretch">
+      <!-- DETAILS LEFT -->
+      <div class="md:col-span-3">
+        <el-card shadow="never" class="h-full rounded-2xl border-none shadow-sm">
+          <template #header>
+            <div class="flex items-center gap-2 font-bold text-gray-700">
+              <el-icon class="text-blue-500"><Document /></el-icon> Thông tin chung
+            </div>
+          </template>
+          <el-form label-position="top" class="compact-form">
+            <!-- TỰ ĐỘNG SINH HỆ THỐNG -->
+            <div class="flex gap-8 mb-4 pb-4 border-b border-gray-100 text-sm">
+              <div>
+                <span class="text-gray-400">Số phiếu:</span>
+                <span class="ml-2 font-mono font-bold text-blue-700">{{ form.orderCode || '[Đang lấy mã...]' }}</span>
+              </div>
+              <div>
+                <span class="text-gray-400">Ngày tạo:</span>
+                <span class="ml-2 font-semibold text-gray-800">{{ currentDate }}</span>
+              </div>
+              <div>
+                <span class="text-gray-400">Người tạo:</span>
+                <span class="ml-2 font-semibold text-gray-800">{{ currentUser.fullName || currentUser.username || 'Tài khoản' }}</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <el-form-item label="Đại lý (Khách hàng)" required class="col-span-2">
+                <el-select v-model="form.dealerId" class="w-full" filterable placeholder="Tìm và chọn đại lý...">
+                  <el-option v-for="d in dealers" :key="d.id" :label="d.name" :value="d.id">
+                    <span style="float: left">{{ d.name }}</span>
+                    <span style="float: right; color: #8492a6; font-size: 13px">{{ d.taxCode }}</span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              
+              <el-form-item label="Kho Xuất Hàng" required class="col-span-2">
+                <el-select v-model="form.sourceWarehouseId" class="w-full" placeholder="Chọn nhà kho...">
+                  <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
+                </el-select>
+              </el-form-item>
+              
+              <el-form-item label="Thời gian dự kiến">
+                <el-date-picker v-model="form.expectedDeliveryDate" class="w-full" type="datetime" placeholder="VD: 14:00 20/12/2026"/>
+              </el-form-item>
+
+              <el-form-item label="Mức ưu tiên">
+                <el-select v-model="form.priority" class="w-full">
+                  <el-option label="Thấp" value="LOW" />
+                  <el-option label="Trung bình" value="MEDIUM" />
+                  <el-option label="Cao" value="HIGH" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="Ghi chú thêm" class="col-span-2">
+                <el-input v-model="form.notes" placeholder="Lưu ý vận chuyển..." />
+              </el-form-item>
+            </div>
+          </el-form>
+        </el-card>
+      </div>
+
+      <!-- ACTION RIGHT -->
+      <div class="md:col-span-1">
+        <el-card shadow="never" class="h-full rounded-2xl border border-blue-100 bg-gradient-to-b from-blue-50 to-white flex flex-col justify-center">
+          <div class="text-center mb-4">
+            <h3 class="font-bold text-gray-800 text-lg mb-1">Xác nhận tạo Lệnh</h3>
+            <p class="text-xs text-gray-500">Kiểm tra kỹ lưới SP bên dưới</p>
+          </div>
+          
+          <el-button 
+            type="primary" 
+            class="w-full mb-3 shadow-md !h-12 !text-base" 
+            style="border-radius: 12px; background: linear-gradient(135deg, #1d4ed8, #3b82f6);"
+            @click="submitOrder" 
+            :loading="saving"
+            icon="Check"
+          >
+            Lưu Lệnh Xuất
+          </el-button>
+
+          <el-button class="w-full !h-10 border-dashed border-gray-300 text-gray-600 hover:text-blue-600 hover:border-blue-300" icon="Upload" @click="ElMessage.info('Tính năng đang phát triển!')">
+            Import Excel
+          </el-button>
+        </el-card>
+      </div>
+    </div>
+
+    <!-- LOWER ROW: BIG GRID FOR ITEMS -->
+    <el-card shadow="never" class="rounded-2xl border-none shadow-sm">
+      <template #header>
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2 font-bold text-gray-700 text-lg">
+            <el-icon class="text-orange-500"><Box /></el-icon> Danh sách sản phẩm
+          </div>
+          <el-button type="primary" plain size="small" icon="Plus" @click="addItemRow" class="rounded-lg">
+            Thêm dòng sản phẩm
+          </el-button>
+        </div>
+      </template>
+
+      <el-table :data="form.items" stripe style="width: 100%" class="grid-style-table">
+        <el-table-column type="index" label="STT" width="60" align="center" />
+        
+        <el-table-column label="Mã SP / Tên Sản Phẩm" min-width="350">
+          <template #default="{ row }">
+            <el-select v-model="row.productId" class="w-full custom-product-select" filterable placeholder="Tra cứu theo tên hoặc mã SP...">
+              <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id">
+                <div class="flex justify-between w-full pr-4">
+                  <span class="font-semibold text-gray-800">{{ p.name }}</span>
+                  <span class="text-gray-400 font-mono text-xs">{{ p.gtinCode }}</span>
+                </div>
+              </el-option>
+            </el-select>
+          </template>
+        </el-table-column>
+        
+        <el-table-column label="Số Lượng (Cái/Thùng)" width="200" align="center">
+          <template #default="{ row }">
+            <el-input-number v-model="row.expectedQuantity" :min="1" class="!w-full" />
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Ghi chú riêng" min-width="200">
+          <template #default="{ row }">
+            <el-input v-model="row.notes" placeholder="Vd: Chọn theo HSD mới nhất..." />
+          </template>
+        </el-table-column>
+
+        <el-table-column width="80" align="center">
+          <template #default="{ $index }">
+            <el-button type="danger" text icon="Delete" class="hover:bg-red-50" @click="removeItemRow($index)" />
+          </template>
+        </el-table-column>
+        
+        <template #empty>
+          <div class="py-10 text-gray-400 flex flex-col items-center gap-2">
+            <el-icon :size="48" class="opacity-30"><Box /></el-icon>
+            Chưa có dòng sản phẩm nào. Nhấn "Thêm dòng sản phẩm" để bắt đầu.
+          </div>
+        </template>
+      </el-table>
+      
+      <div class="mt-4 flex justify-between items-center text-sm font-semibold text-gray-500 bg-gray-50 p-4 rounded-xl border border-gray-100">
+        <span>Tổng số dòng: <span class="text-blue-600">{{ form.items.length }}</span></span>
+        <span>Tổng cộng SL: <span class="text-blue-600 text-lg">{{ totalQuantity }}</span></span>
+      </div>
+    </el-card>
   </div>
 </template>
 
+<script setup lang="ts">
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { exportOrderApi } from '../api/exportOrderApi';
+import { dealerApi } from '../api/dealerApi';
+import { transportApi } from '../api/transportApi';
+import { productApi } from '@/modules/core/api/product';
+import { useAuthStore } from '@/modules/core/store/auth';
+import { ElMessage } from 'element-plus';
+import { Back, Delete, Plus, Upload, Document, Box, Check } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
+
+const router = useRouter();
+const authStore = useAuthStore();
+const saving = ref(false);
+
+const currentUser = computed(() => authStore.user || {});
+const currentDate = dayjs().format('DD/MM/YYYY HH:mm');
+
+const dealers = ref<any[]>([]);
+const warehouses = ref<any[]>([]);
+const products = ref<any[]>([]);
+
+const form = reactive({
+  orderCode: '',
+  dealerId: '',
+  sourceWarehouseId: '',
+  expectedDeliveryDate: '' as any,
+  priority: 'MEDIUM',
+  notes: '',
+  items: [
+    { productId: '', expectedQuantity: 1, notes: '' },
+    { productId: '', expectedQuantity: 1, notes: '' },
+    { productId: '', expectedQuantity: 1, notes: '' } // default 3 rows layout cho đẹp
+  ]
+});
+
+const totalQuantity = computed(() => {
+  return form.items.filter(i => i.productId).reduce((sum, i) => sum + (i.expectedQuantity || 0), 0);
+});
+
+const loadMasterData = async () => {
+  try {
+    const [dealerRes, productRes, warehouseRes, codeRes] = await Promise.all([
+      dealerApi.getList(),
+      productApi.getList({}),
+      transportApi.getWarehouses(), // Fixed API endpoint
+      exportOrderApi.getNextCode().catch(() => ({ data: { code: '' } })) // Lấy mã dự kiến
+    ]);
+    dealers.value = dealerRes.data;
+    products.value = productRes.data;
+    warehouses.value = warehouseRes.data;
+    if (codeRes.data?.code) {
+      form.orderCode = codeRes.data.code;
+    }
+  } catch (err: any) {
+    ElMessage.error('Lỗi tải dữ liệu danh mục: ' + (err.message || 'Server Error'));
+  }
+};
+
+const addItemRow = () => {
+  form.items.push({ productId: '', expectedQuantity: 1, notes: '' });
+};
+
+const removeItemRow = (idx: number) => {
+  form.items.splice(idx, 1);
+};
+
+const submitOrder = async () => {
+  if (!form.dealerId) return ElMessage.warning('Vui lòng chọn đại lý');
+  if (!form.sourceWarehouseId) return ElMessage.warning('Vui lòng chọn Kho xuất Hàng');
+  const validItems = form.items.filter(i => i.productId && i.expectedQuantity > 0);
+  if (validItems.length === 0) return ElMessage.warning('Vui lòng thêm ít nhất 1 sản phẩm hợp lệ vào lưới');
+
+  saving.value = true;
+  try {
+    const payload = {
+      ...form,
+      items: validItems
+    };
+    await exportOrderApi.create(payload);
+    ElMessage.success('Tạo lệnh xuất kho thành công');
+    router.push('/supply/export-order');
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo lệnh');
+  } finally {
+    saving.value = false;
+  }
+};
+
+onMounted(() => {
+  loadMasterData();
+});
+</script>
+
 <style scoped>
-.section-card :deep(.el-card__header) {
-  background-color: #fcfcfd;
-  border-bottom: 1px solid #f1f5f9;
-  padding: 16px 24px;
+.flex-align-stretch {
+  align-items: stretch;
 }
-
-.custom-select :deep(.el-input__wrapper),
-.custom-textarea :deep(.el-textarea__inner) {
-  box-shadow: 0 0 0 1px #e2e8f0 inset;
-  border-radius: 12px;
+.compact-form :deep(.el-form-item) {
+  margin-bottom: 12px;
 }
-
-:deep(.el-form-item__label) {
+.compact-form :deep(.el-form-item__label) {
+  margin-bottom: 4px;
   font-weight: 600;
   color: #475569;
-  margin-bottom: 8px !important;
 }
 
-.is-error :deep(.el-input__wrapper) {
-  box-shadow: 0 0 0 1px #ef4444 inset !important;
+.grid-style-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
 }
-
-.gradient-btn {
-    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-    border: none;
+.grid-style-table :deep(th.el-table__cell) {
+  background-color: #f8fafc;
+  color: #334155;
+  font-weight: bold;
 }
-.gradient-btn:hover {
-    background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+.custom-product-select :deep(.el-input__wrapper) {
+  box-shadow: none !important;
+  border-bottom: 1px dashed #cbd5e1;
+  border-radius: 0;
+  padding: 0;
+  background-color: transparent;
 }
-
-.section-card {
-  transition: all 0.2s;
-}
-.section-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-}
-
-.selection-table :deep(.el-table__row) {
-    cursor: pointer;
-}
-
-:deep(.el-input-number.is-controls-right .el-input-number__decrease),
-:deep(.el-input-number.is-controls-right .el-input-number__increase) {
-  background: #f8fafc;
+.custom-product-select:hover :deep(.el-input__wrapper),
+.custom-product-select:focus-within :deep(.el-input__wrapper) {
+  border-bottom-color: #3b82f6;
+  background-color: #f1f5f9;
 }
 </style>

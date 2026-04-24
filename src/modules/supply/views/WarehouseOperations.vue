@@ -94,7 +94,7 @@
                         </div>
                         <div class="text-sm text-gray-600 mb-4 space-y-1">
                             <div class="flex items-center"><el-icon class="mr-2"><Van /></el-icon> Xe: {{ s.vehiclePlate }}</div>
-                            <div class="flex items-center"><el-icon class="mr-2"><User /></el-icon> Tài xế: {{ s.driverId }}</div>
+                            <div class="flex items-center"><el-icon class="mr-2"><User /></el-icon> Tài xế: {{ s.sender?.fullName || vehicles.find(v => v.id === s.vehicleId)?.defaultDriver?.fullName || '---' }}</div>
                         </div>
                         <el-divider class="my-3" />
                         <el-button type="success" class="w-full" icon="Check" @click="confirmReceipt(s)">Xác nhận Nhập kho</el-button>

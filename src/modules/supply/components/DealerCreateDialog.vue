@@ -301,7 +301,7 @@ watch(() => props.modelValue, (val) => {
             const d = props.editData;
             form.value = {
                 ...d,
-                provinces: d.territory?.provinces ?? d.provinces ?? [],
+                provinces: d.provinces ?? [],
                 createAccount: false,
                 accountInfo: { username: '', password: '' }
             };
@@ -413,7 +413,7 @@ onUnmounted(() => {
                     </el-select>
                 </el-form-item>
                 <div class="text-xs text-gray-500 ml-[130px] -mt-2">
-                    Khu vực bán hàng: {{ form.provinces.length ? form.provinces.join(', ') : 'Chưa phân vùng' }}
+                    Khu vực bán hàng: {{ form.provinces?.length ? form.provinces.join(', ') : 'Chưa phân vùng' }}
                 </div>
             </div>
             

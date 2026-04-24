@@ -23,6 +23,10 @@ export const useAuthStore = defineStore('auth', {
         if (roleName === 'GOV' || roleName === 'CƠ QUAN QUẢN LÝ' || roleName === 'REGULATOR_OFFICER') {
           roleName = 'REGULATOR';
         }
+        if (roleName === 'TRANSPORTER' || roleName === 'VẬN CHUYỂN' || roleName === 'LÁI XE' || roleName === 'SHIPPER') {
+          roleName = 'DRIVER';
+        }
+        console.log('[AUTH] Normalized role:', roleName, '| Raw:', rawRole);
       }
 
       return {

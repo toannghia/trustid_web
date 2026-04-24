@@ -231,6 +231,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['DEALER'], title: 'Tổng quan Đại lý' }
       },
       {
+        path: 'dealer/pricing',
+        name: 'dealer-pricing',
+        component: () => import('../modules/dealer/views/DealerPricing.vue'),
+        meta: { roles: ['DEALER'], title: 'Bảng giá Bán lẻ' }
+      },
+      {
         path: 'dealer/receive',
         name: 'dealer-receive',
         component: () => import('../modules/dealer/views/DealerReceive.vue'),
@@ -246,7 +252,32 @@ const routes: Array<RouteRecordRaw> = [
         path: 'dealer/sale',
         name: 'dealer-sale',
         component: () => import('../modules/dealer/views/DealerSale.vue'),
-        meta: { roles: ['DEALER'], title: 'Bán lẻ' }
+        meta: { roles: ['DEALER'], title: 'Bán lẻ (POS)' }
+      },
+      {
+        path: 'dealer/sales',
+        name: 'dealer-sale-history',
+        component: () => import('../modules/dealer/views/DealerSaleHistory.vue'),
+        meta: { roles: ['DEALER'], title: 'Lịch sử Hóa đơn' }
+      },
+      {
+        path: 'dealer/receipt/:id',
+        name: 'dealer-receipt-print',
+        component: () => import('../modules/dealer/views/ReceiptPrint.vue'),
+        meta: { roles: ['DEALER'], title: 'In Hóa Đơn Lẻ' }
+      },
+      {
+        path: 'dealer/customers',
+        name: 'dealer-customers',
+        component: () => import('../modules/dealer/views/DealerCustomers.vue'),
+        meta: { roles: ['DEALER'], title: 'Quản lý Khách hàng' }
+      },
+      // MODULE TÀI XẾ (DRIVER)
+      {
+        path: 'driver/dashboard',
+        name: 'driver-dashboard',
+        component: () => import('../modules/supply/views/DriverDashboard.vue'),
+        meta: { roles: ['DRIVER'], title: 'Bảng điều khiển Tài xế' }
       },
       // MODULE CÂY LÂU NĂM / TÀI SẢN (ASSET)
       {
@@ -281,10 +312,22 @@ const routes: Array<RouteRecordRaw> = [
       },
       // Supply Chain Module Routes
       {
+        path: '/supply/inventory',
+        name: 'InventoryDashboard',
+        component: () => import('@/modules/supply/views/InventoryDashboard.vue'),
+        meta: { title: 'Tồn Kho' }
+      },
+      {
         path: '/supply/packaging',
         name: 'SupplyPackaging',
         component: () => import('@/modules/supply/views/PackagingView.vue'),
         meta: { title: 'Đóng gói' }
+      },
+      {
+        path: '/supply/external-batches',
+        name: 'ExternalBatches',
+        component: () => import('@/modules/supply/views/ExternalBatchManagement.vue'),
+        meta: { title: 'Lô nhập ngoài' }
       },
       {
         path: '/supply/batches',
@@ -410,6 +453,12 @@ router.beforeEach(async (to, from, next) => {
     if (role === 'REGULATOR') {
       return next({ name: 'regulator-audit' });
     }
+    if (role === 'DEALER') {
+      return next({ name: 'dealer-dashboard' });
+    }
+    if (role === 'DRIVER') {
+      return next({ name: 'driver-dashboard' });
+    }
     return next({ name: 'dashboard' });
   }
 
@@ -421,6 +470,12 @@ router.beforeEach(async (to, from, next) => {
     }
     if (role === 'REGULATOR') {
       return next({ name: 'regulator-audit' });
+    }
+    if (role === 'DEALER') {
+      return next({ name: 'dealer-dashboard' });
+    }
+    if (role === 'DRIVER') {
+      return next({ name: 'driver-dashboard' });
     }
   }
 

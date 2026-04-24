@@ -59,7 +59,9 @@ const getStatusType = (status: string) => {
     switch (status) {
         case 'CREATED': return 'info';
         case 'WAITING_DRIVER': return 'warning';
+        case 'READY_FOR_PICKUP': return 'warning';
         case 'IN_TRANSIT': return 'primary';
+        case 'PENDING_DEALER_CONFIRM': return 'info';
         case 'DELIVERED': return 'success';
         case 'CANCELLED': return 'danger';
         default: return '';
@@ -69,8 +71,10 @@ const getStatusType = (status: string) => {
 const getStatusLabel = (status: string) => {
     switch (status) {
         case 'CREATED': return 'Chờ quét hàng';
-        case 'WAITING_DRIVER': return 'Chờ tài xế';
+        case 'WAITING_DRIVER': return 'Chờ tài xế nhận';
+        case 'READY_FOR_PICKUP': return 'Sẵn sàng giao';
         case 'IN_TRANSIT': return 'Đang vận chuyển';
+        case 'PENDING_DEALER_CONFIRM': return 'Chờ đại lý xác nhận';
         case 'DELIVERED': return 'Đã hoàn thành';
         case 'CANCELLED': return 'Đã hủy';
         default: return status;
@@ -120,7 +124,7 @@ const receiverConfirm = async () => {
         <el-radio-group v-model="statusFilter" @change="loadShipments">
             <el-radio-button label="">Tất cả</el-radio-button>
             <el-radio-button label="CREATED">Mới tạo</el-radio-button>
-            <el-radio-button label="WAITING_DRIVER">Chờ xe</el-radio-button>
+            <el-radio-button label="READY_FOR_PICKUP">Sẵn sàng giao</el-radio-button>
             <el-radio-button label="IN_TRANSIT">Đang đi</el-radio-button>
             <el-radio-button label="DELIVERED">Hoàn thành</el-radio-button>
         </el-radio-group>
@@ -151,25 +155,24 @@ const receiverConfirm = async () => {
             <template #default="{row}">
                 <div class="text-xs">
                     <div class="flex items-center gap-2">
-                        <span class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{{ row.sourceWarehouse?.name || row.sourceWarehouseId }}</span>
+                        <span class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{{ row.sourceWarehouse?.name || '---' }}</span>
                         <span class="text-gray-400">➔</span>
-                        <span v-if="row.type === 'INTERNAL_TRANSFER'" class="bg-blue-50 px-1.5 py-0.5 rounded text-blue-700 font-medium">{{ row.destinationWarehouse?.name || row.destinationWarehouseId }}</span>
+                        <span v-if="row.type === 'INTERNAL_TRANSFER'" class="bg-blue-50 px-1.5 py-0.5 rounded text-blue-700 font-medium">{{ row.destinationWarehouse?.name || '---' }}</span>
                         <span v-else class="bg-orange-50 px-1.5 py-0.5 rounded text-orange-700 font-medium flex items-center gap-1">
                             <el-icon><User /></el-icon>
-                            {{ row.dealer?.name || row.dealerId }}
+                            {{ row.dealer?.name || '---' }}
                         </span>
                     </div>
                     <div class="flex items-center mt-2 text-gray-500 gap-3">
                       <span v-if="row.vehiclePlate"><el-icon class="mr-1"><Van /></el-icon>{{ row.vehiclePlate }}</span>
-                      <span v-if="row.driver?.fullName || row.driverId"><el-icon class="mr-1"><User /></el-icon>{{ row.driver?.fullName || row.driverId }}</span>
+                      <span v-if="row.sender?.fullName || row.vehiclePlate"><el-icon class="mr-1"><User /></el-icon>{{ row.sender?.fullName || '---' }}</span>
                     </div>
                 </div>
             </template>
         </el-table-column>
         <el-table-column label="Hàng hóa" width="120">
              <template #default="{row}">
-                 <div v-if="row.batchId" class="text-xs font-mono text-gray-500">Lô: {{ row.batchId.substring(0,8) }}</div>
-                 <div class="text-xs font-bold">{{ row.total_items || 0 }} SP</div>
+                 <div class="text-xs font-bold">{{ row.expectedItems?.length || row.total_items || 0 }} SP</div>
              </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="180" fixed="right" align="center">
@@ -207,15 +210,28 @@ const receiverConfirm = async () => {
                         <span class="text-gray-500 text-sm">Xe vận chuyển</span>
                         <span class="font-medium">{{ currentDetail.vehiclePlate || '---' }}</span>
                     </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-gray-500 text-sm">Lái xe</span>
+                        <span class="font-medium">
+                            <template v-if="currentDetail.externalDriverName">
+                                {{ currentDetail.externalDriverName }}
+                                <span v-if="currentDetail.externalDriverPhone" class="text-gray-400 text-xs ml-1">({{ currentDetail.externalDriverPhone }})</span>
+                                <el-tag size="small" type="warning" class="ml-1">Thuê ngoài</el-tag>
+                            </template>
+                            <template v-else>
+                                {{ currentDetail.sender?.fullName || '---' }}
+                            </template>
+                        </span>
+                    </div>
                 </div>
                 <div class="space-y-3">
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Kho xuất</span>
-                        <span class="font-medium capitalize">{{ currentDetail.sourceWarehouse?.name || currentDetail.sourceWarehouseId }}</span>
+                        <span class="font-medium capitalize">{{ currentDetail.sourceWarehouse?.name || '---' }}</span>
                     </div>
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Đích đến</span>
-                        <span class="font-medium capitalize text-orange-600">{{ currentDetail.destinationWarehouse?.name || currentDetail.dealer?.name || currentDetail.destinationWarehouseId || currentDetail.dealerId }}</span>
+                        <span class="font-medium capitalize text-orange-600">{{ currentDetail.destinationWarehouse?.name || currentDetail.dealer?.name || '---' }}</span>
                     </div>
                     <div class="flex justify-between border-b pb-2">
                          <span class="text-gray-500 text-sm">Trạng thái</span>
@@ -228,25 +244,47 @@ const receiverConfirm = async () => {
                 <el-icon><Box /></el-icon>
                 Danh mục Hàng hóa trong kiện
             </h4>
-            <el-table :data="currentDetail.items" size="small" border class="mb-6 rounded-lg overflow-hidden">
-                <el-table-column label="Sản phẩm / Serial" prop="serialNumber">
-                    <template #default="{row}">
-                        <div class="font-mono text-xs">{{ row.serialNumber }}</div>
-                        <div class="text-[9px] text-gray-400">Mã gốc: {{ row.itemCode }}</div>
-                    </template>
-                </el-table-column>
-                <el-table-column label="Lô SX" prop="batchId" width="120">
-                    <template #default="{row}">{{ row.batchId?.substring(0,8) }}</template>
-                </el-table-column>
-                <el-table-column label="P/P Quét" width="100" align="center">
-                    <template #default="{row}">
-                        <el-tag size="mini" :type="row.scanMethod === 'BOX' ? 'warning' : 'success'">{{ row.scanMethod }}</el-tag>
-                    </template>
-                </el-table-column>
-                <el-table-column label="Thời gian" prop="scannedAt" width="150">
-                    <template #default="{row}">{{ row.scannedAt ? new Date(row.scannedAt).toLocaleTimeString() : '-' }}</template>
-                </el-table-column>
-            </el-table>
+            <!-- Items from ShipmentDetail (scan-based shipments) -->
+            <template v-if="currentDetail.items?.length">
+                <el-table :data="currentDetail.items" size="small" border class="mb-6 rounded-lg overflow-hidden">
+                    <el-table-column label="Sản phẩm / Serial" prop="serialNumber">
+                        <template #default="{row}">
+                            <div class="font-mono text-xs">{{ row.serialNumber }}</div>
+                            <div class="text-[9px] text-gray-400">Mã gốc: {{ row.itemCode }}</div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Lô SX" prop="batchId" width="120">
+                        <template #default="{row}">{{ row.batchId?.substring(0,8) }}</template>
+                    </el-table-column>
+                    <el-table-column label="P/P Quét" width="100" align="center">
+                        <template #default="{row}">
+                            <el-tag size="mini" :type="row.scanMethod === 'BOX' ? 'warning' : 'success'">{{ row.scanMethod }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Thời gian" prop="scannedAt" width="150">
+                        <template #default="{row}">{{ row.scannedAt ? new Date(row.scannedAt).toLocaleTimeString() : '-' }}</template>
+                    </el-table-column>
+                </el-table>
+            </template>
+
+            <!-- Items from expectedItems (auto-created PGH shipments) -->
+            <template v-else-if="currentDetail.expectedItems?.length">
+                <el-table :data="currentDetail.expectedItems" size="small" border class="mb-6 rounded-lg overflow-hidden">
+                    <el-table-column type="index" label="STT" width="60" />
+                    <el-table-column label="Sản phẩm" prop="productName">
+                        <template #default="{row}">
+                            <div class="font-semibold">{{ row.productName || '---' }}</div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Số lượng" prop="quantity" width="120" align="center">
+                        <template #default="{row}">
+                            <span class="font-bold text-blue-600">{{ row.quantity }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </template>
+
+            <el-empty v-else description="Không có hàng hóa" />
 
             <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-800 border-t pt-4">
                 <el-icon><Memo /></el-icon>
@@ -257,7 +295,7 @@ const receiverConfirm = async () => {
                     v-for="(log, idx) in currentDetail.logs"
                     :key="idx"
                     :timestamp="new Date(log.actionTime).toLocaleString()"
-                    :type="log.action === 'RECEIVER_CONFIRM' ? 'success' : 'primary'"
+                    :type="log.action === 'DEALER_CONFIRM' ? 'success' : log.action === 'DRIVER_DELIVER' ? 'info' : 'primary'"
                 >
                     <div class="text-sm font-bold">{{ log.action }}</div>
                     <div class="text-[10px] text-gray-400 mt-1 uppercase">

@@ -4,6 +4,7 @@ import type { Tenant } from '@/types/core';
 export const tenantApi = {
   // Lấy danh sách doanh nghiệp [cite: 77]
   getAll: (params: any) => api.get('/tenants', { params }),
+  getActive: (params: any) => api.get('/tenants/active', { params }),
   getById: (id: string) => api.get(`/tenants/${id}`),
 
   // Tạo mới hoặc cập nhật doanh nghiệp [cite: 79]
