@@ -10,7 +10,7 @@
 
     <!-- Toolbar -->
     <div class="mb-4 flex gap-4">
-        <el-input v-model="searchKeyword" placeholder="Tìm vật tư..." class="w-64" prefix-icon="Search" clearable />
+        <el-input v-model="searchKeyword" placeholder="Tìm theo tên hoặc mã..." class="w-64" prefix-icon="Search" clearable />
         <el-select v-model="filterType" placeholder="Lọc theo loại" clearable class="w-48">
              <el-option label="Tất cả" value="" />
              <el-option label="Phân bón" value="FERTILIZER" />
@@ -18,12 +18,22 @@
              <el-option label="Giống" value="SEED" />
              <el-option label="Khác" value="OTHER" />
         </el-select>
+        <el-select v-model="filterStatus" placeholder="Trạng thái" clearable class="w-48">
+             <el-option label="Tất cả" value="ALL" />
+             <el-option label="Đang dùng" value="ACTIVE" />
+             <el-option label="Ngừng dùng" value="INACTIVE" />
+        </el-select>
     </div>
 
     <!-- Table -->
     <el-card shadow="hover" class="mb-6">
       <el-table :data="filteredMaterials" v-loading="loading" style="width: 100%">
         <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column prop="code" label="Mã vật tư" width="120">
+            <template #default="{ row }">
+                <span class="font-mono text-sm font-semibold text-blue-600">{{ row.code }}</span>
+            </template>
+        </el-table-column>
         <el-table-column prop="name" label="Tên vật tư" min-width="200" />
         <el-table-column prop="type" label="Loại" width="150">
             <template #default="{ row }">
@@ -37,6 +47,18 @@
              </span> 
              <span class="text-xs text-gray-500 ml-1">{{ row.unit }}</span>
           </template>
+        </el-table-column>
+        <el-table-column prop="isActive" label="Trạng thái" width="120" align="center">
+            <template #default="{ row }">
+                <el-switch
+                    :model-value="row.isActive"
+                    @change="handleToggleStatus(row)"
+                    active-text="Bật"
+                    inactive-text="Tắt"
+                    inline-prompt
+                    :loading="togglingId === row.id"
+                />
+            </template>
         </el-table-column>
         <el-table-column prop="description" label="Mô tả" min-width="200" show-overflow-tooltip />
         <el-table-column label="Thao tác" width="150" align="center" fixed="right">
@@ -65,14 +87,10 @@
       @closed="resetCreateForm"
     >
       <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-position="top">
-        <el-form-item label="Tên vật tư" prop="name">
-          <el-input v-model="createForm.name" placeholder="VD: Phân Ure" />
-        </el-form-item>
-        
         <el-row :gutter="20">
           <el-col :span="12">
              <el-form-item label="Loại" prop="type">
-               <el-select v-model="createForm.type" class="w-full">
+               <el-select v-model="createForm.type" class="w-full" @change="onTypeChange">
                  <el-option label="Phân bón" value="FERTILIZER" />
                  <el-option label="Thuốc BVTV" value="PESTICIDE" />
                  <el-option label="Giống" value="SEED" />
@@ -81,8 +99,31 @@
              </el-form-item>
           </el-col>
           <el-col :span="12">
+             <el-form-item label="Mã vật tư" prop="code">
+               <el-input v-model="createForm.code" placeholder="Auto-generated" :loading="suggestingCode">
+                  <template #append>
+                      <el-tooltip content="Lấy mã gợi ý">
+                          <el-button :icon="Refresh" @click="fetchSuggestedCode" :loading="suggestingCode" />
+                      </el-tooltip>
+                  </template>
+               </el-input>
+             </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item label="Tên vật tư" prop="name">
+          <el-input v-model="createForm.name" placeholder="VD: Phân Ure" />
+        </el-form-item>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
              <el-form-item label="Đơn vị tính" prop="unit">
                <el-input v-model="createForm.unit" placeholder="VD: kg, lít" />
+             </el-form-item>
+          </el-col>
+          <el-col :span="12">
+             <el-form-item label="Trạng thái">
+               <el-switch v-model="createForm.isActive" active-text="Đang dùng" inactive-text="Ngừng dùng" />
              </el-form-item>
           </el-col>
         </el-row>
@@ -110,7 +151,7 @@
     >
       <div v-if="selectedMaterial" class="mb-4 p-3 bg-gray-50 rounded">
           <div class="font-bold">{{ selectedMaterial.name }}</div>
-          <div class="text-sm text-gray-500">Tồn hiện tại: {{ selectedMaterial.stockQuantity }} {{ selectedMaterial.unit }}</div>
+          <div class="text-sm text-gray-500">Mã: {{ selectedMaterial.code }} · Tồn hiện tại: {{ selectedMaterial.stockQuantity }} {{ selectedMaterial.unit }}</div>
       </div>
 
       <el-form :model="inventoryForm" label-position="top" :rules="inventoryRules" ref="inventoryFormRef">
@@ -136,7 +177,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue';
-import { Plus, Box, Search, Edit, Download, Share } from '@element-plus/icons-vue'; // Import icons
+import { Plus, Search, Edit, Download, Share, Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi, type Material } from '../api/farmApi';
 import type { FormInstance, FormRules } from 'element-plus';
@@ -144,9 +185,12 @@ import type { FormInstance, FormRules } from 'element-plus';
 const materials = ref<Material[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
+const suggestingCode = ref(false);
+const togglingId = ref<string | null>(null);
 
 const searchKeyword = ref('');
 const filterType = ref('');
+const filterStatus = ref('ALL');
 
 const getMaterialTypeName = (type: string) => {
     const map: Record<string, string> = {
@@ -170,9 +214,14 @@ const getMaterialTypeColor = (type: string) => {
 
 const filteredMaterials = computed(() => {
     return materials.value.filter(item => {
-        const matchesName = item.name.toLowerCase().includes(searchKeyword.value.toLowerCase());
+        const keyword = searchKeyword.value.toLowerCase();
+        const matchesSearch = item.name.toLowerCase().includes(keyword) ||
+                              (item.code && item.code.toLowerCase().includes(keyword));
         const matchesType = filterType.value ? item.type === filterType.value : true;
-        return matchesName && matchesType;
+        const matchesStatus = filterStatus.value === 'ALL' ? true :
+                              filterStatus.value === 'ACTIVE' ? item.isActive :
+                              !item.isActive;
+        return matchesSearch && matchesType && matchesStatus;
     });
 });
 
@@ -183,10 +232,12 @@ const isEditing = ref(false);
 const currentId = ref<string | null>(null);
 
 const createForm = reactive({
+  code: '',
   name: '',
   type: 'FERTILIZER',
   unit: 'kg',
-  description: ''
+  description: '',
+  isActive: true
 });
 
 const createRules = reactive<FormRules>({
@@ -213,7 +264,7 @@ const inventoryRules = reactive<FormRules>({
 const loadData = async () => {
     loading.value = true;
     try {
-        const { data } = await farmApi.getMaterials();
+        const { data } = await farmApi.getMaterials(true);
         materials.value = data;
     } catch (err) {
         ElMessage.error('Lỗi tải dữ liệu');
@@ -222,14 +273,48 @@ const loadData = async () => {
     }
 };
 
+const fetchSuggestedCode = async () => {
+    suggestingCode.value = true;
+    try {
+        const { data } = await farmApi.suggestMaterialCode(createForm.type);
+        createForm.code = data.code;
+    } catch (err) {
+        ElMessage.error('Không thể lấy mã gợi ý');
+    } finally {
+        suggestingCode.value = false;
+    }
+};
+
+const onTypeChange = () => {
+    if (!isEditing.value) {
+        fetchSuggestedCode();
+    }
+};
+
 const openEditModal = (row: Material) => {
     isEditing.value = true;
     currentId.value = row.id;
+    createForm.code = row.code || '';
     createForm.name = row.name;
     createForm.type = row.type;
     createForm.unit = row.unit;
     createForm.description = row.description;
+    createForm.isActive = row.isActive;
     showCreateModal.value = true;
+};
+
+const handleToggleStatus = async (row: Material) => {
+    togglingId.value = row.id;
+    try {
+        const { data } = await farmApi.toggleMaterialStatus(row.id);
+        const idx = materials.value.findIndex(m => m.id === row.id);
+        if (idx !== -1) materials.value[idx] = data;
+        ElMessage.success(`Vật tư đã ${data.isActive ? 'bật' : 'tắt'}`);
+    } catch (err: any) {
+        ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+        togglingId.value = null;
+    }
 };
 
 const submitCreateForm = async () => {
@@ -238,11 +323,20 @@ const submitCreateForm = async () => {
     if (valid) {
       submitting.value = true;
       try {
+        const payload: any = {
+            name: createForm.name,
+            type: createForm.type,
+            unit: createForm.unit,
+            description: createForm.description,
+            isActive: createForm.isActive,
+        };
+        if (createForm.code) payload.code = createForm.code;
+
         if (isEditing.value && currentId.value) {
-            await farmApi.updateMaterial(currentId.value, createForm);
+            await farmApi.updateMaterial(currentId.value, payload);
             ElMessage.success('Cập nhật vật tư thành công');
         } else {
-            await farmApi.createMaterial(createForm);
+            await farmApi.createMaterial(payload);
             ElMessage.success('Thêm vật tư thành công');
         }
         showCreateModal.value = false;
@@ -298,12 +392,16 @@ const resetCreateForm = () => {
     if(createFormRef.value) createFormRef.value.resetFields();
     isEditing.value = false;
     currentId.value = null;
+    createForm.code = '';
+    createForm.isActive = true;
 };
 const resetInventoryForm = () => {
     if(inventoryFormRef.value) inventoryFormRef.value.resetFields();
     inventoryForm.quantity = 0;
 };
 
-onMounted(loadData);
+onMounted(() => {
+    loadData();
+    fetchSuggestedCode();
+});
 </script>
-```

@@ -43,11 +43,13 @@ export interface CropCycle {
 
 export interface Material {
     id: string;
+    code: string;
     name: string;
     type: string;
     unit: string;
     description: string;
     stockQuantity: number;
+    isActive: boolean;
 }
 
 export interface MaterialInventory {
@@ -118,14 +120,20 @@ export const farmApi = {
     },
 
     // Materials
-    getMaterials() {
-        return api.get<Material[]>(`${baseUrl}/materials`);
+    getMaterials(includeInactive = false) {
+        return api.get<Material[]>(`${baseUrl}/materials`, { params: { includeInactive } });
     },
-    createMaterial(data: { name: string; type: string; unit: string; description?: string }) {
+    suggestMaterialCode(type: string) {
+        return api.get<{ code: string }>(`${baseUrl}/materials/suggest-code`, { params: { type } });
+    },
+    createMaterial(data: { code?: string; name: string; type: string; unit: string; description?: string; isActive?: boolean }) {
         return api.post<Material>(`${baseUrl}/materials`, data);
     },
-    updateMaterial(id: string, data: Partial<{ name: string; type: string; unit: string; description?: string }>) {
+    updateMaterial(id: string, data: Partial<{ code: string; name: string; type: string; unit: string; description?: string; isActive?: boolean }>) {
         return api.patch<Material>(`${baseUrl}/materials/${id}`, data);
+    },
+    toggleMaterialStatus(id: string) {
+        return api.patch<Material>(`${baseUrl}/materials/${id}/toggle-status`);
     },
     manageInventory(data: { material_id: string; type: 'IMPORT' | 'ALLOCATE'; quantity: number; notes?: string }) {
         return api.post<MaterialInventory>(`${baseUrl}/materials/inventory`, data);
