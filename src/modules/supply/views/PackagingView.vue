@@ -633,10 +633,8 @@ const addRangeOrPool = async () => {
     
     scanning.value = true;
     try {
-        const codes = [];
+        const codes: string[] = [];
         if (isRangeMode.value) {
-            // Expansion logic simplified for MVP (Frontend match from loaded pool info)
-            // Backend will do thorough check anyway.
             if (!rangeStart.value || !rangeEnd.value) return;
             const matchStart = rangeStart.value.match(/(\d+)$/);
             const matchEnd = rangeEnd.value.match(/(\d+)$/);
@@ -652,12 +650,28 @@ const addRangeOrPool = async () => {
             codes.push(...rangeInput.value.split(',').map(s => s.trim()).filter(Boolean));
         }
 
+        // Fetch codeString (QR) for these serials from backend
+        let codeMap = new Map<string, string>();
+        if (codes.length > 0) {
+            try {
+                const res = await codeApi.getItems({ serials: codes.join(','), limit: codes.length });
+                const items = res.data?.data || res.data || [];
+                for (const item of items) {
+                    if (item.serial && item.codeString) {
+                        codeMap.set(item.serial, item.codeString);
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch code strings for range:', e);
+            }
+        }
+
         const pName = productList.value.find(p => p.id === selectedProductId.value)?.name || '';
         codes.forEach(c => {
             if (!tableData.value.find(x => x.code === c)) {
                 tableData.value.unshift({
                     code: c,
-                    codeString: '',
+                    codeString: codeMap.get(c) || '',
                     productName: pName,
                     parentCode: isCarton.value ? cartonCode.value : ''
                 });
