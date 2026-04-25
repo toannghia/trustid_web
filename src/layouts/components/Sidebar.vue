@@ -50,13 +50,13 @@ const menuGroups: MenuGroup[] = [
     icon: Management,
     roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'],
     items: [
-      { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', roles: ['ADMIN'], icon: Check },
-      { title: 'Việc hôm nay', path: '/farm/tasks', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: List },
-      { title: 'Vùng trồng', path: '/farm/locations', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Coordinate },
-      { title: 'Mùa vụ', path: '/farm/cycles', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Calendar },
-      { title: 'Lô thu hoạch', path: '/farm/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Collection },
-      { title: 'Quy trình mẫu', path: '/farm/templates', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Document },
       { title: 'Vật tư & Kho nông trại', path: '/farm/materials', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Box },
+      { title: 'Vùng trồng', path: '/farm/locations', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Coordinate },
+      { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', roles: ['ADMIN'], icon: Check },
+      { title: 'Mùa vụ', path: '/farm/cycles', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Calendar },
+      { title: 'Quy trình mẫu', path: '/farm/templates', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Document },
+      { title: 'Việc hôm nay', path: '/farm/tasks', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: List },
+      { title: 'Lô thu hoạch', path: '/farm/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Collection },
     ]
   },
   {
