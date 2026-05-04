@@ -46,28 +46,46 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
+    label: 'QUẢN LÝ VÙNG TRỒNG',
+    icon: Coordinate,
+    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'],
+    items: [
+      { title: 'Quản lý Thửa', path: '/farm/locations', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Coordinate },
+      { title: 'Mã vùng lớn', path: '/farm/master-areas', roles: ['ADMIN', 'TENANT_ADMIN'], icon: OfficeBuilding },
+      { title: 'Đội trưởng', path: '/farm/team-leaders', roles: ['ADMIN', 'TENANT_ADMIN'], icon: UserFilled },
+      { title: 'Nhân viên KCS', path: '/farm/kcs-staff', roles: ['ADMIN', 'TENANT_ADMIN'], icon: UserFilled },
+    ]
+  },
+  {
     label: 'QUẢN LÝ CANH TÁC',
     icon: Management,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'],
+    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'],
     items: [
       { title: 'Vật tư & Kho nông trại', path: '/farm/materials', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Box },
-      { title: 'Vùng trồng', path: '/farm/locations', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Coordinate },
       { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', roles: ['ADMIN'], icon: Check },
-      { title: 'Mùa vụ', path: '/farm/cycles', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Calendar },
+      { title: 'Mùa vụ', path: '/farm/cycles', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Calendar },
       { title: 'Quy trình mẫu', path: '/farm/templates', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Document },
-      { title: 'Việc hôm nay', path: '/farm/tasks', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: List },
-      { title: 'Lô thu hoạch', path: '/farm/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Collection },
+      { title: 'Việc hôm nay', path: '/farm/tasks', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: List },
+      { title: 'Lô thu hoạch', path: '/farm/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Collection },
+    ]
+  },
+  {
+    label: 'ĐỘI CỦA TÔI',
+    icon: UserFilled,
+    roles: ['TEAM_LEADER'],
+    items: [
+      { title: 'Quản lý Nông dân', path: '/farm/my-team', roles: ['TEAM_LEADER'], icon: User },
     ]
   },
   {
     label: 'TÀI SẢN CÂY TRỒNG',
     icon: Connection,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'END_USER'],
+    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER', 'END_USER'],
     items: [
-      { title: 'Bản đồ cây trồng', path: '/asset-map', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: Coordinate },
+      { title: 'Bản đồ cây trồng', path: '/asset-map', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Coordinate },
       { title: 'Quản lý tài sản', path: '/perennial-assets', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Management },
-      { title: 'Danh sách cây', path: '/caretaker/assets', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'], icon: List },
-      { title: 'Nhật ký chăm sóc', path: '/caretaker/logs', roles: ['ADMIN', 'FARMER'], icon: Tickets },
+      { title: 'Danh sách cây', path: '/caretaker/assets', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: List },
+      { title: 'Nhật ký chăm sóc', path: '/caretaker/logs', roles: ['ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Tickets },
       { title: 'Tài sản của tôi', path: '/owner/assets', roles: ['END_USER', 'ADMIN'], icon: User },
     ]
   },

@@ -66,6 +66,39 @@
           </template>
           <div id="detail-map" style="height: 400px; border-radius: 8px; z-index: 1;"></div>
         </el-card>
+
+        <!-- KCS Inspections Card -->
+        <el-card shadow="hover">
+          <template #header>
+            <div class="font-bold flex items-center gap-2">
+              <el-icon><DocumentChecked /></el-icon>
+              Lịch sử Kiểm định KCS
+            </div>
+          </template>
+          <div v-if="kcsInspections.length === 0" class="text-center text-gray-500 py-4">
+            Chưa có biên bản kiểm định nào.
+          </div>
+          <div v-else class="space-y-4 max-h-[400px] overflow-y-auto">
+            <div v-for="ins in kcsInspections" :key="ins.id" class="border rounded p-4 bg-gray-50">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <div class="font-medium text-sm">Nhân viên: {{ ins.inspector?.fullName || ins.inspector?.username || '—' }}</div>
+                  <div class="text-xs text-gray-500">{{ formatDate(ins.inspectionDate) }}</div>
+                </div>
+                <el-tag :type="ins.status === 'PASSED' ? 'success' : 'danger'">
+                  {{ ins.status === 'PASSED' ? 'ĐẠT' : 'CHƯA ĐẠT' }}
+                </el-tag>
+              </div>
+              <p class="text-sm text-gray-700 mt-2" v-if="ins.notes"><strong>Ghi chú:</strong> {{ ins.notes }}</p>
+              
+              <div v-if="ins.reportFiles && ins.reportFiles.length > 0" class="mt-3 flex gap-2 flex-wrap">
+                <a v-for="(file, index) in ins.reportFiles" :key="index" :href="getFileUrl(file)" target="_blank" class="inline-flex items-center gap-1 text-sm text-blue-600 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded transition">
+                  <el-icon><Link /></el-icon> Biên bản {{ index + 1 }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </el-card>
       </div>
 
       <!-- RIGHT: EUDR Panel -->
@@ -215,9 +248,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, Edit, Coordinate, MapLocation, DataAnalysis, Search, Download, TopRight } from '@element-plus/icons-vue';
+import { ArrowLeft, Edit, Coordinate, MapLocation, DataAnalysis, Search, Download, TopRight, DocumentChecked, Link } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { farmApi, type Location } from '../api/farmApi';
+import { farmApi, type Location, type KcsInspection } from '../api/farmApi';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -227,6 +260,7 @@ const locationId = computed(() => route.params.id as string);
 
 const location = ref<Location | null>(null);
 const loading = ref(false);
+const kcsInspections = ref<KcsInspection[]>([]);
 let map: L.Map | null = null;
 let pollingTimer: any = null;
 
@@ -333,12 +367,24 @@ const formatDate = (d: string) => {
   return new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
+const getFileUrl = (path: string) => {
+  if (!path) return '#';
+  if (path.startsWith('http')) return path;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.trustid.com.vn';
+  return `${baseUrl}${path}`;
+};
+
 // --- Data Loading ---
 const loadData = async () => {
   loading.value = true;
   try {
     const { data } = await farmApi.getLocationById(locationId.value);
     location.value = (data as any).data || data;
+    
+    // Load KCS
+    const kcsRes = await farmApi.getKcsInspections(locationId.value);
+    kcsInspections.value = (kcsRes.data as any).data || kcsRes.data || [];
+
     await nextTick();
     initMap();
 

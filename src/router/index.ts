@@ -179,13 +179,61 @@ const routes: Array<RouteRecordRaw> = [
         path: 'farm/locations',
         name: 'farm-locations',
         component: () => import('../modules/farm/views/LocationManagement.vue'),
-        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'] }
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'] }
       },
       {
         path: 'farm/locations/:id',
         name: 'farm-location-detail',
         component: () => import('../modules/farm/views/LocationDetail.vue'),
-        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER'] }
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'] }
+      },
+      {
+        path: 'farm/master-areas',
+        name: 'master-growing-areas',
+        component: () => import('../modules/farm/views/MasterGrowingAreaList.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
+      },
+      {
+        path: 'farm/master-areas/:id',
+        name: 'master-growing-area-detail',
+        component: () => import('../modules/farm/views/MasterGrowingAreaDetail.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
+      },
+      {
+        path: 'farm/leader-dashboard',
+        name: 'leader-dashboard',
+        component: () => import('../modules/farm/views/LeaderDashboard.vue'),
+        meta: { roles: ['TEAM_LEADER'], title: 'Bảng điều khiển Đội trưởng' }
+      },
+      {
+        path: 'farm/my-team',
+        name: 'my-team-farmers',
+        component: () => import('../modules/farm/views/MyTeamFarmers.vue'),
+        meta: { roles: ['TEAM_LEADER'], title: 'Quản lý Nông dân' }
+      },
+      {
+        path: 'farm/team-leaders',
+        name: 'farm-team-leaders',
+        component: () => import('../modules/farm/views/TeamLeaderManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Quản lý Đội trưởng' }
+      },
+      {
+        path: 'farm/team-leaders/:username',
+        name: 'farm-team-leader-detail',
+        component: () => import('../modules/farm/views/TeamLeaderDetail.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Chi tiết Đội trưởng' }
+      },
+      {
+        path: 'farm/kcs-staff',
+        name: 'farm-kcs-staff',
+        component: () => import('../modules/farm/views/KcsStaffManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Quản lý Nhân viên KCS' }
+      },
+      {
+        path: 'farm/kcs-staff/:id',
+        name: 'farm-kcs-staff-detail',
+        component: () => import('../modules/farm/views/KcsDetail.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Chi tiết Nhân viên KCS' }
       },
       {
         path: 'admin/farm-approvals',
@@ -476,6 +524,9 @@ router.beforeEach(async (to, from, next) => {
     }
     if (role === 'DRIVER') {
       return next({ name: 'driver-dashboard' });
+    }
+    if (role === 'TEAM_LEADER') {
+      return next({ name: 'leader-dashboard' });
     }
   }
 

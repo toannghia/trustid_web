@@ -11,11 +11,11 @@ import { Search, Filter, Delete, Edit, Unlock } from '@element-plus/icons-vue';
 
 import { Plus } from '@element-plus/icons-vue';
 
-// Role Mapping
 const roleMap: Record<string, string> = {
   'ADMIN': 'Quản trị hệ thống',
   'TENANT_ADMIN': 'Quản lý doanh nghiệp',
   'REGULATOR_OFFICER': 'Cơ quan quản lý',
+  'TEAM_LEADER': 'Đội trưởng vùng trồng',
   'DEALER': 'Đại lý',
   'FARMER': 'Nông dân',
   'WORKER': 'Công nhân sản xuất',
@@ -23,7 +23,8 @@ const roleMap: Record<string, string> = {
   'PACKER': 'Nhân viên đóng gói',
   'WAREHOUSE_MANAGER': 'Thủ kho',
   'ACCOUNTANT': 'Kế toán',
-  'END_USER': 'Người tiêu dùng'
+  'END_USER': 'Người tiêu dùng',
+  'KCS_STAFF': 'Nhân viên Kiểm định KCS'
 };
 
 import { useAuthStore } from '../store/auth';

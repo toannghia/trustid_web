@@ -1,10 +1,10 @@
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Quản lý Vùng trồng</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Quản lý Thửa</h1>
       <el-button type="primary" @click="showCreateModal = true">
         <el-icon class="mr-2"><Plus /></el-icon>
-        Thêm vùng trồng
+        Thêm thửa
       </el-button>
     </div>
 
@@ -23,7 +23,7 @@
     <el-card shadow="hover" class="mb-6">
       <el-table :data="locations" v-loading="loading" style="width: 100%">
         <el-table-column type="index" label="STT" width="60" align="center" />
-        <el-table-column prop="name" label="Vùng trồng" min-width="220">
+        <el-table-column prop="name" label="Tên thửa" min-width="220">
           <template #default="{ row }">
             <router-link :to="`/farm/locations/${row.id}`" class="text-blue-600 hover:text-blue-800 font-medium cursor-pointer hover:underline">
               {{ row.name }}
@@ -44,11 +44,12 @@
             <el-tag v-else type="info" size="default">⚪ Chưa kiểm tra</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Địa chỉ" min-width="220">
+        <el-table-column label="Mã vùng trồng lớn" min-width="220">
              <template #default="{ row }">
                  <div class="text-sm">
-                    <div>{{ [row.ward, row.province].filter(Boolean).join(', ') || '—' }}</div>
-                    <div v-if="row.managerName" class="text-xs text-gray-400 mt-0.5">👤 {{ row.managerName }}</div>
+                    <div class="font-medium text-gray-800" v-if="row.masterGrowingArea">{{ row.masterGrowingArea.code }} - {{ row.masterGrowingArea.name }}</div>
+                    <div class="text-gray-400 italic" v-else>Chưa gán</div>
+                    <div v-if="row.masterGrowingArea?.managerName" class="text-xs text-gray-500 mt-0.5">👤 Quản lý: {{ row.masterGrowingArea.managerName }}</div>
                 </div>
             </template>
         </el-table-column>
@@ -58,9 +59,12 @@
             <span v-else class="text-gray-400">—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="TT" width="90" align="center">
+        <el-table-column prop="status" label="TT" width="130" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+            <div class="flex flex-col gap-1 items-center">
+              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+              <el-tag v-if="row.isOverlapped" type="warning" size="small" effect="dark" title="Thửa này đang bị vẽ lấn ranh với thửa khác">⚠️ Lấn ranh</el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="120" align="center" fixed="right">
@@ -79,7 +83,7 @@
     <!-- Create/Edit Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Vùng trồng' : 'Thêm Vùng trồng mới'"
+      :title="isEditing ? 'Cập nhật Thửa' : 'Thêm thửa mới'"
       width="90%"
       style="max-width: 800px"
       class="responsive-dialog"
@@ -89,7 +93,7 @@
       <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
         <el-row :gutter="20">
             <el-col :xs="24" :sm="12">
-                 <el-form-item label="Tên vùng trồng" prop="name">
+                 <el-form-item label="Tên thửa" prop="name">
                     <el-input v-model="form.name" placeholder="VD: Ruộng Cầu 2" />
                  </el-form-item>
             </el-col>
@@ -101,44 +105,71 @@
         </el-row>
         
         <el-row :gutter="20">
-            <el-col :xs="24" :sm="12">
-                 <el-form-item label="Tỉnh / Thành phố" prop="province">
-                    <el-select v-model="form.province" placeholder="Chọn Tỉnh" @change="onProvinceChange" filterable allow-create class="w-full">
-                         <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
-                    </el-select>
-                 </el-form-item>
-            </el-col>
-            <el-col :xs="24" :sm="12">
-                  <el-form-item label="Phường / Xã" prop="ward">
-                    <el-select v-model="form.ward" placeholder="Chọn Xã" filterable allow-create class="w-full" :disabled="!form.province">
-                        <el-option v-for="w in formWards" :key="w.name" :label="w.name" :value="w.name" />
-                    </el-select>
-                 </el-form-item>
-            </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Mã vùng trồng lớn" prop="masterGrowingAreaId">
+              <div class="flex items-center gap-2 w-full">
+                <el-select v-model="form.masterGrowingAreaId" placeholder="Chọn Mã vùng" clearable filterable class="flex-1" @change="onMasterAreaChange">
+                  <el-option v-for="a in masterGrowingAreas" :key="a.id" :label="`${a.code} - ${a.name}`" :value="a.id" />
+                </el-select>
+                <el-button type="success" plain @click="openMasterGrowingAreaModal">
+                  <el-icon><Plus /></el-icon>
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Đội trưởng phụ trách" prop="leaderId">
+              <div class="flex items-center gap-2 w-full">
+                <el-select v-model="form.leaderId" placeholder="Chọn Đội trưởng" clearable filterable class="flex-1">
+                  <el-option v-for="u in teamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
+                </el-select>
+                <el-button type="success" plain @click="openQuickUserModal('TEAM_LEADER')">
+                  <el-icon><Plus /></el-icon>
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-col>
         </el-row>
-        
-        <el-form-item label="Địa chỉ chi tiết" prop="address">
-           <el-input v-model="form.address" placeholder="Thôn, Xóm, Số nhà..." />
-        </el-form-item>
 
+        <el-row :gutter="20" v-if="!isFarmerRole">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Nông hộ (Chủ thửa)" prop="farmerId">
+              <div class="flex items-center gap-2 w-full">
+                <el-select v-model="form.farmerId" placeholder="Chọn Nông hộ" clearable filterable class="flex-1">
+                  <el-option v-for="u in farmers" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
+                </el-select>
+                <el-button type="success" plain @click="openQuickUserModal('FARMER')">
+                  <el-icon><Plus /></el-icon>
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-row :gutter="20">
           <el-col :xs="24" :sm="12">
              <el-form-item label="Diện tích (m2)" prop="area_m2">
                <el-input-number v-model="form.area_m2" :min="500" class="w-full" />
              </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12">
-             <el-form-item label="Loại cây trồng" prop="plant_type">
-               <el-input v-model="form.plant_type" placeholder="VD: Lúa, Vải..." />
-             </el-form-item>
-          </el-col>
         </el-row>
 
-        <el-form-item label="Người quản lý" prop="manager_name">
-           <el-input v-model="form.manager_name" placeholder="Tên cán bộ phụ trách" />
-        </el-form-item>
-
         <el-divider content-position="left">Tọa độ (GPS)</el-divider>
+        <el-row :gutter="20" class="mb-2">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Dịch chuyển nhanh bản đồ tới (Tỉnh/Thành)">
+              <el-select v-model="searchMapProvince" placeholder="Chọn Tỉnh/Thành phố" filterable @change="onSearchProvinceChange" class="w-full">
+                <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Dịch chuyển nhanh bản đồ tới (Phường/Xã)">
+              <el-select v-model="searchMapWard" placeholder="Chọn Phường/Xã" filterable @change="onSearchWardChange" class="w-full" :disabled="!searchMapProvince">
+                <el-option v-for="w in searchMapWards" :key="w.name" :label="w.name" :value="w.name" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-row :gutter="20">
           <el-col :xs="24" :sm="12">
             <el-form-item label="Vĩ độ (Lat)" prop="lat">
@@ -158,7 +189,7 @@
 
         <el-alert 
             v-if="isEditing && currentApprovalStatus === 'PENDING'"
-            title="Vùng trồng đang chờ Admin duyệt ranh giới mới. Bạn không nên đổi ranh giới trong lúc này."
+            title="Thửa đang chờ Admin duyệt ranh giới mới. Bạn không nên đổi ranh giới trong lúc này."
             type="warning" 
             show-icon 
             class="mb-4" 
@@ -179,6 +210,9 @@
         </span>
       </template>
     </el-dialog>
+
+    <MasterGrowingAreaModal ref="masterAreaModalRef" @created="fetchMasterGrowingAreas" />
+    <QuickUserModal ref="quickUserModalRef" :role-name="currentQuickRole" @created="fetchUsers" />
   </div>
 </template>
 
@@ -187,23 +221,72 @@ import { ref, onMounted, reactive, nextTick, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Plus, Search, Loading } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { farmApi, type Location } from '../api/farmApi';
+import { farmApi, type Location, type MasterGrowingArea } from '../api/farmApi';
 import type { FormInstance, FormRules } from 'element-plus';
+import { useAuthStore } from '@/modules/core/store/auth';
+import { userApi } from '@/modules/core/api/user';
+import MasterGrowingAreaModal from '../components/MasterGrowingAreaModal.vue';
+import QuickUserModal from '../components/QuickUserModal.vue';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import * as turf from '@turf/turf';
 import { vietnamUnits } from '@/common/data/vietnam-units';
-import { provinceCoordinates } from '@/common/data/province-coordinates';
 
 const locations = ref<Location[]>([]);
 const loading = ref(false);
 const showCreateModal = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
+const authStore = useAuthStore();
+const isFarmerRole = computed(() => authStore.user?.role === 'FARMER');
 
-// Filter states
+const masterGrowingAreas = ref<MasterGrowingArea[]>([]);
+const farmers = ref<any[]>([]);
+const teamLeaders = ref<any[]>([]);
+
+const masterAreaModalRef = ref<any>();
+const quickUserModalRef = ref<any>();
+const currentQuickRole = ref('FARMER');
+
+const openMasterGrowingAreaModal = () => {
+    masterAreaModalRef.value?.open();
+};
+
+const openQuickUserModal = (role: string) => {
+    currentQuickRole.value = role;
+    quickUserModalRef.value?.open();
+};
+
+const fetchMasterGrowingAreas = async () => {
+    try {
+        const { data } = await farmApi.getMasterGrowingAreas();
+        masterGrowingAreas.value = data || [];
+    } catch (err) {}
+};
+
+const fetchUsers = async () => {
+    try {
+        const resFarmer = await userApi.getList({ page: 1, limit: 1000, roleName: 'FARMER' });
+        const data = resFarmer.data;
+        farmers.value = data?.data || data?.items || (Array.isArray(data) ? data : []);
+    } catch (err) {}
+};
+
+const onMasterAreaChange = async (val: string) => {
+    form.leaderId = '';
+    teamLeaders.value = [];
+    if (!val) return;
+    
+    try {
+        const { data } = await farmApi.getMasterGrowingAreaLeaders(val);
+        teamLeaders.value = data || [];
+    } catch (err) {
+        ElMessage.error('Không thể tải danh sách Đội trưởng của vùng này');
+    }
+};
+
 const searchKeyword = ref('');
 const filter = reactive({
     province: '',
@@ -211,7 +294,6 @@ const filter = reactive({
 });
 const provinces = ref(vietnamUnits);
 const filterWards = ref<any[]>([]);
-const formWards = ref<any[]>([]);
 
 const handleFilterProvinceChange = () => {
     filter.ward = '';
@@ -220,32 +302,47 @@ const handleFilterProvinceChange = () => {
     loadData();
 };
 
-const loadWards = () => {
-    const prov = provinces.value.find(p => p.name === form.province);
-    formWards.value = prov ? prov.wards : [];
+// Map Search Helpers
+const searchMapProvince = ref('');
+const searchMapWard = ref('');
+const searchMapWards = ref<any[]>([]);
+
+const onSearchProvinceChange = () => {
+    searchMapWard.value = '';
+    const prov = provinces.value.find(p => p.name === searchMapProvince.value);
+    searchMapWards.value = prov ? prov.wards : [];
+    
+    if (searchMapProvince.value) {
+        geocodeAddress(`${searchMapProvince.value}, Vietnam`, 10);
+    }
 };
 
-const onProvinceChange = async () => {
-    // Clear ward when province changes
-    form.ward = '';
-    // Load wards for the new province
-    loadWards();
-    
-    // Auto center map only on user change
-    if (form.province && provinceCoordinates[form.province]) {
-        const coords = provinceCoordinates[form.province];
-        form.lat = coords.lat;
-        form.long = coords.lng;
-        
-        // Force reload map
-        await nextTick();
-        if (map) {
-            map.remove();
-            map = null;
+const onSearchWardChange = () => {
+    if (searchMapWard.value && searchMapProvince.value) {
+        geocodeAddress(`${searchMapWard.value}, ${searchMapProvince.value}, Vietnam`, 14);
+    }
+};
+
+const geocodeAddress = async (address: string, zoomLevel: number) => {
+    try {
+        const token = import.meta.env.VITE_MAPBOX_TOKEN;
+        if (!token) return;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&country=vn`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.features && data.features.length > 0) {
+            const [lng, lat] = data.features[0].center;
+            form.lat = Number(lat.toFixed(6));
+            form.long = Number(lng.toFixed(6));
+            
+            if (map && marker) {
+                 const newPos = new L.LatLng(form.lat, form.long);
+                 marker.setLatLng(newPos);
+                 map.setView(newPos, zoomLevel);
+            }
         }
-        
-        // Re-init with new center
-        initMap();
+    } catch (e) {
+        console.error('Lỗi lấy tọa độ từ Mapbox:', e);
     }
 };
 
@@ -301,7 +398,7 @@ const startEudrPolling = (locationId: string) => {
                 }
 
                 if (data.eudrStatus === 'COMPLIANT') {
-                    ElMessage.success('✅ Vùng trồng HỢP LỆ theo tiêu chuẩn EUDR!');
+                    ElMessage.success('✅ Thửa HỢP LỆ theo tiêu chuẩn EUDR!');
                 } else if (data.eudrStatus === 'NON_COMPLIANT') {
                     ElMessage.warning(`⚠️ Phát hiện vi phạm! Tỷ lệ: ${data.violationRate}%`);
                 } else {
@@ -334,22 +431,19 @@ const downloadEudrReport = async (row: Location) => {
 const form = reactive({
   name: '',
   code: '',
-  address: '',
-  province: '',
-  ward: '',
   area_m2: 0,
-  plant_type: '',
-  manager_name: '',
   lat: 21.0,
   long: 105.8,
   boundary: [] as any[],
-  updateReason: ''
+  updateReason: '',
+  masterGrowingAreaId: '',
+  farmerId: '',
+  leaderId: ''
 });
 
 const rules = reactive<FormRules>({
   name: [{ required: true, message: 'Vui lòng nhập tên', trigger: 'blur' }],
-  province: [{ required: true, message: 'Chọn Tỉnh/Thành', trigger: 'change' }],
-  ward: [{ required: true, message: 'Chọn Xã/Phường', trigger: 'change' }],
+  masterGrowingAreaId: [{ required: true, message: 'Vui lòng chọn Mã vùng trồng lớn', trigger: 'change' }],
   lat: [{ required: true, message: 'Nhập Vĩ độ', trigger: 'blur' }],
   long: [{ required: true, message: 'Nhập Kinh độ', trigger: 'blur' }]
 });
@@ -527,25 +621,28 @@ const loadData = async () => {
     
     locations.value = result;
   } catch (err) {
-    ElMessage.error('Không thể tải danh sách vùng trồng');
+    ElMessage.error('Không thể tải danh sách thửa');
   } finally {
     loading.value = false;
   }
 };
 
-const openEditModal = (row: Location) => {
+const openEditModal = async (row: Location) => {
     isEditing.value = true;
     currentId.value = row.id;
     
     // Populate form
     form.name = row.name;
     form.code = row.code;
-    form.address = row.address;
-    form.province = row.province || '';
-    form.ward = row.ward || '';
     form.area_m2 = row.areaM2;
-    form.plant_type = row.plantType || '';
-    form.manager_name = row.managerName || '';
+    form.masterGrowingAreaId = row.masterGrowingAreaId || '';
+    
+    if (form.masterGrowingAreaId) {
+        await onMasterAreaChange(form.masterGrowingAreaId);
+    }
+
+    form.farmerId = row.farmerId || '';
+    form.leaderId = row.leaderId || '';
     
     // Handle coordinates (GeoJSON Point)
     if (row.coordinate && row.coordinate.coordinates) {
@@ -575,15 +672,6 @@ const openEditModal = (row: Location) => {
     boundaryChanged.value = false; // Reset modification flag
     currentApprovalStatus.value = row.approvalStatus || 'APPROVED';
     currentEudrCheckLog.value = row.checkLog || null;
-    // Load wards based on saved province
-    // Do NOT trigger map auto-center here
-    const prov = provinces.value.find(p => p.name === form.province);
-    formWards.value = prov ? prov.wards : [];
-    
-    // Restore ward selection
-    nextTick(() => {
-        form.ward = row.ward || '';
-    });
 
     showCreateModal.value = true;
 }
@@ -609,10 +697,10 @@ const submitForm = async () => {
 
         if (isEditing.value && currentId.value) {
             await farmApi.updateLocation(currentId.value, payload);
-             ElMessage.success('Cập nhật vùng trồng thành công');
+             ElMessage.success('Cập nhật thửa thành công');
         } else {
             await farmApi.createLocation(payload);
-             ElMessage.success('Tạo vùng trồng thành công');
+             ElMessage.success('Tạo thửa thành công');
         }
         
         showCreateModal.value = false;
@@ -631,20 +719,25 @@ const submitForm = async () => {
 const resetForm = () => {
   if (formRef.value) formRef.value.resetFields();
   form.area_m2 = 0;
-  form.province = '';
-  form.ward = '';
   form.boundary = [];
   form.updateReason = '';
   boundaryChanged.value = false;
   isEditing.value = false;
   currentId.value = null;
   currentApprovalStatus.value = 'APPROVED';
+  form.masterGrowingAreaId = '';
+  form.farmerId = '';
+  form.leaderId = '';
 };
 
 const route = useRoute();
 
 onMounted(async () => {
-    await loadData();
+    await Promise.all([
+        loadData(),
+        fetchMasterGrowingAreas(),
+        fetchUsers()
+    ]);
     // Handle ?edit=locationId from detail page
     const editId = route.query.edit as string;
     if (editId) {

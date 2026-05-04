@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { Refresh, Search, Van, OfficeBuilding, FullScreen, Plus, User, Box, Memo } from '@element-plus/icons-vue';
+import { Refresh, Search, Van, OfficeBuilding, FullScreen, Plus, User, Box, Memo, Calendar, Clock } from '@element-plus/icons-vue';
 import { transportApi } from '../api/transportApi';
 import { shipmentV2Api } from '../api/shipmentV2Api';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -170,6 +170,29 @@ const receiverConfirm = async () => {
                 </div>
             </template>
         </el-table-column>
+        <el-table-column label="Lịch trình" width="160">
+            <template #default="{row}">
+                <div class="text-xs space-y-1">
+                    <div class="flex items-center gap-1" title="Lịch yêu cầu">
+                        <el-icon class="text-gray-400"><Calendar /></el-icon>
+                        <span class="text-gray-600">
+                            {{ row.expectedDeliveryTime ? new Date(row.expectedDeliveryTime).toLocaleDateString('vi-VN') : (row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '---') }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-1" title="Ngày thực hiện">
+                        <el-icon :class="row.endTime ? 'text-success' : 'text-gray-400'"><Clock /></el-icon>
+                        <span :class="row.endTime ? 'text-green-600 font-medium' : 'text-gray-400'">
+                            {{ row.endTime ? new Date(row.endTime).toLocaleDateString('vi-VN') : 'Chưa HT' }}
+                        </span>
+                        <el-tag v-if="row.endTime && (row.expectedDeliveryTime || row.createdAt)" 
+                                :type="new Date(row.endTime).setHours(0,0,0,0) > new Date(row.expectedDeliveryTime || row.createdAt).setHours(0,0,0,0) ? 'danger' : 'success'" 
+                                size="small" effect="plain" class="ml-auto transform scale-75 origin-right">
+                            {{ new Date(row.endTime).setHours(0,0,0,0) > new Date(row.expectedDeliveryTime || row.createdAt).setHours(0,0,0,0) ? 'Trễ' : 'Đúng hạn' }}
+                        </el-tag>
+                    </div>
+                </div>
+            </template>
+        </el-table-column>
         <el-table-column label="Hàng hóa" width="120">
              <template #default="{row}">
                  <div class="text-xs font-bold">{{ row.expectedItems?.length || row.total_items || 0 }} SP</div>
@@ -236,6 +259,36 @@ const receiverConfirm = async () => {
                     <div class="flex justify-between border-b pb-2">
                          <span class="text-gray-500 text-sm">Trạng thái</span>
                          <el-tag :type="getStatusType(currentDetail.status)">{{ getStatusLabel(currentDetail.status) }}</el-tag>
+                    </div>
+                </div>
+                
+                <div class="md:col-span-2 grid grid-cols-2 gap-4 border-t pt-4">
+                    <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3">
+                        <div class="p-2 bg-blue-50 rounded-full text-blue-500 flex items-center justify-center">
+                            <el-icon :size="20"><Calendar /></el-icon>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-0.5">Lịch yêu cầu</div>
+                            <div class="font-bold text-gray-800 text-sm">
+                                {{ currentDetail.expectedDeliveryTime ? new Date(currentDetail.expectedDeliveryTime).toLocaleDateString('vi-VN') : (currentDetail.createdAt ? new Date(currentDetail.createdAt).toLocaleDateString('vi-VN') : '---') }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center gap-3">
+                        <div class="p-2 rounded-full flex items-center justify-center" :class="currentDetail.endTime ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'">
+                            <el-icon :size="20"><Clock /></el-icon>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-xs text-gray-500 mb-0.5">Ngày thực hiện</div>
+                            <div class="font-bold text-sm" :class="currentDetail.endTime ? 'text-green-600' : 'text-gray-400'">
+                                {{ currentDetail.endTime ? new Date(currentDetail.endTime).toLocaleDateString('vi-VN') : 'Chưa hoàn tất' }}
+                            </div>
+                        </div>
+                        <div v-if="currentDetail.endTime && (currentDetail.expectedDeliveryTime || currentDetail.createdAt)">
+                            <el-tag :type="new Date(currentDetail.endTime).setHours(0,0,0,0) > new Date(currentDetail.expectedDeliveryTime || currentDetail.createdAt).setHours(0,0,0,0) ? 'danger' : 'success'" effect="dark" size="small">
+                                {{ new Date(currentDetail.endTime).setHours(0,0,0,0) > new Date(currentDetail.expectedDeliveryTime || currentDetail.createdAt).setHours(0,0,0,0) ? 'Trễ lịch' : 'Đúng hạn' }}
+                            </el-tag>
+                        </div>
                     </div>
                 </div>
             </div>

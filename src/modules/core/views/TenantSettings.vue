@@ -42,7 +42,8 @@ const tenantForm = reactive({
     is_nda_enabled: false,
     nda_sync_status: 'NONE',
     nda_error_msg: '',
-    did: ''
+    did: '',
+    require_kcs_inspection: false
 });
 
 const rules = computed(() => {
@@ -120,6 +121,7 @@ const fetchData = async () => {
         tenantForm.nda_sync_status = tenant.ndaStatus || tenant.nda_status || 'NONE'; 
         tenantForm.nda_error_msg = tenant.ndaErrorMsg || tenant.nda_error_msg || '';
         tenantForm.did = tenant.ndaDid || tenant.nda_did || '';
+        tenantForm.require_kcs_inspection = tenant.requireKcsInspection || false;
         
         if (tenantForm.province) {
             const prov = provinces.value.find(p => p.name === tenantForm.province);
@@ -182,7 +184,8 @@ const submitData = async () => {
             ward: tenantForm.ward,
             gcpPrefix: tenantForm.gcpPrefix,
             description: tenantForm.description,
-            isNdaEnabled: tenantForm.is_nda_enabled
+            isNdaEnabled: tenantForm.is_nda_enabled,
+            requireKcsInspection: tenantForm.require_kcs_inspection
         };
 
         await tenantApi.update(tenantForm.id, payload);
@@ -272,6 +275,24 @@ onMounted(() => {
                 <div v-if="tenantForm.nda_sync_status === 'FAILED' && tenantForm.nda_error_msg" class="mt-3 bg-red-50 p-3 rounded border border-red-200 text-red-700 text-sm">
                     <strong>Lý do từ chối:</strong> {{ tenantForm.nda_error_msg }}
                 </div>
+             </div>
+
+             <!-- KCS Config -->
+             <div class="mb-6 bg-green-50 border border-green-100 rounded-lg p-4">
+                 <div class="flex items-center justify-between">
+                     <div>
+                         <div class="text-lg font-bold flex items-center gap-2 text-green-800">
+                             Quy trình Kiểm định Trước thu hoạch (KCS)
+                             <el-switch 
+                                v-model="tenantForm.require_kcs_inspection" 
+                                active-text="Bắt buộc" 
+                                inactive-text="Không bắt buộc" 
+                                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #a8abb2"
+                            />
+                         </div>
+                         <div class="text-sm text-green-700 mt-1">Yêu cầu Nông hộ phải có biên bản kiểm định "Đạt" từ nhân viên KCS mới được phép tạo Lượt thu hoạch.</div>
+                     </div>
+                 </div>
              </div>
 
              <!-- Main Form -->

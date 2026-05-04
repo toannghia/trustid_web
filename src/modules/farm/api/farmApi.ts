@@ -22,6 +22,29 @@ export interface Location {
     violationRate?: number;
     lastCheckDate?: string;
     checkLog?: any;
+    masterGrowingAreaId?: string;
+    masterGrowingArea?: MasterGrowingArea;
+    farmerId?: string;
+    farmer?: any;
+    leaderId?: string;
+    leader?: any;
+}
+
+export interface MasterGrowingArea {
+    id: string;
+    code: string;
+    name: string;
+    address?: string;
+    province?: string;
+    ward?: string;
+    ownerName?: string;
+    managerName?: string;
+    plantType?: string;
+    maxAreaM2: number;
+    tenantId: string;
+    status: string;
+    locations?: Location[];
+    leaders?: any[];
 }
 
 export interface ProcessTemplate {
@@ -73,6 +96,17 @@ export interface Harvest {
     cropCycle?: CropCycle;
 }
 
+export interface KcsInspection {
+    id: string;
+    locationId: string;
+    inspectorId: string;
+    status: string; // PASSED, FAILED, PENDING
+    notes: string;
+    reportFiles: string[];
+    inspectionDate: string;
+    inspector?: any;
+}
+
 export const farmApi = {
     // Locations
     getLocations(params?: any) {
@@ -84,8 +118,28 @@ export const farmApi = {
     createLocation(data: { name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string }) {
         return api.post<Location>(`${baseUrl}/locations`, data);
     },
-    updateLocation(id: string, data: Partial<{ name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string }>) {
+    updateLocation(id: string, data: Partial<{ name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string; masterGrowingAreaId?: string; farmerId?: string; leaderId?: string; }>) {
         return api.patch<Location>(`${baseUrl}/locations/${id}`, data);
+    },
+    getLeaderMap() {
+        return api.get<Location[]>(`${baseUrl}/locations/leader/map`);
+    },
+
+    // Master Growing Areas
+    getMasterGrowingAreas() {
+        return api.get<MasterGrowingArea[]>(`${baseUrl}/master-growing-areas`);
+    },
+    createMasterGrowingArea(data: { code: string; name: string; address?: string; province?: string; ward?: string; ownerName?: string; managerName?: string; plantType?: string; leaderIds?: string[]; maxAreaM2?: number; }) {
+        return api.post<MasterGrowingArea>(`${baseUrl}/master-growing-areas`, data);
+    },
+    updateMasterGrowingArea(id: string, data: Partial<{ name: string; address: string; province: string; ward: string; ownerName: string; managerName: string; plantType: string; leaderIds: string[]; maxAreaM2: number; }>) {
+        return api.patch<MasterGrowingArea>(`${baseUrl}/master-growing-areas/${id}`, data);
+    },
+    getMasterGrowingAreaLeaders(id: string) {
+        return api.get<any[]>(`${baseUrl}/master-growing-areas/${id}/leaders`);
+    },
+    getMasterGrowingAreaMapDetail(id: string) {
+        return api.get<MasterGrowingArea>(`${baseUrl}/master-growing-areas/${id}/map`);
     },
 
     // Templates
@@ -190,6 +244,11 @@ export const farmApi = {
     getPendingApprovals() {
         return api.get<Location[]>('/farm/locations/admin/pending-approvals');
     },
+    approveLocationBoundary: (id: string, action: 'APPROVE' | 'REJECT') => api.post(`${baseUrl}/locations/${id}/approve-boundary`, { action }),
+
+    // KCS Inspections
+    getKcsInspections: (locationId: string) => api.get(`${baseUrl}/inspections/location/${locationId}`),
+
     approveBoundary(id: string) {
         return api.post(`/farm/locations/admin/${id}/approve-boundary`);
     },
