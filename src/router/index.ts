@@ -455,6 +455,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'backup-management',
         component: () => import('../modules/core/views/BackupManagement.vue'),
         meta: { roles: ['ADMIN'], title: 'Sao lưu tự động' }
+      },
+      {
+        path: '/admin/miniapp-analytics',
+        name: 'miniapp-analytics',
+        component: () => import('../modules/miniapp/views/MiniAppDashboard.vue'),
+        meta: { roles: ['ADMIN'], title: 'Mini App Analytics' }
       }
     ]
   },

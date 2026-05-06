@@ -183,6 +183,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Cấu hình EUDR', path: '/admin/eudr-config', roles: ['ADMIN'], icon: Coordinate },
       { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN'], icon: TrendCharts },
       { title: 'Quản lý Sao lưu', path: '/admin/backups', roles: ['ADMIN'], icon: Document },
+      { title: 'Mini App Analytics', path: '/admin/miniapp-analytics', roles: ['ADMIN'], icon: TrendCharts },
     ]
   }
 ];
