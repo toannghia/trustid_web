@@ -17,6 +17,15 @@
         <el-select v-model="filter.ward" placeholder="Phường/Xã" clearable class="w-48" @change="loadData" :disabled="!filter.province">
              <el-option v-for="w in filterWards" :key="w.name" :label="w.name" :value="w.name" />
         </el-select>
+        <el-select v-model="filter.masterGrowingAreaId" placeholder="Vùng trồng lớn" clearable class="w-48" @change="loadData">
+             <el-option v-for="a in masterGrowingAreas" :key="a.id" :label="a.name" :value="a.id" />
+        </el-select>
+        <el-select v-model="filter.farmerId" placeholder="Nông hộ" clearable filterable class="w-48" @change="loadData" v-if="!isFarmerRole">
+             <el-option v-for="u in farmers" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
+        </el-select>
+        <el-select v-model="filter.leaderId" placeholder="Đội trưởng" clearable filterable class="w-48" @change="loadData">
+             <el-option v-for="u in allTeamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
+        </el-select>
     </div>
 
     <!-- Table -->
@@ -53,9 +62,19 @@
                 </div>
             </template>
         </el-table-column>
+        <el-table-column label="Người phụ trách" min-width="200">
+             <template #default="{ row }">
+                 <div class="text-sm">
+                    <div v-if="row.farmer">👨‍🌾 <b>{{ row.farmer.fullName }}</b> <span class="text-xs text-gray-500">({{ row.farmer.username }})</span></div>
+                    <div v-else class="text-gray-400 italic">Chưa gán Nông hộ</div>
+                    <div v-if="row.leader" class="mt-1">🧑‍💼 <b>{{ row.leader.fullName }}</b> <span class="text-xs text-gray-500">({{ row.leader.username }})</span></div>
+                    <div v-else class="text-gray-400 italic mt-1">Chưa gán Đội trưởng</div>
+                </div>
+            </template>
+        </el-table-column>
         <el-table-column prop="areaM2" label="Diện tích" width="120" align="right">
           <template #default="{ row }">
-            <span v-if="row.areaM2">{{ row.areaM2?.toLocaleString() }} m²</span>
+            <span v-if="row.areaM2">{{ Number(row.areaM2).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) }} m²</span>
             <span v-else class="text-gray-400">—</span>
           </template>
         </el-table-column>
@@ -87,6 +106,7 @@
       width="90%"
       style="max-width: 800px"
       class="responsive-dialog"
+      :close-on-click-modal="false"
       @closed="resetForm"
       @opened="initMap"
     >
@@ -117,25 +137,10 @@
               </div>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12">
-            <el-form-item label="Đội trưởng phụ trách" prop="leaderId">
-              <div class="flex items-center gap-2 w-full">
-                <el-select v-model="form.leaderId" placeholder="Chọn Đội trưởng" clearable filterable class="flex-1">
-                  <el-option v-for="u in teamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
-                </el-select>
-                <el-button type="success" plain @click="openQuickUserModal('TEAM_LEADER')">
-                  <el-icon><Plus /></el-icon>
-                </el-button>
-              </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20" v-if="!isFarmerRole">
-          <el-col :xs="24" :sm="12">
+          <el-col :xs="24" :sm="12" v-if="!isFarmerRole">
             <el-form-item label="Nông hộ (Chủ thửa)" prop="farmerId">
               <div class="flex items-center gap-2 w-full">
-                <el-select v-model="form.farmerId" placeholder="Chọn Nông hộ" clearable filterable class="flex-1">
+                <el-select v-model="form.farmerId" placeholder="Chọn Nông hộ" clearable filterable class="flex-1" @change="onFarmerChange">
                   <el-option v-for="u in farmers" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
                 </el-select>
                 <el-button type="success" plain @click="openQuickUserModal('FARMER')">
@@ -145,13 +150,38 @@
             </el-form-item>
           </el-col>
         </el-row>
+
         <el-row :gutter="20">
           <el-col :xs="24" :sm="12">
+            <el-form-item label="Đội trưởng phụ trách" prop="leaderId">
+              <div class="flex items-center gap-2 w-full">
+                <el-select v-model="form.leaderId" placeholder="Chọn Đội trưởng" clearable filterable class="flex-1" :disabled="!isFarmerRole && !form.farmerId" @change="handleLeaderChange">
+                  <el-option v-for="u in teamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
+                </el-select>
+                <el-button type="success" plain @click="openQuickUserModal('TEAM_LEADER')" :disabled="!isFarmerRole && !form.farmerId">
+                  <el-icon><Plus /></el-icon>
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
              <el-form-item label="Diện tích (m2)" prop="area_m2">
-               <el-input-number v-model="form.area_m2" :min="500" class="w-full" />
+               <el-input-number 
+                  v-model="form.area_m2" 
+                  :min="500" 
+                  class="w-full" 
+                  :precision="1" 
+                  :formatter="(value: string) => `${value}`.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',')"
+                  :parser="(value: string) => value.replace(/\\$\\s?|(,*)/g, '')"
+               />
              </el-form-item>
           </el-col>
         </el-row>
+
+        <div id="map" style="height: 350px; margin-top: 10px; border-radius: 4px; z-index: 1;"></div>
+        <div class="text-xs text-gray-500 mb-4 mt-2">
+          * Sử dụng công cụ vẽ (hình ngũ giác) bên trái bản đồ để khoanh vùng diện tích. Diện tích m² sẽ được tự động tính toán.
+        </div>
 
         <el-divider content-position="left">Tọa độ (GPS)</el-divider>
         <el-row :gutter="20" class="mb-2">
@@ -182,10 +212,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <div id="map" style="height: 350px; margin-top: 10px; border-radius: 4px; z-index: 1;"></div>
-        <div class="text-xs text-gray-500 mb-4 mt-2">
-          * Sử dụng công cụ vẽ (hình ngũ giác) bên trái bản đồ để khoanh vùng diện tích. Diện tích m² sẽ được tự động tính toán.
-        </div>
 
         <el-alert 
             v-if="isEditing && currentApprovalStatus === 'PENDING'"
@@ -212,7 +238,7 @@
     </el-dialog>
 
     <MasterGrowingAreaModal ref="masterAreaModalRef" @created="fetchMasterGrowingAreas" />
-    <QuickUserModal ref="quickUserModalRef" :role-name="currentQuickRole" @created="fetchUsers" />
+    <QuickUserModal ref="quickUserModalRef" :role-name="currentQuickRole" @created="onQuickUserCreated" />
   </div>
 </template>
 
@@ -220,7 +246,7 @@
 import { ref, onMounted, reactive, nextTick, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Plus, Search, Loading } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi, type Location, type MasterGrowingArea } from '../api/farmApi';
 import type { FormInstance, FormRules } from 'element-plus';
 import { useAuthStore } from '@/modules/core/store/auth';
@@ -245,6 +271,7 @@ const isFarmerRole = computed(() => authStore.user?.role === 'FARMER');
 const masterGrowingAreas = ref<MasterGrowingArea[]>([]);
 const farmers = ref<any[]>([]);
 const teamLeaders = ref<any[]>([]);
+const allTeamLeaders = ref<any[]>([]);
 
 const masterAreaModalRef = ref<any>();
 const quickUserModalRef = ref<any>();
@@ -274,23 +301,102 @@ const fetchUsers = async () => {
     } catch (err) {}
 };
 
+const fetchAllLeaders = async () => {
+    try {
+        const res = await userApi.getList({ page: 1, limit: 1000, roleName: 'TEAM_LEADER' });
+        const data = res.data;
+        allTeamLeaders.value = data?.data || data?.items || (Array.isArray(data) ? data : []);
+    } catch (err) {}
+};
+
+const onQuickUserCreated = async (user: any) => {
+    if (currentQuickRole.value === 'FARMER') {
+        await fetchUsers();
+        form.farmerId = user.id;
+    } else if (currentQuickRole.value === 'TEAM_LEADER') {
+        if (form.masterGrowingAreaId) {
+            try {
+                const currentLeaders = await farmApi.getMasterGrowingAreaLeaders(form.masterGrowingAreaId);
+                const leaderIds = (currentLeaders.data || []).map(l => l.id);
+                if (!leaderIds.includes(user.id)) {
+                    leaderIds.push(user.id);
+                    await farmApi.updateMasterGrowingArea(form.masterGrowingAreaId, { leaderIds });
+                }
+                await onMasterAreaChange(form.masterGrowingAreaId);
+            } catch (err) {
+                ElMessage.error('Không thể gán Đội trưởng vào vùng trồng lớn');
+            }
+        } else {
+            teamLeaders.value.push(user);
+        }
+        form.leaderId = user.id;
+    }
+};
+
 const onMasterAreaChange = async (val: string) => {
     form.leaderId = '';
     teamLeaders.value = [];
-    if (!val) return;
+    if (!val) {
+        if (existingLocationsLayer) existingLocationsLayer.clearLayers();
+        return;
+    }
     
     try {
         const { data } = await farmApi.getMasterGrowingAreaLeaders(val);
         teamLeaders.value = data || [];
+        await loadExistingLocationsOnMap(val);
     } catch (err) {
         ElMessage.error('Không thể tải danh sách Đội trưởng của vùng này');
+    }
+};
+
+const onFarmerChange = (val: string) => {
+    if (!val) {
+        form.leaderId = '';
+        return;
+    }
+    const farmer = farmers.value.find(f => f.id === val);
+    const fLeaderId = farmer?.leaderId || farmer?.leader_id;
+    if (fLeaderId) {
+        form.leaderId = fLeaderId;
+        if (!teamLeaders.value.find(l => l.id === fLeaderId)) {
+            // Temporary push to show name if missing
+            teamLeaders.value.push({ id: fLeaderId, fullName: 'Đội trưởng hiện tại', username: 'N/A' });
+        }
+    } else {
+        form.leaderId = '';
+    }
+};
+
+const handleLeaderChange = async (newLeaderId: string) => {
+    let currentFarmerLeaderId = '';
+    if (isFarmerRole.value) {
+       currentFarmerLeaderId = authStore.user?.leaderId || '';
+    } else if (form.farmerId) {
+       const farmer = farmers.value.find(f => f.id === form.farmerId);
+       currentFarmerLeaderId = farmer?.leaderId || farmer?.leader_id || '';
+    }
+
+    if (currentFarmerLeaderId && newLeaderId && currentFarmerLeaderId !== newLeaderId) {
+        try {
+            await ElMessageBox.confirm(
+                'Nông hộ này đang được quản lý bởi một Đội trưởng khác. Bạn có chắc chắn muốn thay đổi Đội trưởng cho lô thửa này (kèm theo cập nhật cho Nông hộ) không?',
+                'Xác nhận thay đổi',
+                { confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy', type: 'warning' }
+            );
+        } catch {
+            form.leaderId = currentFarmerLeaderId;
+        }
     }
 };
 
 const searchKeyword = ref('');
 const filter = reactive({
     province: '',
-    ward: ''
+    ward: '',
+    masterGrowingAreaId: '',
+    farmerId: '',
+    leaderId: ''
 });
 const provinces = ref(vietnamUnits);
 const filterWards = ref<any[]>([]);
@@ -349,6 +455,59 @@ const geocodeAddress = async (address: string, zoomLevel: number) => {
 // Map related
 let map: L.Map | null = null;
 let marker: L.Marker | null = null;
+let existingLocationsLayer: L.FeatureGroup | null = null;
+
+const loadExistingLocationsOnMap = async (masterGrowingAreaId: string) => {
+    if (!map || !existingLocationsLayer) return;
+    existingLocationsLayer.clearLayers();
+    if (!masterGrowingAreaId) return;
+
+    try {
+        const { data } = await farmApi.getLocations({ masterGrowingAreaId });
+        const locationsToDraw = data || [];
+        
+        let bounds = L.latLngBounds([]);
+
+        locationsToDraw.forEach(loc => {
+            // Don't draw the current location being edited
+            if (isEditing.value && loc.id === currentId.value) return;
+
+            let parsedBoundary = [];
+            const boundarySource = (loc.approvalStatus === 'PENDING' && loc.pendingBoundary)
+                ? loc.pendingBoundary 
+                : loc.boundary;
+
+            if (boundarySource) {
+                if (typeof boundarySource === 'string' && boundarySource.startsWith('{')) {
+                    try { parsedBoundary = JSON.parse(boundarySource).coordinates; } catch(e) {}
+                } else if (typeof boundarySource === 'object' && boundarySource.coordinates) {
+                    parsedBoundary = boundarySource.coordinates;
+                }
+            }
+
+            if (parsedBoundary && parsedBoundary.length > 0) {
+                const polyCoords = parsedBoundary[0].map((coord: number[]) => [coord[1], coord[0]]);
+                const polygon = L.polygon(polyCoords, { 
+                    color: '#6b7280', // gray-500
+                    fillColor: '#9ca3af', // gray-400
+                    fillOpacity: 0.3,
+                    weight: 1,
+                    interactive: true // Set to true to allow tooltip on hover
+                });
+                polygon.bindTooltip(loc.name || loc.code || 'Thửa', { permanent: false, direction: 'center' });
+                
+                existingLocationsLayer!.addLayer(polygon);
+                bounds.extend(polygon.getBounds());
+            }
+        });
+
+        if (bounds.isValid() && form.boundary.length === 0) {
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+    } catch (e) {
+        console.error('Lỗi khi tải các thửa hiện có:', e);
+    }
+};
 
 // Edit state
 const isEditing = ref(false);
@@ -490,6 +649,9 @@ const initMap = async () => {
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
+    existingLocationsLayer = new L.FeatureGroup();
+    map.addLayer(existingLocationsLayer);
+
     // Load existing polygon if any
     if (form.boundary && form.boundary.length > 0) {
         // leaf polygon expects lat, lng
@@ -513,7 +675,7 @@ const initMap = async () => {
         
         const geojson = e.layer.toGeoJSON();
         const areaSqMeters = turf.area(geojson);
-        form.area_m2 = Math.round(areaSqMeters);
+        form.area_m2 = Math.round(areaSqMeters * 10) / 10;
         form.boundary = geojson.geometry.coordinates; // [ [ [lng, lat], ... ] ]
         boundaryChanged.value = true;
         
@@ -539,7 +701,7 @@ const initMap = async () => {
                 const layer = layers[0] as any;
                 const geojson = layer.toGeoJSON();
                 const areaSqMeters = turf.area(geojson);
-                form.area_m2 = Math.round(areaSqMeters);
+                form.area_m2 = Math.round(areaSqMeters * 10) / 10;
                 form.boundary = geojson.geometry.coordinates;
                 boundaryChanged.value = true;
                 
@@ -582,6 +744,10 @@ const initMap = async () => {
             }
         }
     }
+
+    if (form.masterGrowingAreaId) {
+        loadExistingLocationsOnMap(form.masterGrowingAreaId);
+    }
 };
 
 // Update marker when inputs change manually
@@ -603,6 +769,9 @@ const loadData = async () => {
     const params: any = {};
     if (filter.province) params.province = filter.province;
     if (filter.ward) params.ward = filter.ward;
+    if (filter.masterGrowingAreaId) params.masterGrowingAreaId = filter.masterGrowingAreaId;
+    if (filter.farmerId) params.farmerId = filter.farmerId;
+    if (filter.leaderId) params.leaderId = filter.leaderId;
     // Note: Search keyword filtering is currently done client-side if API doesn't support it, 
     // or pass to API if implemented. Current API implementation might not support 'search' param yet.
     // Based on Controller, we only added province/ward support. 
@@ -705,6 +874,7 @@ const submitForm = async () => {
         
         showCreateModal.value = false;
         loadData();
+        fetchUsers(); // Refresh farmers list to get updated leaderId
       } catch (err: any) {
         console.error(err);
         const msg = err.response?.data?.message || err.message || 'Có lỗi xảy ra';
@@ -736,7 +906,8 @@ onMounted(async () => {
     await Promise.all([
         loadData(),
         fetchMasterGrowingAreas(),
-        fetchUsers()
+        fetchUsers(),
+        fetchAllLeaders()
     ]);
     // Handle ?edit=locationId from detail page
     const editId = route.query.edit as string;
