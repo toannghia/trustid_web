@@ -64,7 +64,7 @@
                                 <el-tag type="success" effect="dark" size="small">
                                     {{ shipmentsMap[row.id].trackingCode }}
                                 </el-tag>
-                                <div class="text-xs text-gray-400 mt-1">{{ {'WAITING_DRIVER':'Chờ tài xế nhận','READY_FOR_PICKUP':'Sẵn sàng giao','IN_TRANSIT':'Đang giao','PENDING_DEALER_CONFIRM':'Chờ đại lý xác nhận','DELIVERED':'Đã giao'}[shipmentsMap[row.id].status] || shipmentsMap[row.id].status }}</div>
+                                <div class="text-xs text-gray-400 mt-1">{{ ({'WAITING_DRIVER':'Chờ tài xế nhận','READY_FOR_PICKUP':'Sẵn sàng giao','IN_TRANSIT':'Đang giao','PENDING_DEALER_CONFIRM':'Chờ đại lý xác nhận','DELIVERED':'Đã giao'} as Record<string, string>)[shipmentsMap[row.id].status] || shipmentsMap[row.id].status }}</div>
                             </template>
                             <el-button v-else type="primary" size="small" @click="openManualDeliveryDialog(row)">
                                 <el-icon class="mr-1"><Van /></el-icon> Tạo PGH
@@ -270,7 +270,7 @@
                     </thead>
                     <tbody>
                         <tr v-for="(item, idx) in (selectedOrder.items || [])" :key="idx">
-                            <td class="border p-2 text-center">{{ idx + 1 }}</td>
+                            <td class="border p-2 text-center">{{ Number(idx) + 1 }}</td>
                             <td class="border p-2">{{ item.product?.name }}</td>
                             <td class="border p-2 text-center">{{ item.expectedQuantity }}</td>
                             <td class="border p-2 text-center font-bold">{{ item.scannedQuantity }}</td>
@@ -470,7 +470,7 @@ const getPXKCode = (lxh: string) => lxh ? lxh.replace('LXH', 'PXK') : 'PXK-XXX';
 const loadMasterData = async () => {
     try {
         const { data } = await dealerApi.getList();
-        dealers.value = Array.isArray(data) ? data : (data?.items || []);
+        dealers.value = Array.isArray(data) ? data : ((data as any)?.items || []);
     } catch (e) { console.warn('Load dealers failed', e); }
     try {
         const wrRes = await api.get('/supply/warehouses');
@@ -524,8 +524,8 @@ const loadOrders = async () => {
             exportOrderApi.getOrders({ status: 'EXPORTED' })
         ]);
         
-        pendingOrders.value = [...(confirmed.items||confirmed), ...(picking.items||picking)];
-        exportedOrders.value = exported.items || exported;
+        pendingOrders.value = [...((confirmed as any).items||confirmed), ...((picking as any).items||picking)];
+        exportedOrders.value = (exported as any).items || exported;
 
         // Load existing shipments to check which orders already have PGH
         try {

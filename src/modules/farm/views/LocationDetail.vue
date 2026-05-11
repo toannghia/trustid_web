@@ -59,9 +59,15 @@
         <!-- Map Card -->
         <el-card shadow="hover">
           <template #header>
-            <div class="font-bold flex items-center gap-2">
-              <el-icon><MapLocation /></el-icon>
-              Bản đồ vùng trồng
+            <div class="flex items-center justify-between">
+              <div class="font-bold flex items-center gap-2">
+                <el-icon><MapLocation /></el-icon>
+                Bản đồ vùng trồng
+              </div>
+              <el-button type="primary" size="small" @click="show3DDrawer = true">
+                <el-icon class="mr-1"><View /></el-icon>
+                Bản đồ 3D & Vẽ polygon
+              </el-button>
             </div>
           </template>
           <div id="detail-map" style="height: 400px; border-radius: 8px; z-index: 1;"></div>
@@ -242,14 +248,22 @@
         </el-card>
       </div>
     </div>
+
+    <MapLibre3DDrawer
+      v-model="show3DDrawer"
+      :location="location"
+      mode="draw"
+      @boundary-drawn="handleBoundaryDrawn"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, Edit, Coordinate, MapLocation, DataAnalysis, Search, Download, TopRight, DocumentChecked, Link } from '@element-plus/icons-vue';
+import { ArrowLeft, Edit, Coordinate, MapLocation, DataAnalysis, Search, Download, TopRight, DocumentChecked, Link, View } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import MapLibre3DDrawer from '../components/MapLibre3DDrawer.vue';
 import { farmApi, type Location, type KcsInspection } from '../api/farmApi';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -263,6 +277,20 @@ const loading = ref(false);
 const kcsInspections = ref<KcsInspection[]>([]);
 let map: L.Map | null = null;
 let pollingTimer: any = null;
+const show3DDrawer = ref(false);
+
+const handleBoundaryDrawn = async (data: { coordinates: number[][][]; areaM2: number }) => {
+  try {
+    await farmApi.updateLocation(locationId.value, {
+      boundary: { type: 'Polygon', coordinates: data.coordinates },
+      area_m2: data.areaM2,
+    } as any);
+    ElMessage.success('Đã lưu ranh giới mới. Đang chờ phê duyệt.');
+    await loadData();
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.message || 'Lỗi lưu ranh giới');
+  }
+};
 
 const goBack = () => router.push('/farm/locations');
 

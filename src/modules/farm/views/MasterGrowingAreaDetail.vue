@@ -37,7 +37,12 @@
     <!-- Map View -->
     <el-card shadow="hover" class="w-full">
       <template #header>
-        <div class="font-medium text-lg">Bản đồ các Thửa canh tác</div>
+        <div class="flex items-center justify-between">
+          <div class="font-medium text-lg">Bản đồ các Thửa canh tác</div>
+          <el-button type="primary" size="small" @click="show3DDrawer = true">
+            Xem 3D toàn vùng
+          </el-button>
+        </div>
       </template>
       <div id="master-map" style="height: 600px; width: 100%; border-radius: 8px; z-index: 1;"></div>
     </el-card>
@@ -73,6 +78,12 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <MapLibre3DDrawer
+      v-model="show3DDrawer"
+      :locations="locations"
+      mode="view"
+    />
   </div>
 </template>
 
@@ -82,6 +93,7 @@ import { useRoute } from 'vue-router';
 import { Back } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi, type MasterGrowingArea, type Location } from '../api/farmApi';
+import MapLibre3DDrawer from '../components/MapLibre3DDrawer.vue';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -92,6 +104,7 @@ const area = ref<MasterGrowingArea | null>(null);
 const locations = ref<Location[]>([]);
 const loading = ref(false);
 let map: L.Map | null = null;
+const show3DDrawer = ref(false);
 
 const totalUsedAreaM2 = computed(() => {
   return locations.value.reduce((sum, l) => sum + (l.areaM2 || 0), 0);

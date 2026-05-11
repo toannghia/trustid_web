@@ -425,6 +425,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/modules/supply/views/TerritoryManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Phân vùng quản lý' }
       },
+      {
+        path: '/supply/recalls',
+        name: 'RecallManagement',
+        component: () => import('@/modules/supply/views/RecallManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Quản lý Thu hồi' }
+      },
       // VẬN CHUYỂN (TRANSPORT)
       {
         path: '/transport/warehouses',

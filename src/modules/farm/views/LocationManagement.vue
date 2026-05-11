@@ -179,8 +179,13 @@
         </el-row>
 
         <div id="map" style="height: 350px; margin-top: 10px; border-radius: 4px; z-index: 1;"></div>
-        <div class="text-xs text-gray-500 mb-4 mt-2">
-          * Sử dụng công cụ vẽ (hình ngũ giác) bên trái bản đồ để khoanh vùng diện tích. Diện tích m² sẽ được tự động tính toán.
+        <div class="flex items-center justify-between mt-2 mb-4">
+          <div class="text-xs text-gray-500">
+            * Sử dụng công cụ vẽ (hình ngũ giác) bên trái bản đồ để khoanh vùng diện tích.
+          </div>
+          <el-button type="primary" plain size="small" @click="show3DDrawer = true">
+            🗺️ Mở bản đồ 3D để vẽ
+          </el-button>
         </div>
 
         <el-divider content-position="left">Tọa độ (GPS)</el-divider>
@@ -239,6 +244,13 @@
 
     <MasterGrowingAreaModal ref="masterAreaModalRef" @created="fetchMasterGrowingAreas" />
     <QuickUserModal ref="quickUserModalRef" :role-name="currentQuickRole" @created="onQuickUserCreated" />
+
+    <MapLibre3DDrawer
+      v-model="show3DDrawer"
+      :location="editing3DLocation"
+      mode="draw"
+      @boundary-drawn="handle3DBoundaryDrawn"
+    />
   </div>
 </template>
 
@@ -253,6 +265,7 @@ import { useAuthStore } from '@/modules/core/store/auth';
 import { userApi } from '@/modules/core/api/user';
 import MasterGrowingAreaModal from '../components/MasterGrowingAreaModal.vue';
 import QuickUserModal from '../components/QuickUserModal.vue';
+import MapLibre3DDrawer from '../components/MapLibre3DDrawer.vue';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
@@ -276,6 +289,52 @@ const allTeamLeaders = ref<any[]>([]);
 const masterAreaModalRef = ref<any>();
 const quickUserModalRef = ref<any>();
 const currentQuickRole = ref('FARMER');
+const show3DDrawer = ref(false);
+
+// Build a temporary location object for the 3D drawer
+const editing3DLocation = computed(() => {
+  const loc: any = {
+    code: form.code,
+    name: form.name,
+    plantType: '',
+    managerName: '',
+    areaM2: form.area_m2,
+    coordinate: { coordinates: [form.long, form.lat] },
+    boundary: form.boundary.length > 0 ? { type: 'Polygon', coordinates: form.boundary } : null,
+  };
+  return loc;
+});
+
+const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number }) => {
+  form.boundary = data.coordinates;
+  form.area_m2 = Math.round(data.areaM2 * 10) / 10;
+  boundaryChanged.value = true;
+
+  // Update center point from polygon
+  if (data.coordinates[0]?.length >= 3) {
+    const poly = turf.polygon(data.coordinates);
+    const center = turf.centerOfMass(poly);
+    form.long = Number(center.geometry.coordinates[0].toFixed(6));
+    form.lat = Number(center.geometry.coordinates[1].toFixed(6));
+  }
+
+  // Redraw polygon on Leaflet map
+  if (map) {
+    // Remove existing drawn layers
+    map.eachLayer((layer: any) => {
+      if (layer.pm && layer !== map) {
+        map!.removeLayer(layer);
+      }
+    });
+    const polyCoords = data.coordinates[0].map((coord: number[]) => [coord[1], coord[0]]);
+    const polygon = L.polygon(polyCoords, { color: '#16a34a', fillOpacity: 0.2 });
+    polygon.addTo(map);
+    map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
+    if (marker) marker.setLatLng([form.lat, form.long]);
+  }
+
+  ElMessage.success(`Polygon đã vẽ trên 3D! Diện tích: ${form.area_m2.toLocaleString()} m²`);
+};
 
 const openMasterGrowingAreaModal = () => {
     masterAreaModalRef.value?.open();

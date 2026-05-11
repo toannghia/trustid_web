@@ -9,9 +9,92 @@
         <el-select v-model="selectedWard" placeholder="Chọn Xã/Phường" clearable @change="fetchData" :disabled="!selectedProvince" class="w-48">
           <el-option v-for="w in filterWards" :key="w.name" :label="w.name" :value="w.name" />
         </el-select>
+        <el-button type="danger" plain @click="openRecallDialog" class="font-semibold shadow-sm">
+          <el-icon class="mr-1"><Warning /></el-icon> Cảnh báo / Thu hồi
+        </el-button>
         <el-button type="primary" @click="exportReport" class="font-semibold shadow-sm">Xuất Báo cáo</el-button>
       </div>
     </div>
+
+    <!-- Recall Dialog -->
+    <el-dialog v-model="recallDialogVisible" title="🚨 Cảnh báo / Thu hồi sản phẩm" width="720px" @close="resetRecallDialog">
+      <div class="space-y-4">
+        <!-- Step 1: input code -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Bước 1: Nhập mã QR / Serial của sản phẩm</label>
+          <div class="flex gap-2">
+            <el-input v-model="recallCode" placeholder="Quét hoặc nhập mã QR/serial..." @keyup.enter="lookupCode" clearable />
+            <el-button type="primary" @click="lookupCode" :loading="lookupLoading" :disabled="!recallCode.trim()">
+              Tra cứu
+            </el-button>
+          </div>
+        </div>
+
+        <!-- Step 2: result + batch selection -->
+        <div v-if="lookupResult" class="border-t pt-4">
+          <div class="bg-blue-50 rounded p-3 mb-3 text-sm">
+            <div><span class="font-semibold">Sản phẩm:</span> {{ lookupResult.product.name }}</div>
+            <div><span class="font-semibold">Doanh nghiệp:</span> {{ lookupResult.product.tenantName || '---' }}</div>
+            <div><span class="font-semibold">Trạng thái:</span>
+              <el-tag size="small" :type="getGovStatusType(lookupResult.product.govStatus)" class="ml-1">
+                {{ lookupResult.product.govStatus }}
+              </el-tag>
+            </div>
+          </div>
+
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Bước 2: Chọn các lô cần thu hồi</label>
+          <el-table
+            ref="batchTableRef"
+            :data="lookupResult.batches"
+            @selection-change="handleBatchSelection"
+            max-height="280"
+            stripe
+          >
+            <el-table-column type="selection" width="48" :selectable="(row: any) => row.activeCount > 0" />
+            <el-table-column label="Mã lô" prop="batchCode" min-width="140">
+              <template #default="{ row }">
+                <span class="font-mono text-sm">{{ row.batchCode }}</span>
+                <el-tag v-if="row.isScannedItemBatch" type="warning" size="small" class="ml-2">Lô của mã đã quét</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="Loại" prop="batchType" width="90" />
+            <el-table-column label="Tem Active" width="100" align="center">
+              <template #default="{ row }">
+                <span :class="row.activeCount === 0 ? 'text-gray-400' : 'text-green-600 font-semibold'">
+                  {{ row.activeCount }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Đã thu hồi" width="100" align="center">
+              <template #default="{ row }">
+                <span :class="row.recalledCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-400'">
+                  {{ row.recalledCount }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Tổng" width="80" align="center" prop="totalCount" />
+          </el-table>
+
+          <!-- Step 3: reason -->
+          <div class="mt-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Bước 3: Lý do thu hồi <span class="text-red-500">*</span></label>
+            <el-input v-model="recallReason" type="textarea" :rows="3" placeholder="VD: Phát hiện vi phạm tiêu chuẩn chất lượng, lô sản xuất ngày..." />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="recallDialogVisible = false">Hủy</el-button>
+        <el-button
+          type="danger"
+          :disabled="!lookupResult || selectedBatchIds.length === 0 || !recallReason.trim()"
+          :loading="recallSubmitting"
+          @click="submitRecall"
+        >
+          Thu hồi {{ selectedBatchIds.length }} lô
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- KPIs -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -67,11 +150,6 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Hành động" width="120" align="center">
-            <template #default="{ row }">
-              <el-button size="small" type="danger" plain @click="requestRecall(row.id)">Cảnh báo</el-button>
-            </template>
-          </el-table-column>
         </el-table>
       </div>
 
@@ -97,7 +175,7 @@ import { ref, onMounted } from 'vue';
 import api from '@/common/utils/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FarmMapboxView from '@/modules/core/components/FarmMapboxView.vue';
-import { MapLocation } from '@element-plus/icons-vue';
+import { MapLocation, Warning } from '@element-plus/icons-vue';
 import { vietnamUnits } from '@/common/data/vietnam-units';
 import { provinceCoordinates } from '@/common/data/province-coordinates';
 import { computed } from 'vue';
@@ -156,20 +234,73 @@ const fetchData = async () => {
     }
 }
 
-const requestRecall = async (id: string) => {
+// ===== Recall by lookup =====
+const recallDialogVisible = ref(false);
+const recallCode = ref('');
+const lookupLoading = ref(false);
+const lookupResult = ref<any>(null);
+const selectedBatchIds = ref<string[]>([]);
+const recallReason = ref('');
+const recallSubmitting = ref(false);
+
+const openRecallDialog = () => {
+    resetRecallDialog();
+    recallDialogVisible.value = true;
+};
+
+const resetRecallDialog = () => {
+    recallCode.value = '';
+    lookupResult.value = null;
+    selectedBatchIds.value = [];
+    recallReason.value = '';
+};
+
+const lookupCode = async () => {
+    if (!recallCode.value.trim()) return;
+    lookupLoading.value = true;
+    lookupResult.value = null;
+    selectedBatchIds.value = [];
     try {
-        await ElMessageBox.confirm('Gửi yêu cầu cảnh báo/thu hồi sản phẩm này tới Doanh nghiệp?', 'Xác nhận', { type: 'warning' });
-        await api.post(`/api/gov/products/${id}/recall-request`, { reason: 'Phát hiện vi phạm tiêu chuẩn chất lượng' });
-        ElMessage.success('Đã gửi yêu cầu thu hồi thành công');
+        const { data } = await api.get(`/api/gov/lookup-by-code`, { params: { code: recallCode.value.trim() } });
+        lookupResult.value = data;
+        if (!data.batches?.length) {
+            ElMessage.warning('Sản phẩm không có lô nào');
+        }
+    } catch (e: any) {
+        ElMessage.error(e.response?.data?.message || 'Không tìm thấy sản phẩm');
+    } finally {
+        lookupLoading.value = false;
+    }
+};
+
+const handleBatchSelection = (rows: any[]) => {
+    selectedBatchIds.value = rows.map(r => r.id);
+};
+
+const submitRecall = async () => {
+    if (!selectedBatchIds.value.length || !recallReason.value.trim()) return;
+    try {
+        await ElMessageBox.confirm(
+            `Xác nhận thu hồi ${selectedBatchIds.value.length} lô đã chọn? Tất cả tem Active/At Dealer trong các lô này sẽ chuyển sang RECALLED.`,
+            '⚠️ Xác nhận thu hồi',
+            { confirmButtonText: 'Thu hồi', cancelButtonText: 'Hủy', type: 'error' }
+        );
+        recallSubmitting.value = true;
+        const { data } = await api.post('/api/gov/recalls/by-batches', {
+            batchIds: selectedBatchIds.value,
+            reason: recallReason.value.trim(),
+            initiatedBy: 'GOV',
+        });
+        ElMessage.success(data.message || 'Đã thu hồi thành công');
+        recallDialogVisible.value = false;
         fetchData();
     } catch (e: any) {
         if (e === 'cancel' || e === 'close') return;
-        
-        console.error('Lỗi khi gọi API requestRecall:', e);
-        const errMsg = e.response?.data?.message || e.message || JSON.stringify(e);
-        ElMessage.error(`Lỗi hệ thống: ${errMsg}`);
+        ElMessage.error(e.response?.data?.message || 'Lỗi thu hồi');
+    } finally {
+        recallSubmitting.value = false;
     }
-}
+};
 
 const exportReport = () => {
     ElMessage.success('Báo cáo đang được xuất ra PDF. Vui lòng đợi...');

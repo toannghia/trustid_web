@@ -7,7 +7,7 @@ import {
   Coordinate, Setting, Files, Odometer, ArrowRight, SwitchButton,
   Monitor, Document, List, View, Calendar, Connection, Collection,
   Sell, Goods, UserFilled, Key, Bell, Operation, Finished, DataLine, Postcard,
-  Download, Upload, Check, TrendCharts
+  Download, Upload, Check, TrendCharts, Warning
 } from '@element-plus/icons-vue';
 
 interface MenuItem {
@@ -112,6 +112,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Quản lý Xe', path: '/transport/vehicles', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Van },
       { title: 'Đơn hàng vận chuyển', path: '/supply/shipments', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER'], icon: List },
       { title: 'Nhập kho', path: '/transport/operations', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Download },
+      { title: 'Xử lý Thu hồi', path: '/supply/recalls', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Warning },
       
     ]
   },
