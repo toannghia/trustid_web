@@ -11,6 +11,10 @@ export interface Tenant {
   gcp_prefix?: string; // mã doanh nghiệp gs1 [cite: 289]
   codeQuota?: number;
   status: TenantStatus;
+  isTrustedPartner?: boolean;
+  trustedPartnerOrder?: number | null;
+  is_trusted_partner?: boolean;
+  trusted_partner_order?: number | null;
   module_config: {
     iot?: boolean;
     farm?: boolean;

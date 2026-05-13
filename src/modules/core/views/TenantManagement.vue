@@ -23,13 +23,15 @@ const columns = ref([
   { label: 'Địa chỉ', prop: 'address', visible: true },
   { label: 'Điện thoại', prop: 'phone', visible: true },
   { label: 'Email', prop: 'email', visible: true },
+  { label: 'Uy tín', prop: 'trusted', visible: true },
   { label: 'Modules', prop: 'modules', visible: true }
 ]);
 
 const filter = reactive({
   search: '',
   province: '',
-  ward: ''
+  ward: '',
+  trustedOnly: false
 });
 
 import { vietnamUnits } from '@/common/data/vietnam-units';
@@ -55,6 +57,7 @@ const fetchTenants = async () => {
         // Build Params
         const params: any = { search: filter.search };
         if (filter.province) params.province = filter.province;
+        if (filter.trustedOnly) params.isTrustedPartner = true;
 
         const { data } = await tenantApi.getAll(params);
         tenants.value = data.data || data.items || (Array.isArray(data) ? data : []);
@@ -72,6 +75,9 @@ const getImageUrl = (path: string) => {
     const baseUrl = import.meta.env.VITE_API_URL || 'https://api.trustid.com.vn';
     return `${baseUrl}${path}`;
 };
+
+const isTrustedPartner = (row: any) => row.isTrustedPartner || row.is_trusted_partner || false;
+const trustedPartnerOrder = (row: any) => row.trustedPartnerOrder ?? row.trusted_partner_order ?? null;
 
 // ... (Quota & Module Config Mock Logic as before) ...
 const quotaModal = ref(false);
@@ -135,6 +141,11 @@ onMounted(() => {
             <el-select v-model="filter.province" placeholder="Tỉnh/Thành" clearable @change="fetchTenants" style="width: 150px">
                 <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
             </el-select>
+            <el-switch
+                v-model="filter.trustedOnly"
+                active-text="Chỉ DN uy tín"
+                @change="fetchTenants"
+            />
          </div>
          <el-button type="primary" :icon="CirclePlus" @click="openCreateModal">Tạo doanh nghiệp</el-button>
       </div>
@@ -182,6 +193,18 @@ onMounted(() => {
             </template>
         </el-table-column>
 
+        <el-table-column label="Uy tín" width="140" align="center" v-if="columns[5].visible">
+            <template #default="scope">
+                <div v-if="isTrustedPartner(scope.row)" class="flex flex-col items-center gap-1">
+                    <el-tag type="success" size="small">Đang hiển thị</el-tag>
+                    <span v-if="trustedPartnerOrder(scope.row) !== null" class="text-xs text-gray-500">
+                        Thứ tự: {{ trustedPartnerOrder(scope.row) }}
+                    </span>
+                </div>
+                <el-tag v-else type="info" size="small">Không hiển thị</el-tag>
+            </template>
+        </el-table-column>
+
 
 
         <el-table-column label="Mã tem (QR)" width="200" align="center">
@@ -209,7 +232,7 @@ onMounted(() => {
              </template>
         </el-table-column>
         
-        <el-table-column label="Modules" width="180" v-if="columns[3].visible">
+        <el-table-column label="Modules" width="180" v-if="columns[6].visible">
            <template #default="scope">
              <div class="flex flex-wrap gap-1" v-if="scope.row.moduleConfig || scope.row.module_config">
                 <el-tag size="small" v-if="(scope.row.moduleConfig || scope.row.module_config).farm">Farm</el-tag>
@@ -266,4 +289,3 @@ onMounted(() => {
 
   </div>
 </template>
-

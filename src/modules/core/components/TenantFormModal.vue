@@ -32,7 +32,7 @@ const submitting = ref(false);
 const quillKey = ref(0);
 const showMediaInfo = ref(false);
 
-const form = reactive({
+const form = reactive<any>({
     id: '',
     name: '',
     taxCode: '',
@@ -47,6 +47,8 @@ const form = reactive({
     logo: '',
     description: '',
     isNdaEnabled: false,
+    isTrustedPartner: false,
+    trustedPartnerOrder: null,
     ndaStatus: '',
     ndaDid: '',
     moduleConfig: { farm: true, supply: true, retail: true, iot: false }
@@ -135,6 +137,8 @@ const initCreate = () => {
     form.logo = '';
     form.description = '';
     form.isNdaEnabled = false;
+    form.isTrustedPartner = false;
+    form.trustedPartnerOrder = null;
     form.moduleConfig = { farm: true, supply: true, retail: true, iot: false };
     wards.value = [];
 };
@@ -154,6 +158,8 @@ const initEdit = (data: any) => {
     form.logo = data.logo || '';
     form.description = data.description || '';
     form.isNdaEnabled = data.isNdaEnabled || data.is_nda_enabled || false;
+    form.isTrustedPartner = data.isTrustedPartner || data.is_trusted_partner || false;
+    form.trustedPartnerOrder = data.trustedPartnerOrder ?? data.trusted_partner_order ?? null;
     form.ndaStatus = data.ndaStatus || data.nda_status || 'NONE';
     form.ndaDid = data.ndaDid || data.nda_did || '';
     form.moduleConfig = data.moduleConfig || data.module_config || { farm: true, supply: true, retail: true, iot: false };
@@ -173,6 +179,12 @@ const handleMediaSelect = (url: any) => {
     form.logo = Array.isArray(url) ? url[0] : url; 
     if (formRef.value) formRef.value.validateField('logo');
 };
+
+watch(() => form.isTrustedPartner, (enabled) => {
+    if (!enabled) {
+        form.trustedPartnerOrder = null;
+    }
+});
 
 const triggerUpload = () => fileInput.value?.click();
 
@@ -218,7 +230,9 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
                     email: form.email?.trim() || null,
                     phone: form.phone?.trim() || null,
                     address: form.address?.trim() || null,
-                    isNdaEnabled: form.isNdaEnabled
+                    isNdaEnabled: form.isNdaEnabled,
+                    isTrustedPartner: form.isTrustedPartner,
+                    trustedPartnerOrder: form.isTrustedPartner ? form.trustedPartnerOrder : null
                 };
                 
                 if (props.isEdit && form.id) {
@@ -335,6 +349,27 @@ const getNdaStatusType = (status: string | undefined | null) => {
                                     </template>
                                 </el-input>
                             </div>
+                         </div>
+
+                         <div class="mt-3 pt-3 border-t border-gray-200">
+                            <el-switch
+                                v-model="form.isTrustedPartner"
+                                active-text="Doanh nghiệp uy tín"
+                                class="mb-2"
+                            />
+                            <el-input-number
+                                v-model="form.trustedPartnerOrder"
+                                :disabled="!form.isTrustedPartner"
+                                :min="0"
+                                :step="1"
+                                :precision="0"
+                                controls-position="right"
+                                placeholder="Thứ tự"
+                                class="w-full"
+                            />
+                            <p class="text-xs text-gray-500 mt-1">
+                                Bật để hiển thị trên app, số nhỏ sẽ đứng trước.
+                            </p>
                          </div>
                     </div>
                 </el-col>
