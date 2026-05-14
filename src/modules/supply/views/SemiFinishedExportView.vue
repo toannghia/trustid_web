@@ -421,22 +421,25 @@ const generateQR = async (text: string) => {
   }
 };
 
-const lookupTenant = async (code?: string) => {
-  const targetCode = code || tenantCodeInput.value.trim();
-  if (!targetCode) return;
+const lookupTenant = async (codeOrEvent?: string | any) => {
+  let targetCode = typeof codeOrEvent === 'string' ? codeOrEvent : tenantCodeInput.value;
+  targetCode = (targetCode || '').trim();
+
+  if (!targetCode || targetCode.includes('[object')) return;
+
+  // Đã tra cứu thành công mã này rồi thì không làm gì cả
+  if (resolvedTenant.value && (resolvedTenant.value.taxCode === targetCode || resolvedTenant.value.id === targetCode)) return;
+
   lookingUp.value = true;
-  resolvedTenant.value = null;
   try {
     const { data } = await tenantApi.lookupByCode(targetCode);
     resolvedTenant.value = data;
     form.value.to_tenant_id = data.id;
-    // Cache the successful tax code if manual
-    if (!code) {
-      localStorage.setItem(CACHE_KEY_TENANT, targetCode);
-    }
-    // ElMessage.success(`Đã tìm thấy: ${data.name}`);
+    // Lưu lại mã thành công gần nhất
+    localStorage.setItem(CACHE_KEY_TENANT, targetCode);
     focusScan();
   } catch (e: any) {
+    resolvedTenant.value = null;
     ElMessage.error(e?.response?.data?.message || 'Không tìm thấy doanh nghiệp');
   } finally {
     lookingUp.value = false;
