@@ -98,7 +98,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Bán thành phẩm', path: '/supply/semi-finished', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: TrendCharts },
       { title: 'Xuất B2B', path: '/supply/semi-finished/export', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Upload },
       { title: 'Nhập B2B', path: '/supply/semi-finished/import', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Download },
-      { title: 'Báo cáo XNT B2B', path: '/supply/semi-finished/report', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: DataLine },
+      //{ title: 'Báo cáo XNT B2B', path: '/supply/semi-finished/report', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: DataLine },
       { title: 'Lệnh Đóng gói', path: '/supply/packaging', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Postcard },
       { title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },
       { title: 'Sản phẩm Active', path: '/supply/items', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Goods }

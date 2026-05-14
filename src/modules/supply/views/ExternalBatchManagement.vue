@@ -51,7 +51,7 @@ const SUGGESTED_FIELDS = [
 
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 
-const provinces = VIETNAM_PROVINCES.map(name => ({ name, code: name }));
+const provinces = VIETNAM_PROVINCES;
 
 
 

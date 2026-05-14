@@ -49,7 +49,7 @@
             <el-input :value="selectedProductName" readonly disabled class="!bg-gray-50" />
           </el-form-item>
           <el-form-item label="Tỉnh/Thành">
-            <el-input :value="form.production_address" readonly disabled class="!bg-gray-50" />
+            <el-input :value="sourceProvinceName" readonly disabled class="!bg-gray-50" />
           </el-form-item>
           <el-form-item label="Mã lô nội bộ">
             <el-input :value="nextBatchCode" readonly class="font-mono bg-gray-50" />
@@ -291,7 +291,7 @@ let rangeDebounceTimer: any = null;
 
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 
-const provinces = VIETNAM_PROVINCES.map(name => ({ name, code: name }));
+const provinces = VIETNAM_PROVINCES;
 
 
 
@@ -382,6 +382,13 @@ const selectedProductName = computed(() => {
   return p ? p.name : '---';
 });
 
+const sourceProvinceName = computed(() => {
+  if (!form.value.production_address) return '---';
+  // Tìm theo code hoặc name
+  const p = provinces.find(p => p.code === form.value.production_address || p.name === form.value.production_address);
+  return p ? p.name : form.value.production_address;
+});
+
 const selectedSourceStock = computed(() => {
   if (!selectedSourceBatch.value) return 0;
   return Number(selectedSourceBatch.value.availableQuantity ?? selectedSourceBatch.value.totalQuantity ?? 0);
@@ -456,8 +463,13 @@ const validationMessage = computed(() => {
 const canSubmit = computed(() => validationMessage.value.length === 0);
 
 const loadNextBatchCode = async () => {
-  const province = provinces.find(p => p.name === form.value.production_address);
+  // Ưu tiên lấy theo địa điểm đóng gói mới, nếu chưa chọn thì lấy theo địa điểm sản xuất lô nguồn
+  const locationName = packagingInfo.value.location || form.value.production_address;
+  if (!locationName) return;
+  
+  const province = provinces.find(p => p.name === locationName || p.code === locationName);
   const code = province ? province.code : '';
+  
   const { data } = await supplyApi.getNextSemiFinishedBatchCode(code || undefined);
   nextBatchCode.value = data?.next_batch_code || '';
 };
@@ -731,7 +743,7 @@ const submit = async () => {
 };
 
 watch(
-  () => form.value.production_address,
+  [() => form.value.production_address, () => packagingInfo.value.location],
   () => {
     if (previewTimer) clearTimeout(previewTimer);
     previewTimer = setTimeout(() => {

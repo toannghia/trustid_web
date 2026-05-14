@@ -131,7 +131,7 @@ onMounted(fetchRegions);
                         placeholder="Chọn các tỉnh thuộc vùng này"
                         class="w-full"
                     >
-                        <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
+                        <el-option v-for="p in provinces" :key="p.code" :label="p.name" :value="p.name" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="Ghi chú">

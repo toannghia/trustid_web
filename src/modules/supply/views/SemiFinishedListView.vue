@@ -117,7 +117,7 @@
               <el-descriptions-item label="Khối lượng nạp">{{ selectedBatch.inputWeight }} kg</el-descriptions-item>
               <el-descriptions-item label="Khối lượng ra">{{ selectedBatch.outputWeight }} kg</el-descriptions-item>
               <el-descriptions-item label="Nhân viên đóng gói">{{ selectedBatch.sourceInfo?.packer || '-' }}</el-descriptions-item>
-              <el-descriptions-item label="Địa điểm">{{ selectedBatch.sourceInfo?.location_name || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="Địa điểm">{{ getDisplayLocation(selectedBatch) }}</el-descriptions-item>
             </el-descriptions>
 
             <div class="mt-4">
@@ -148,6 +148,7 @@ import { supplyApi } from '../api/supplyApi';
 import { Bottom, Calendar, Delete, Upload, Download, Plus, Search, Refresh, ShoppingCart, User } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { ElMessageBox, ElMessage } from 'element-plus';
+import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 
 const router = useRouter();
 const batches = ref<any[]>([]);
@@ -162,6 +163,18 @@ const semiFinishedBatches = computed(() => {
 });
 
 const canSelectRow = (row: any) => row.availableQuantity > 0.001;
+
+const getDisplayLocation = (batch: any) => {
+  if (!batch || !batch.sourceInfo) return '-';
+  if (batch.sourceInfo.location_name) return batch.sourceInfo.location_name;
+  
+  const code = batch.sourceInfo.production_address;
+  if (code) {
+    const province = VIETNAM_PROVINCES.find(p => p.code === code);
+    return province ? province.name : code;
+  }
+  return '-';
+};
 
 const loadData = async () => {
   loading.value = true;
