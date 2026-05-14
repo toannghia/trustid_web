@@ -390,6 +390,36 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Sản phẩm Active' }
       },
       {
+        path: '/supply/semi-finished',
+        name: 'SemiFinishedList',
+        component: () => import('@/modules/supply/views/SemiFinishedListView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], title: 'Lô bán thành phẩm' }
+      },
+      {
+        path: '/supply/semi-finished/refine',
+        name: 'SemiFinishedRefine',
+        component: () => import('@/modules/supply/views/SemiFinishedRefineView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], title: 'Tạo lô bán thành phẩm' }
+      },
+      {
+        path: '/supply/semi-finished/export',
+        name: 'SemiFinishedExport',
+        component: () => import('@/modules/supply/views/SemiFinishedExportView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Xuất B2B bán thành phẩm' }
+      },
+      {
+        path: '/supply/semi-finished/import',
+        name: 'SemiFinishedImport',
+        component: () => import('@/modules/supply/views/SemiFinishedImportView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Nhập B2B bán thành phẩm' }
+      },
+      {
+        path: '/supply/semi-finished/report',
+        name: 'SemiFinishedReport',
+        component: () => import('@/modules/supply/views/B2BInventoryReportView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], title: 'Báo cáo XNT B2B' }
+      },
+      {
         path: '/supply/shipments',
         name: 'SupplyShipments',
         component: () => import('@/modules/supply/views/ShipmentManagement.vue'),

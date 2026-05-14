@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { supplyApi, CreateExternalBatchDto, ExportBatchDto, AssignCodesToBatchDto } from '../api/supplyApi';
 import { productApi } from '@/modules/core/api/product';
 import { tenantApi } from '@/modules/core/api/tenant';
+import { transportApi } from '../api/transportApi';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   Plus, Edit, Delete, Box, Download, Connection, 
@@ -18,8 +19,19 @@ const router = useRouter();
 const loading = ref(false);
 const batches = ref<any[]>([]);
 const products = ref<any[]>([]);
+const warehouses = ref<any[]>([]);
 const tenants = ref<any[]>([]);
 const searchQuery = ref('');
+const productFilter = ref('');
+
+const weightUnits = [
+  { label: 'Tấn', value: 'ton', rate: 1000 },
+  { label: 'Tạ', value: 'quintal', rate: 100 },
+  { label: 'Yến', value: 'yen', rate: 10 },
+  { label: 'Kg', value: 'kg', rate: 1 }
+];
+const inputUnit = ref('ton');
+const displayQuantity = ref(1);
 
 // Dialogs
 const showBatchDialog = ref(false);
@@ -37,34 +49,32 @@ const SUGGESTED_FIELDS = [
   { key: 'Phương pháp chế biến', category: 'general' },
 ];
 
+const provinces = [
+  { name: 'Thành phố Đà Nẵng', code: 'ĐN' },
+  { name: 'Tỉnh Đồng Nai', code: 'ĐN' },
+  { name: 'Thành phố Hà Nội', code: 'HN' },
+  { name: 'Thành phố Hồ Chí Minh', code: 'HCM' },
+  { name: 'Tỉnh Lâm Đồng', code: 'LĐ' },
+  { name: 'Tỉnh Đắk Lắk', code: 'ĐL' },
+  { name: 'Tỉnh Gia Lai', code: 'GL' },
+  { name: 'Tỉnh Tiền Giang', code: 'TG' },
+  { name: 'Tỉnh An Giang', code: 'AG' },
+  { name: 'Tỉnh Long An', code: 'LA' },
+  { name: 'Tỉnh Đồng Tháp', code: 'ĐT' },
+];
+
 const initialSourceInfo = () => ({
-  // Nhóm 1: Nguồn gốc
-  supplier: '',
-  supplierAddress: '',
-  supplierPhone: '',
-  supplierCert: '',
-  // Nhóm 2: Canh tác
-  plantingDate: null,
+  // Nhóm 1: Thông tin Sơ chế & Nhập kho
+  processingUnit: '',
+  production_address: '', // Địa điểm sơ chế (Tỉnh/Thành)
+  // Nhóm 2: Nguồn gốc & Canh tác
+  seedOwner: '',
+  seedBatchCode: '',
   growingRegion: '',
-  farmArea: null,
-  cultivationProcess: '',
-  fertilizers: '',
-  pesticides: '',
-  // Nhóm 3: Thu hoạch
+  plantingDate: null,
   harvestDate: null,
-  totalWeightKg: null,
-  unitWeightKg: null,
-  harvestMethod: '',
-  // Nhóm 4: Chế biến
-  processingDate: null,
-  processingMethod: '',
-  storageCondition: '',
-  // Nhóm 5: Chất lượng
-  qualityGrade: '',
-  moisturePercent: null,
-  labTestResult: '',
-  certifications: [],
-  // Nhóm 6: Tùy chỉnh (Array of objects for UI)
+  cultivationProcess: '',
+  // Nhóm 3: Tùy chỉnh & Ghi chú
   customFields: [],
   note: ''
 });
@@ -182,28 +192,45 @@ const handleAssignCodes = async () => {
 
 // Computed
 const filteredBatches = computed(() => {
-  if (!searchQuery.value) return batches.value;
-  const q = searchQuery.value.toLowerCase();
-  return batches.value.filter(b => 
-    b.batchCode.toLowerCase().includes(q) || 
-    b.product?.name?.toLowerCase().includes(q)
-  );
+  let result = batches.value;
+  
+  if (productFilter.value) {
+    result = result.filter(b => b.productId === productFilter.value);
+  }
+  
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(b => 
+      b.batchCode.toLowerCase().includes(q) || 
+      b.product?.name?.toLowerCase().includes(q)
+    );
+  }
+  return result;
+});
+
+const stats = computed(() => {
+  return {
+    totalCount: filteredBatches.value.length,
+    totalWeight: filteredBatches.value.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0)
+  };
 });
 
 // Actions
 const fetchData = async () => {
   loading.value = true;
   try {
-    const [batchesRes, productsRes, tenantsRes]: any[] = await Promise.all([
+    const [batchesRes, productsRes, tenantsRes, warehousesRes]: any[] = await Promise.all([
       supplyApi.getExternalBatches(),
       productApi.getList({ limit: 100 }),
-      tenantApi.getActive({ limit: 100 })
+      tenantApi.getActive({ limit: 100 }),
+      transportApi.getWarehouses()
     ]);
     
     // Defensive data parsing
     batches.value = batchesRes.data?.data || batchesRes.data || [];
     products.value = productsRes.data?.items || productsRes.data?.data || productsRes.data || [];
     tenants.value = tenantsRes.data?.items || tenantsRes.data?.data || tenantsRes.data || [];
+    warehouses.value = warehousesRes.data || [];
     
     console.log('Loaded batches:', batches.value.length);
   } catch (error: any) {
@@ -222,12 +249,16 @@ const handleAdd = () => {
     product_id: '',
     batch_type: 'EXTERNAL',
     quantity: 1,
+    target_warehouse_id: '',
     qr_code_serial: '',
     source_info: initialSourceInfo(),
-    images: []
+    images: [],
+    edit_reason: ''
   };
   uploadFileList.value = [];
   activeSections.value = ['general', 'origin'];
+  displayQuantity.value = 1;
+  inputUnit.value = 'ton';
   showBatchDialog.value = true;
 };
 
@@ -243,13 +274,19 @@ const handleEdit = (row: any) => {
     });
   }
 
+  const qty = Number(row.totalUnitsExpected || 0);
+  displayQuantity.value = qty;
+  inputUnit.value = 'kg';
+
   batchForm.value = {
     id: row.id,
     product_id: row.productId,
     batch_type: row.batchType,
-    quantity: row.totalUnitsExpected,
+    quantity: qty,
+    target_warehouse_id: row.warehouseStocks?.[0]?.warehouseId || '',
     qr_code_serial: row.batchQrSerial,
     images: row.images || [],
+    edit_reason: '',
     source_info: {
       ...initialSourceInfo(),
       ...source,
@@ -267,9 +304,48 @@ const handleEdit = (row: any) => {
 };
 
 const saveBatch = async () => {
+  // Kiểm tra các trường bắt buộc
+  if (!batchForm.value.product_id) {
+    ElMessage.warning('Vui lòng chọn Sản phẩm');
+    return;
+  }
+  if (!batchForm.value.target_warehouse_id) {
+    ElMessage.warning('Vui lòng chọn Kho nhập hàng');
+    return;
+  }
+  if (!displayQuantity.value || displayQuantity.value <= 0) {
+    ElMessage.warning('Vui lòng nhập Khối lượng nhập hợp lệ');
+    return;
+  }
+  if (!batchForm.value.source_info.production_address) {
+    ElMessage.warning('Vui lòng chọn Địa điểm sơ chế (Tỉnh)');
+    return;
+  }
+  if (!batchForm.value.source_info.seedBatchCode) {
+    ElMessage.warning('Vui lòng nhập Mã hiệu lô giống');
+    return;
+  }
+  if (!batchForm.value.source_info.plantingDate) {
+    ElMessage.warning('Vui lòng chọn Ngày gieo trồng');
+    return;
+  }
+  if (!batchForm.value.source_info.harvestDate) {
+    ElMessage.warning('Vui lòng chọn Ngày thu hoạch');
+    return;
+  }
+
+  if (isEdit.value && !batchForm.value.edit_reason) {
+    ElMessage.warning('Vui lòng nhập Lý do chỉnh sửa để tiếp tục');
+    return;
+  }
   try {
     const payload = JSON.parse(JSON.stringify(batchForm.value));
     
+    // Calculate quantity in KG
+    const unitObj = weightUnits.find(u => u.value === inputUnit.value);
+    const rate = unitObj ? unitObj.rate : 1;
+    payload.quantity = displayQuantity.value * rate;
+
     // Convert customFields array back to object for DB
     const customFieldsObj: Record<string, any> = {};
     payload.source_info.customFields.forEach((f: any) => {
@@ -302,27 +378,14 @@ const onProductSelect = () => {
 };
 
 const fieldLabels: Record<string, string> = {
-  supplier: 'Nhà cung cấp',
-  supplierAddress: 'Địa chỉ',
-  supplierPhone: 'SĐT',
-  supplierCert: 'Chứng nhận NCC',
-  plantingDate: 'Ngày trồng',
-  growingRegion: 'Vùng trồng',
-  farmArea: 'Diện tích (ha)',
-  cultivationProcess: 'Quy trình',
-  fertilizers: 'Phân bón',
-  pesticides: 'Thuốc BVTV',
+  processingUnit: 'Đơn vị sơ chế',
+  processingLocation: 'Địa điểm sơ chế',
+  seedOwner: 'Chủ lô hạt giống',
+  seedBatchCode: 'Mã hiệu lô giống',
+  growingRegion: 'Khu vực trồng',
+  plantingDate: 'Ngày gieo trồng',
   harvestDate: 'Ngày thu hoạch',
-  totalWeightKg: 'KL cả lô (kg)',
-  unitWeightKg: 'KL đơn vị (kg)',
-  harvestMethod: 'P/P Thu hoạch',
-  processingDate: 'Ngày chế biến',
-  processingMethod: 'P/P Chế biến',
-  storageCondition: 'Bảo quản',
-  qualityGrade: 'Phân loại',
-  moisturePercent: 'Độ ẩm (%)',
-  labTestResult: 'Kiểm định',
-  certifications: 'Chứng chỉ',
+  cultivationProcess: 'Quy trình canh tác',
   note: 'Ghi chú'
 };
 
@@ -330,6 +393,22 @@ const getFieldLabel = (key: string) => fieldLabels[key] || key;
 
 const isMetadataField = (key: string) => {
   return ['id', 'customFields'].indexOf(key) === -1;
+};
+
+const formatMetadataValue = (key: string, val: any) => {
+  if (!val) return '';
+  if (key.toLowerCase().includes('date') || key === 'plantingDate' || key === 'harvestDate') {
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+    } catch (e) {}
+  }
+  return val;
 };
 
 const handleDelete = (row: any) => {
@@ -418,28 +497,61 @@ onMounted(fetchData);
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">Quản lý Lô nhập ngoài</h1>
-        <p class="text-gray-500 text-sm">Quản lý các lô hàng nhập từ nguồn ngoài hoặc chuyển giao giữa các chi nhánh</p>
+        <h1 class="text-2xl font-bold text-gray-800">Quản lý lô nguyên liệu nhập ngoài</h1>
+        <p class="text-gray-500 text-sm">Quản lý các lô nguyên liệu nhập từ nguồn ngoài hoặc chuyển giao giữa các chi nhánh</p>
       </div>
       <div class="flex gap-3">
         <el-button type="warning" icon="Connection" @click="showReceiveDialog = true">
           Nhận lô chuyển giao (QR)
         </el-button>
         <el-button type="primary" icon="Plus" @click="handleAdd">
-          Thêm lô nhập ngoài
+          Nhập lô nguyên liệu ngoài
         </el-button>
       </div>
     </div>
 
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-4 gap-6 mb-6">
+      <el-card shadow="never" class="!bg-blue-50 border-none">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-blue-500 rounded-lg text-white">
+            <el-icon :size="24"><Box /></el-icon>
+          </div>
+          <div>
+            <div class="text-sm text-blue-600 font-medium">Tổng số lô</div>
+            <div class="text-2xl font-bold text-blue-900">{{ stats.totalCount }}</div>
+          </div>
+        </div>
+      </el-card>
+      <el-card shadow="never" class="!bg-green-50 border-none">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-green-500 rounded-lg text-white">
+            <el-icon :size="24"><Operation /></el-icon>
+          </div>
+          <div>
+            <div class="text-sm text-green-600 font-medium">Tổng khối lượng</div>
+            <div class="text-2xl font-bold text-green-900">{{ stats.totalWeight.toLocaleString() }} kg</div>
+          </div>
+        </div>
+      </el-card>
+    </div>
+
     <!-- Filter Bar -->
-    <div class="bg-white p-4 rounded-lg shadow-sm mb-6 flex justify-between items-center">
-      <div class="w-80">
-        <el-input
-          v-model="searchQuery"
-          placeholder="Tìm theo mã lô hoặc sản phẩm..."
-          :prefix-icon="Search"
-          clearable
-        />
+    <div class="bg-white p-4 rounded-lg shadow-sm mb-6 flex justify-between items-center gap-4">
+      <div class="flex gap-4 flex-1">
+        <div class="w-80">
+          <el-input
+            v-model="searchQuery"
+            placeholder="Tìm theo mã lô hoặc sản phẩm..."
+            :prefix-icon="Search"
+            clearable
+          />
+        </div>
+        <div class="w-64">
+          <el-select v-model="productFilter" placeholder="Lọc theo sản phẩm" clearable class="w-full">
+            <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </div>
       </div>
       <el-button :icon="Refresh" @click="fetchData">Làm mới</el-button>
     </div>
@@ -458,9 +570,9 @@ onMounted(fetchData);
                   </h4>
                   <div class="grid grid-cols-1 gap-1">
                     <template v-for="(val, key) in row.sourceInfo" :key="key">
-                      <div v-if="val && isMetadataField(key) && ['supplier', 'supplierAddress', 'plantingDate', 'growingRegion', 'cultivationProcess'].includes(key)" class="flex text-sm">
-                        <span class="w-28 text-gray-400">{{ getFieldLabel(key) }}:</span>
-                        <span class="text-gray-700 font-medium">{{ val }}</span>
+                      <div v-if="val && isMetadataField(key) && ['seedOwner', 'seedBatchCode', 'growingRegion', 'plantingDate', 'harvestDate', 'cultivationProcess', 'processingUnit', 'production_address'].includes(key)" class="flex text-sm">
+                        <span class="w-32 text-gray-400">{{ getFieldLabel(key) }}:</span>
+                        <span class="text-gray-700 font-medium">{{ formatMetadataValue(key, val) }}</span>
                       </div>
                     </template>
                   </div>
@@ -474,7 +586,7 @@ onMounted(fetchData);
                     <template v-for="(val, key) in row.sourceInfo" :key="key">
                       <div v-if="val && isMetadataField(key) && ['harvestDate', 'totalWeightKg', 'unitWeightKg', 'qualityGrade', 'labTestResult'].includes(key)" class="flex text-sm">
                         <span class="w-32 text-gray-400">{{ getFieldLabel(key) }}:</span>
-                        <span class="text-gray-700 font-medium">{{ val }}</span>
+                        <span class="text-gray-700 font-medium">{{ formatMetadataValue(key, val) }}</span>
                       </div>
                     </template>
                   </div>
@@ -511,62 +623,58 @@ onMounted(fetchData);
         </el-table-column>
         <el-table-column prop="batchCode" label="Mã Lô" width="220">
           <template #default="{ row }">
-            <span class="font-mono font-bold text-blue-600">{{ row.batchCode }}</span>
-            <div class="text-[10px] text-gray-400" v-if="row.batchQrSerial">
-              Serial: {{ row.batchQrSerial || 'Dán nhãn sau' }}
+            <div class="flex flex-col">
+              <span class="font-mono font-bold text-blue-600">{{ row.batchCode }}</span>
+              <span v-if="row.batchQrSerial" class="text-xs text-gray-400">QR: {{ row.batchQrSerial }}</span>
             </div>
           </template>
         </el-table-column>
+
+        <el-table-column label="Mã hiệu lô" width="150">
+          <template #default="{ row }">
+            <span class="font-medium text-gray-700">{{ row.sourceInfo?.seedBatchCode || '-' }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="Sản phẩm" min-width="200">
           <template #default="{ row }">
-            <div class="font-medium text-gray-700">{{ row.product?.name || 'N/A' }}</div>
-            <div class="text-xs text-gray-400" v-if="row.sourceInfo?.supplier">Nguồn: {{ row.sourceInfo.supplier }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Loại" width="130">
-          <template #default="{ row }">
-            <el-tag size="small" effect="plain">{{ getBatchTypeLabel(row.batchType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Dự kiến" width="100" align="center">
-          <template #default="{ row }">
-            <div class="text-sm font-bold text-gray-700">{{ row.totalUnitsExpected }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Tiến độ" width="180">
-          <template #default="{ row }">
-            <div class="space-y-1">
-              <el-progress 
-                :percentage="Math.min(100, Math.round(((row.packCount + (row.exportedQuantity || 0)) / row.totalUnitsExpected) * 100))" 
-                :status="row.status === 'COMPLETED' ? 'success' : ''"
-                :stroke-width="6"
-              />
-              <div class="text-[10px] text-gray-400 flex justify-between">
-                <span>Gói: {{ row.packCount }}</span>
-                <span>Xuất: {{ row.exportedQuantity }}</span>
-              </div>
+            <div class="flex flex-col">
+              <span class="font-bold text-gray-800">{{ row.product?.name || 'N/A' }}</span>
+              <span v-if="row.sourceInfo?.seedOwner" class="text-xs text-gray-400">Chủ giống: {{ row.sourceInfo.seedOwner }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="Trạng thái" width="120" align="center">
+
+        <el-table-column label="Kho nhập" width="180">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+            <div class="flex items-center gap-1 text-gray-600">
+              <el-icon><Box /></el-icon>
+              <span>{{ row.warehouseStocks?.[0]?.warehouse?.name || 'Chưa xác định' }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="Thao tác" width="260" fixed="right">
+
+        <el-table-column label="Khối lượng (kg)" width="150" align="right">
           <template #default="{ row }">
-            <div class="flex gap-1">
-              <el-tooltip content="Gán mã QR cho bao/thùng" v-if="row.status === 'PACKING'">
-                <el-button type="primary" :icon="Stamp" circle size="small" @click="openAssignDialog(row)" />
-              </el-tooltip>
-              <el-tooltip content="Bắt đầu đóng gói" v-if="row.status === 'PACKING'">
-                <el-button type="success" :icon="VideoPlay" circle size="small" @click="startPacking(row)" />
-              </el-tooltip>
-              <el-tooltip content="Xuất chuyển giao">
+            <div class="flex flex-col items-end">
+              <span class="font-bold text-gray-900">{{ (Number(row.totalUnitsExpected) || 0).toLocaleString() }}</span>
+              <span class="text-[10px] text-gray-400 uppercase">Tồn: {{ (Number(row.totalQuantity) || 0).toLocaleString() }} kg</span>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Thao tác" width="200" fixed="right">
+          <template #default="{ row }">
+            <div class="flex gap-2">
+              <el-tooltip content="Xuất lô B2B" placement="top" v-if="Number(row.totalQuantity) > 0.001">
                 <el-button type="warning" :icon="Download" circle size="small" @click="openExportDialog(row)" />
               </el-tooltip>
-              <el-button :icon="Edit" circle size="small" @click="handleEdit(row)" v-if="row.status === 'PACKING'" />
-              <el-button type="danger" :icon="Delete" circle size="small" @click="handleDelete(row)" v-if="row.packCount === 0 && row.exportedQuantity === 0" />
+              <el-tooltip content="Chỉnh sửa" placement="top">
+                <el-button type="primary" :icon="Edit" circle size="small" @click="handleEdit(row)" />
+              </el-tooltip>
+              <el-tooltip content="Xóa" placement="top">
+                <el-button type="danger" :icon="Delete" circle size="small" @click="handleDelete(row)" />
+              </el-tooltip>
             </div>
           </template>
         </el-table-column>
@@ -575,127 +683,108 @@ onMounted(fetchData);
 
     <el-dialog
       v-model="showBatchDialog"
-      :title="isEdit ? 'Cập nhật lô nhập ngoài' : 'Tạo mới lô nhập ngoài'"
-      width="780px"
-      destroy-on-close
-      custom-class="batch-dialog"
+      :title="isEdit ? 'Chỉnh sửa lô nhập ngoài' : 'Nhập lô nguyên liệu ngoài'"
+      width="1000px"
+      :close-on-click-modal="false"
+      class="rounded-xl"
     >
       <el-form :model="batchForm" label-width="150px" label-position="left">
         <el-collapse v-model="activeSections">
           <!-- Phàn 1: Chung -->
-          <el-collapse-item title="THÔNG TIN CHUNG" name="general">
+          <el-collapse-item name="general">
             <template #title>
-              <div class="flex items-center gap-2 font-bold text-blue-600">
-                <el-icon><Operation /></el-icon> THÔNG TIN CHUNG
+              <div class="flex items-center gap-2 font-bold text-blue-600 uppercase">
+                <el-icon><Operation /></el-icon> Thông tin Sơ chế & Nhập kho
               </div>
             </template>
             <div class="grid grid-cols-2 gap-x-8">
-              <el-form-item label="Sản phẩm" required>
-                <el-select v-model="batchForm.product_id" filterable placeholder="Chọn sản phẩm" class="w-full" @change="onProductSelect">
-                  <el-option
-                    v-for="p in products"
-                    :key="p.id"
-                    :label="p.name"
-                    :value="p.id"
-                  />
+              <el-form-item label="Tên sản phẩm" required>
+                <el-select v-model="batchForm.product_id" filterable placeholder="Chọn sản phẩm" class="w-full">
+                  <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="Số lượng dự kiến" required>
-                <el-input-number v-model="batchForm.quantity" :min="1" class="!w-full" />
+              <el-form-item label="Kho nhập hàng" required>
+                <el-select v-model="batchForm.target_warehouse_id" filterable placeholder="Chọn kho nhập nguyên liệu" class="w-full">
+                  <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
+                </el-select>
               </el-form-item>
-              <el-form-item label="Mã QR định danh">
-                <el-input v-model="batchForm.qr_code_serial" placeholder="Serial mã tem từ kho" />
+              <el-form-item label="Khối lượng nhập" required>
+                <div class="flex w-full gap-2">
+                  <el-input-number v-model="displayQuantity" :min="0.1" :step="0.1" class="!flex-1" />
+                  <el-select v-model="inputUnit" class="!w-32">
+                    <el-option v-for="u in weightUnits" :key="u.value" :label="u.label" :value="u.value" />
+                  </el-select>
+                </div>
+                <div class="text-xs text-gray-400 mt-1" v-if="inputUnit !== 'kg'">
+                  Quy đổi: {{ (displayQuantity * (weightUnits.find(u => u.value === inputUnit)?.rate || 1)).toLocaleString() }} kg
+                </div>
+              </el-form-item>
+              <el-form-item label="Đơn vị sơ chế">
+                <el-input v-model="batchForm.source_info.processingUnit" placeholder="Tên đơn vị thực hiện sơ chế" />
+              </el-form-item>
+              <el-form-item label="Địa điểm sơ chế (Tỉnh)" required>
+                <el-select 
+                  v-model="batchForm.source_info.production_address" 
+                  placeholder="Chọn tỉnh/thành" 
+                  class="w-full"
+                  filterable
+                >
+                  <el-option v-for="p in provinces" :key="p.code" :label="p.name" :value="p.name" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Mã QR định danh (nếu có)">
+                <el-input v-model="batchForm.qr_code_serial" placeholder="Serial mã tem định danh lô" />
               </el-form-item>
             </div>
           </el-collapse-item>
 
-          <!-- Phần 2: Nguồn gốc -->
-          <el-collapse-item name="origin">
-            <template #title>
-              <div class="flex items-center gap-2 font-bold text-orange-600">
-                <el-icon><Management /></el-icon> NGUỒN GỐC & NHÀ CUNG CẤP
-              </div>
-            </template>
-            <div class="grid grid-cols-2 gap-x-8">
-              <el-form-item label="Nhà cung cấp">
-                <el-input v-model="batchForm.source_info.supplier" placeholder="Tên trang trại / NCC" />
-              </el-form-item>
-              <el-form-item label="Điện thoại">
-                <el-input v-model="batchForm.source_info.supplierPhone" />
-              </el-form-item>
-              <el-form-item label="Địa chỉ" class="col-span-2">
-                <el-input v-model="batchForm.source_info.supplierAddress" type="textarea" :rows="1" />
-              </el-form-item>
-              <el-form-item label="Số chứng nhận">
-                <el-input v-model="batchForm.source_info.supplierCert" placeholder="VietGAP, GlobalGAP..." />
-              </el-form-item>
-            </div>
-          </el-collapse-item>
-
-          <!-- Phần 3: Canh tác -->
+          <!-- Phần 2: Nguồn gốc & Canh tác -->
           <el-collapse-item name="farming">
             <template #title>
-              <div class="flex items-center gap-2 font-bold text-green-600">
-                <el-icon><List /></el-icon> QUY TRÌNH CANH TÁC
+              <div class="flex items-center gap-2 font-bold text-green-600 uppercase">
+                <el-icon><Management /></el-icon> Thông tin Canh tác & Nguồn gốc
               </div>
             </template>
             <div class="grid grid-cols-2 gap-x-8">
-              <el-form-item label="Ngày gieo trồng">
+              <el-form-item label="Chủ lô hạt giống">
+                <el-input v-model="batchForm.source_info.seedOwner" placeholder="Tên chủ sở hữu lô giống" />
+              </el-form-item>
+              <el-form-item label="Mã hiệu lô giống" required>
+                <el-input v-model="batchForm.source_info.seedBatchCode" placeholder="Số hiệu/Mã lô giống" />
+              </el-form-item>
+              <el-form-item label="Khu vực trồng">
+                <el-input v-model="batchForm.source_info.growingRegion" placeholder="Xã, Huyện, Tỉnh..." />
+              </el-form-item>
+              <el-form-item label="Ngày gieo trồng" required>
                 <el-date-picker v-model="batchForm.source_info.plantingDate" type="date" class="!w-full" />
               </el-form-item>
-              <el-form-item label="Vùng trồng">
-                <el-input v-model="batchForm.source_info.growingRegion" />
-              </el-form-item>
-              <el-form-item label="Phân bón">
-                <el-input v-model="batchForm.source_info.fertilizers" />
-              </el-form-item>
-              <el-form-item label="Thuốc BVTV">
-                <el-input v-model="batchForm.source_info.pesticides" />
-              </el-form-item>
-            </div>
-          </el-collapse-item>
-
-          <!-- Phần 4: Thu hoạch -->
-          <el-collapse-item name="harvest">
-            <template #title>
-              <div class="flex items-center gap-2 font-bold text-purple-600">
-                <el-icon><Calendar /></el-icon> THÔNG TIN THU HOẠCH
-              </div>
-            </template>
-            <div class="grid grid-cols-2 gap-x-8">
-              <el-form-item label="Ngày thu hoạch">
+              <el-form-item label="Ngày thu hoạch" required>
                 <el-date-picker v-model="batchForm.source_info.harvestDate" type="date" class="!w-full" />
               </el-form-item>
-              <el-form-item label="Khối lượng cả lô">
-                <el-input-number v-model="batchForm.source_info.totalWeightKg" :min="0" class="!w-full" />
-              </el-form-item>
-              <el-form-item label="Trọng lượng đơn vị">
-                <el-input-number v-model="batchForm.source_info.unitWeightKg" :min="0" :precision="3" class="!w-full" />
-              </el-form-item>
-              <el-form-item label="P/P Thu hoạch">
-                <el-input v-model="batchForm.source_info.harvestMethod" />
+              <el-form-item label="Quy trình canh tác" class="col-span-2">
+                <el-input v-model="batchForm.source_info.cultivationProcess" type="textarea" :rows="2" placeholder="Mô tả quy trình canh tác nếu có" />
               </el-form-item>
             </div>
           </el-collapse-item>
 
-          <!-- Phần 5: Tuỳ chỉnh -->
+          <!-- Phần 3: Tuỳ chỉnh -->
           <el-collapse-item name="custom">
             <template #title>
-              <div class="flex items-center gap-2 font-bold text-gray-600">
-                <el-icon><Setting /></el-icon> TRƯỜNG TÙY CHỈNH & GỢI Ý
+              <div class="flex items-center gap-2 font-bold text-gray-600 uppercase">
+                <el-icon><Setting /></el-icon> Trường tùy chỉnh bổ sung
               </div>
             </template>
             <div v-for="(field, index) in batchForm.source_info.customFields" :key="index" class="flex gap-2 mb-2">
               <el-autocomplete
                 v-model="field.key"
                 :fetch-suggestions="querySearchFields"
-                placeholder="Tên trường (VD: Giống cây)"
+                placeholder="Tên trường (VD: Độ ẩm)"
                 class="flex-1"
               />
               <el-input v-model="field.value" placeholder="Giá trị" class="flex-1" />
               <el-button type="danger" :icon="Delete" circle @click="removeCustomField(index)" />
             </div>
-            <el-button type="primary" link icon="Plus" @click="addCustomField">Thêm trường dữ liệu</el-button>
+            <el-button type="primary" size="small" link icon="Plus" @click="addCustomField">Thêm trường dữ liệu</el-button>
           </el-collapse-item>
 
           <!-- Phần 6: Ảnh -->
@@ -716,6 +805,18 @@ onMounted(fetchData);
             </el-upload>
           </el-collapse-item>
         </el-collapse>
+
+        <!-- Lý do chỉnh sửa -->
+        <div v-if="isEdit" class="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-100">
+          <el-form-item label="Lý do chỉnh sửa" required class="!mb-0">
+            <el-input 
+              v-model="batchForm.edit_reason" 
+              type="textarea" 
+              :rows="2" 
+              placeholder="Nhập lý do thay đổi thông tin phiếu nhập..." 
+            />
+          </el-form-item>
+        </div>
 
         <el-form-item label="Ghi chú" class="mt-4">
           <el-input v-model="batchForm.source_info.note" type="textarea" :rows="2" />

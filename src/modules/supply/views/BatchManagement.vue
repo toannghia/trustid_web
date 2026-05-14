@@ -5,7 +5,7 @@
     </div>
 
     <!-- Stats or List would go here -->
-    <el-table :data="batches" stripe border style="width: 100%">
+    <el-table :data="filteredBatches" stripe border style="width: 100%">
         <el-table-column type="index" label="STT" width="60" align="center" />
         <el-table-column prop="batchCode" label="Mã Lô" width="250" sortable>
              <template #default="{row}">
@@ -165,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
 import { ElMessage } from 'element-plus';
@@ -173,6 +173,10 @@ import { Loading, CircleCheckFilled, TopRight } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 const batches = ref<any[]>([]);
+const filteredBatches = computed(() => {
+    // Chỉ hiển thị các lô thành phẩm (mặc định là FARM hoặc không phải SEMI_FINISHED)
+    return batches.value.filter(b => b.batchType !== 'SEMI_FINISHED');
+});
 const items = ref<any[]>([]);
 const selectedBatch = ref<any>(null);
 const showDetail = ref(false);

@@ -6,6 +6,7 @@ export const tenantApi = {
   getAll: (params: any) => api.get('/tenants', { params }),
   getActive: (params: any) => api.get('/tenants/active', { params }),
   getById: (id: string) => api.get(`/tenants/${id}`),
+  lookupByCode: (code: string) => api.get('/tenants/lookup', { params: { code } }),
 
   // Tạo mới hoặc cập nhật doanh nghiệp [cite: 79]
   create: (data: Partial<Tenant>) => api.post('/tenants', data),

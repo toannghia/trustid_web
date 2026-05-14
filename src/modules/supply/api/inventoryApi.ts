@@ -11,5 +11,8 @@ export const inventoryApi = {
     },
     getMovements(warehouseId: string, filters?: any) {
         return api.get<any[]>(`${baseUrl}/movements`, { params: { warehouseId, ...filters } });
+    },
+    getBalanceReport(warehouse_id: string, date_from: string, date_to: string) {
+        return api.get<any>(`${baseUrl}/balance-report`, { params: { warehouse_id, date_from, date_to } });
     }
 };
