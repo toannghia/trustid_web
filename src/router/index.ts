@@ -366,6 +366,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Tồn Kho' }
       },
       {
+        path: '/supply/inventory/report',
+        name: 'InventoryReport',
+        component: () => import('@/modules/supply/views/InventoryReportView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], title: 'Báo cáo Xuất Nhập Tồn' }
+      },
+      {
         path: '/supply/packaging',
         name: 'SupplyPackaging',
         component: () => import('@/modules/supply/views/PackagingView.vue'),

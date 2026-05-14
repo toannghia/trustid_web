@@ -113,6 +113,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Phiếu xuất kho', path: '/supply/export-fulfill', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Upload },
       { title: 'Quản lý Kho', path: '/transport/warehouses', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: OfficeBuilding },
       { title: 'Tồn Kho Tổng Hợp', path: '/supply/inventory', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: Collection },
+      { title: 'Báo cáo Xuất Nhập Tồn', path: '/supply/inventory/report', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: DataLine },
       { title: 'Quản lý Xe', path: '/transport/vehicles', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Van },
       { title: 'Đơn hàng vận chuyển', path: '/supply/shipments', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER'], icon: List },
       { title: 'Nhập kho', path: '/transport/operations', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Download },

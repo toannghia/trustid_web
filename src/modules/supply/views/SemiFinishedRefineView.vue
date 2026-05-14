@@ -289,19 +289,11 @@ const saving = ref(false);
 let previewTimer: any = null;
 let rangeDebounceTimer: any = null;
 
-const provinces = [
-  { name: 'Thành phố Đà Nẵng', code: 'ĐN' },
-  { name: 'Tỉnh Đồng Nai', code: 'ĐN' },
-  { name: 'Thành phố Hà Nội', code: 'HN' },
-  { name: 'Thành phố Hồ Chí Minh', code: 'HCM' },
-  { name: 'Tỉnh Lâm Đồng', code: 'LĐ' },
-  { name: 'Tỉnh Đắk Lắk', code: 'ĐL' },
-  { name: 'Tỉnh Gia Lai', code: 'GL' },
-  { name: 'Tỉnh Tiền Giang', code: 'TG' },
-  { name: 'Tỉnh An Giang', code: 'AG' },
-  { name: 'Tỉnh Long An', code: 'LA' },
-  { name: 'Tỉnh Đồng Tháp', code: 'ĐT' },
-];
+import { VIETNAM_PROVINCES } from '@/common/data/provinces';
+
+const provinces = VIETNAM_PROVINCES.map(name => ({ name, code: name }));
+
+
 
 const weightUnits = [
   { label: 'Tấn', value: 'ton', rate: 1000 },
