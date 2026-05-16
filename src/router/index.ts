@@ -167,6 +167,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('../modules/batch-sync/views/BatchSyncManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
       },
+      {
+        path: 'traceability/audit',
+        name: 'traceability-audit',
+        component: () => import('../modules/core/views/TraceabilityAudit.vue'),
+        meta: { roles: ['ADMIN'], title: 'Tra cứu Audit' }
+      },
       // PHÊ DUYỆT / GIÁM SÁT (ADMIN & REGULATOR)
       {
         path: 'regulator/audit',

@@ -215,8 +215,62 @@
             <span class="text-xs text-gray-500">{{ row.notes || '-' }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="Thao tác" width="100" align="center">
+          <template #default="{ row }">
+            <el-button type="primary" link icon="View" @click="viewDetail(row)">Chi tiết</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- Dialog xem chi tiết phiếu đã nhập -->
+    <el-dialog v-model="detailVisible" title="Chi tiết Phiếu Nhập" width="600px" append-to-body destroy-on-close class="rounded-dialog">
+      <div v-if="detailRow" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
+          <div>
+            <div class="text-gray-400 text-[10px] uppercase font-bold">Mã Phiếu</div>
+            <div class="font-mono font-bold">{{ detailRow.transferCode }}</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-[10px] uppercase font-bold">Ngày Nhập</div>
+            <div class="font-medium">{{ formatDate(detailRow.importedAt || detailRow.updatedAt) }}</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-[10px] uppercase font-bold">Đơn vị xuất</div>
+            <div class="font-bold text-green-700">{{ getTenantName(detailRow.fromTenantId) }}</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-[10px] uppercase font-bold">Trạng thái</div>
+            <el-tag size="small" type="success">{{ detailRow.status }}</el-tag>
+          </div>
+        </div>
+
+        <div class="font-bold text-gray-700 flex items-center gap-2">
+           <el-icon><Box /></el-icon> Danh sách hàng hóa thực nhập
+        </div>
+
+        <el-table :data="detailRow.items" border size="small">
+          <el-table-column label="Mã lô" min-width="140">
+            <template #default="{ row }">
+              <span class="font-mono text-xs">{{ row.batch?.batchCode || row.batchId }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Sản phẩm" min-width="150">
+            <template #default="{ row }">
+              <span class="text-xs">{{ row.batch?.product?.name || '---' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Khối lượng (KG)" width="120" align="right">
+            <template #default="{ row }">
+              <span class="font-bold text-blue-600">{{ row.receivedQuantity || row.expectedQuantity }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">Đóng</el-button>
+      </template>
+    </el-dialog>
 
     <!-- FOOTER ACTIONS -->
     <div v-if="selectedTransfer" class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-center gap-4 z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-4">
@@ -249,7 +303,7 @@ import { transportApi } from '../api/transportApi';
 import { ElMessage, ElLoading, ElMessageBox } from 'element-plus';
 import { 
   Download, CircleCheck, EditPen, CircleCheckFilled, 
-  Box, Compass, Search, FullScreen, List, House, Warning, Select, Close, Check, Plus, Calendar
+  Box, Compass, Search, FullScreen, List, House, Warning, Select, Close, Check, Plus, Calendar, View
 } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { useAuthStore } from '@/modules/core/store/auth';
@@ -281,6 +335,8 @@ const importForm = ref({
 });
 
 const partialRows = ref<Array<{ batch_id: string; expected_quantity: number; received_quantity: number; batchCode?: string; productName?: string }>>([]);
+const detailVisible = ref(false);
+const detailRow = ref<any>(null);
 
 // Computed
 const pendingTransfers = computed(() => {
@@ -357,6 +413,11 @@ const resetForm = () => {
 
 const handleManualSelect = (val: string) => {
   loadTransferData(val);
+};
+
+const viewDetail = (row: any) => {
+  detailRow.value = row;
+  detailVisible.value = true;
 };
 
 const handleScan = async () => {

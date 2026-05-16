@@ -3,7 +3,8 @@ import api from '@/common/utils/api';
 const baseUrl = '/supply';
 
 export interface CreateBatchDto {
-    farm_batch_code: string;
+    farm_batch_code?: string;
+    source_batch_id?: string;
     product_id: string; // Changed from gtin
 }
 

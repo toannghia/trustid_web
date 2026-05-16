@@ -26,9 +26,10 @@
              <!-- Line Source Type: Lô Farm vs Lô Ngoài -->
              <div class="flex items-center gap-2" v-if="!activeBatchId">
                  <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Nguồn gốc lô:</label>
-                 <el-radio-group v-model="batchSourceType" size="default">
+                <el-radio-group v-model="batchSourceType" size="default">
                      <el-radio-button label="FARM">Từ Farm</el-radio-button>
                      <el-radio-button label="EXTERNAL">Nhập ngoài / Sẵn có</el-radio-button>
+                     <el-radio-button label="SEMI_FINISHED">Bán thành phẩm</el-radio-button>
                  </el-radio-group>
              </div>
 
@@ -65,7 +66,7 @@
                     size="default"
                  >
                     <el-option 
-                        v-for="b in externalBatchList" 
+                        v-for="b in externalOnlyList" 
                         :key="b.id" 
                         :label="`${b.batchCode} (${b.product?.name}) - Còn lại: ${b.totalUnitsExpected - (b.packCount || 0) - (b.exportedQuantity || 0)}`" 
                         :value="b.id" 
@@ -74,6 +75,26 @@
                  <el-button type="primary" link icon="Plus" @click="router.push('/supply/external-batches')">
                     Tạo lô mới
                  </el-button>
+             </div>
+
+             <!-- Line 2c: Chọn Lô Bán Thành Phẩm (Chỉ hiện khi là SEMI_FINISHED) -->
+             <div class="flex items-center gap-2" v-if="batchSourceType === 'SEMI_FINISHED' && !activeBatchId">
+                 <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Lô Bán TP:</label>
+                 <el-select 
+                    v-model="selectedSemiFinishedBatchId" 
+                    placeholder="Chọn lô bán thành phẩm..." 
+                    filterable 
+                    class="flex-1 min-w-0"
+                    @change="onSemiFinishedSelect"
+                    size="default"
+                 >
+                    <el-option 
+                        v-for="b in semiFinishedOnlyList" 
+                        :key="b.id" 
+                        :label="`${b.batchCode} (${b.product?.name}) - SL: ${b.totalQuantity}kg`" 
+                        :value="b.id" 
+                    />
+                 </el-select>
              </div>
 
              <!-- Khi đã có activeBatchId, hiển thị thông tin loại lô -->
@@ -278,7 +299,7 @@
     <!-- DIALOG: NHẬN LÔ QUA QR -->
     <el-dialog v-model="showReceiveDialog" title="Nhận Lô Chuyển Giao" width="450px">
         <div class="space-y-4">
-            <div class="text-sm text-gray-500 mb-2 italic">Hãy quét hoặc nhập mã QR lô hàng (Agricheck code) được dán trên thùng hàng.</div>
+            <div class="text-sm text-gray-500 mb-2 italic">Hãy quét hoặc nhập mã QR lô hàng (TrustID code) được dán trên thùng hàng.</div>
             <el-input v-model="receiveQrCode" placeholder="Nhập mã QR lô hàng..." @keyup.enter="handleReceiveBatch">
                 <template #append>
                     <el-button @click="handleReceiveBatch" :loading="receiving">Kiểm tra & Nhận</el-button>
@@ -352,6 +373,7 @@ const unitWeight = ref(1);
 const harvestQuantity = ref(0);
 const previouslyPackagedCount = ref(0);
 const externalBatchList = ref<any[]>([]);
+const selectedSemiFinishedBatchId = ref('');
 
 const scanInput = ref('');
 const scanInputRef = ref<any>(null);
@@ -410,6 +432,14 @@ const selectedPoolInfo = computed(() => {
     return poolList.value.find(p => p.id === selectedPoolId.value) || null;
 });
 
+const externalOnlyList = computed(() => {
+    return externalBatchList.value.filter(b => b.batchType !== 'SEMI_FINISHED');
+});
+
+const semiFinishedOnlyList = computed(() => {
+    return externalBatchList.value.filter(b => b.batchType === 'SEMI_FINISHED' || b.batchType === 'CROSS_TENANT');
+});
+
 const defaultWarehouse = computed(() => {
     return warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION');
 });
@@ -452,7 +482,7 @@ const loadMasterData = async () => {
         poolList.value = (poolRes as any).data?.data || (poolRes as any).data || [];
         warehouseList.value = (warehouseRes as any).data || [];
         tenantList.value = (tenantRes as any).data?.data || (tenantRes as any).data || [];
-        externalBatchList.value = extRes.data?.filter((b: any) => b.status === 'PACKING') || [];
+        externalBatchList.value = extRes.data?.filter((b: any) => b.status === 'PACKING' || b.status === 'COMPLETED') || [];
 
         // Load some available codes for Batch QR assignment
         const codeRes = await codeApi.getItems({ status: 'AVAILABLE', limit: 100 });
@@ -552,8 +582,28 @@ const onHarvestSelect = async () => {
 
 const onExternalBatchSelect = () => {
     if (!selectedExternalBatchId.value) return;
-    router.push({ query: { batchId: selectedExternalBatchId.value } });
-    setTimeout(() => loadBatchIfExists(), 100);
+    const b = externalBatchList.value.find(x => x.id === selectedExternalBatchId.value);
+    if (b && b.batchCode.startsWith('PKG-')) {
+        router.push({ query: { batchId: selectedExternalBatchId.value } });
+        setTimeout(() => loadBatchIfExists(), 100);
+    } else {
+        // Source batch selected, will create PKG on save
+        if (b?.productId) {
+            selectedProductId.value = b.productId;
+            onProductSelect();
+        }
+    }
+};
+
+const onSemiFinishedSelect = () => {
+    if (!selectedSemiFinishedBatchId.value) return;
+    const b = externalBatchList.value.find(x => x.id === selectedSemiFinishedBatchId.value);
+    if (b) {
+        if (b.productId) {
+            selectedProductId.value = b.productId;
+            onProductSelect();
+        }
+    }
 };
 
 const onProductSelect = () => {
@@ -700,16 +750,38 @@ const doSave = async () => {
                 });
                 activeBatchId.value = res.data.id;
                 batchCode.value = res.data.batchCode;
-            } else {
-                // This case should ideally be handled by selecting an existing external batch
-                // but we keep it as fallback or if user somehow bypasses selection.
-                // However, with the new UI, user MUST select an external batch from dropdown.
-                if (!selectedExternalBatchId.value) {
-                    ElMessage.warning('Vui lòng chọn lô nhập ngoài đã tạo');
+            } else if (batchSourceType.value === 'SEMI_FINISHED') {
+                if (!selectedSemiFinishedBatchId.value) {
+                    ElMessage.warning('Vui lòng chọn lô bán thành phẩm');
                     saving.value = false;
                     return;
                 }
-                activeBatchId.value = selectedExternalBatchId.value;
+                const res = await supplyApi.createBatch({
+                    source_batch_id: selectedSemiFinishedBatchId.value,
+                    product_id: selectedProductId.value
+                });
+                activeBatchId.value = res.data.id;
+                batchCode.value = res.data.batchCode;
+            } else {
+                // EXTERNAL
+                if (!selectedExternalBatchId.value) {
+                    ElMessage.warning('Vui lòng chọn lô nhập ngoài');
+                    saving.value = false;
+                    return;
+                }
+                
+                const b = externalBatchList.value.find(x => x.id === selectedExternalBatchId.value);
+                if (b && b.batchCode.startsWith('PKG-')) {
+                    activeBatchId.value = selectedExternalBatchId.value;
+                } else {
+                    // Create new PKG from source
+                    const res = await supplyApi.createBatch({
+                        source_batch_id: selectedExternalBatchId.value,
+                        product_id: selectedProductId.value
+                    });
+                    activeBatchId.value = res.data.id;
+                    batchCode.value = res.data.batchCode;
+                }
             }
         }
 

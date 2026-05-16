@@ -140,7 +140,8 @@ const menuGroups: MenuGroup[] = [
     items: [
       { title: 'Cấp mã nội bộ', path: '/codes/generate', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Connection },
       { title: 'Kho lô tem', path: '/codes/pools', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Collection },
-      { title: 'Đồng bộ Lô (NDA)', path: '/codes/batch-sync', roles: ['ADMIN', 'TENANT_ADMIN'], icon: DataLine }
+      { title: 'Đồng bộ Lô (NDA)', path: '/codes/batch-sync', roles: ['ADMIN', 'TENANT_ADMIN'], icon: DataLine },
+      { title: 'Tra cứu Audit', path: '/traceability/audit', roles: ['ADMIN'], icon: View }
     ]
   },
   {
