@@ -6,6 +6,50 @@ import { ElMessage } from 'element-plus';
 
 const searchCode = ref('');
 const loading = ref(false);
+const getBatchTypeLabel = (type: string) => {
+  const labels: any = {
+    'FARM': 'Lô vùng trồng',
+    'SEMI_FINISHED': 'Lô bán thành phẩm',
+    'CROSS_TENANT': 'Lô nhập từ đối tác',
+    'EXTERNAL': 'Lô nhập ngoài',
+    'LEGACY': 'Lô hệ thống cũ',
+    'EXPORTED': 'Lô đã xuất khẩu'
+  };
+  return labels[type] || type;
+};
+
+const getStatusLabel = (status: string) => {
+  const labels: any = {
+    'AVAILABLE': 'Sẵn sàng',
+    'ACTIVE': 'Đã kích hoạt',
+    'INACTIVE': 'Chưa kích hoạt',
+    'EXPORTED': 'Đã xuất file',
+    'SOLD': 'Đã bán',
+    'AT_DEALER': 'Tại đại lý',
+    'LOST': 'Thất lạc'
+  };
+  return labels[status] || status;
+};
+
+const getStatusType = (status: string) => {
+  const types: any = {
+    'ACTIVE': 'success',
+    'SOLD': 'warning',
+    'LOST': 'danger',
+    'AT_DEALER': 'primary'
+  };
+  return types[status] || 'info';
+};
+
+const getMovementTypeLabel = (type: string) => {
+  const labels: any = {
+    'INBOUND': 'Nhập kho',
+    'OUTBOUND': 'Xuất kho',
+    'ADJUSTMENT': 'Điều chỉnh'
+  };
+  return labels[type] || type;
+};
+
 const auditData = ref<any>(null);
 
 const handleSearch = async () => {
@@ -27,16 +71,6 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('vi-VN');
 };
 
-const getStatusType = (status: string) => {
-  const map: any = {
-    'AVAILABLE': 'info',
-    'ACTIVE': 'success',
-    'EXPORTED': 'warning',
-    'SOLD': 'primary',
-    'DAMAGED': 'danger'
-  };
-  return map[status] || 'info';
-};
 </script>
 
 <template>
@@ -113,7 +147,11 @@ const getStatusType = (status: string) => {
             </div>
             <div class="info-item">
               <label>Loại lô:</label>
-              <span>{{ auditData.production_info.batch_type }}</span>
+              <el-tag type="info" size="small">{{ getBatchTypeLabel(auditData.production_info.batch_type) }}</el-tag>
+            </div>
+            <div class="info-item">
+              <label>Trạng thái:</label>
+              <el-tag :type="getStatusType(auditData.production_info.status)" size="small">{{ getStatusLabel(auditData.production_info.status) }}</el-tag>
             </div>
             <div class="info-item">
               <label>Kích hoạt lúc:</label>
@@ -147,7 +185,7 @@ const getStatusType = (status: string) => {
 
             <div class="lifecycle-timeline">
               <el-timeline>
-                <!-- Stage 1: Issuance -->
+                <!-- Stage 1: Issuance (Oldest) -->
                 <el-timeline-item
                   :timestamp="formatDate(auditData.issuance_info.created_at)"
                   placement="top"
@@ -202,16 +240,17 @@ const getStatusType = (status: string) => {
                 <!-- Stage 4: Logistics -->
                 <el-timeline-item
                   v-for="(move, idx) in auditData.logistics_info.movements"
-                  :key="idx"
+                  :key="'move-' + idx"
                   :timestamp="formatDate(move.time)"
                   placement="top"
                   :type="move.type === 'INBOUND' ? 'success' : 'info'"
                 >
                   <div class="timeline-content">
-                    <h3>{{ move.type === 'INBOUND' ? 'Nhập kho' : 'Xuất kho' }}</h3>
+                    <h3>{{ getMovementTypeLabel(move.type) }}</h3>
                     <p>Tại: <strong>{{ move.warehouse }}</strong></p>
                     <div class="meta-info mb-1">
                       <span>Người thực hiện: {{ move.performed_by }}</span>
+                      <span v-if="move.reference_code" class="ml-2">| Phiếu: <strong>{{ move.reference_code }}</strong></span>
                     </div>
                     <p class="notes" v-if="move.notes">{{ move.notes }}</p>
                   </div>
@@ -219,15 +258,16 @@ const getStatusType = (status: string) => {
 
                 <!-- Stage 5: Consumer Scans -->
                 <el-timeline-item
-                  v-if="auditData.scan_info.history.length > 0"
-                  :timestamp="formatDate(auditData.scan_info.history[0].time)"
+                  v-for="(scan, idx) in auditData.scan_info.history"
+                  :key="'scan-' + idx"
+                  :timestamp="formatDate(scan.time)"
                   placement="top"
                   type="danger"
                 >
                   <div class="timeline-content">
                     <h3>Tương tác người tiêu dùng</h3>
-                    <p>Lần quét gần nhất tại: {{ auditData.scan_info.history[0].location }}</p>
-                    <p class="meta-info">Thiết bị: {{ auditData.scan_info.history[0].device }}</p>
+                    <p>Được quét tại: <strong>{{ scan.location }}</strong></p>
+                    <p class="meta-info">Thiết bị: {{ scan.device }}</p>
                   </div>
                 </el-timeline-item>
               </el-timeline>
