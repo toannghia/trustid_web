@@ -192,6 +192,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN'], icon: TrendCharts },
       { title: 'Quản lý Sao lưu', path: '/admin/backups', roles: ['ADMIN'], icon: Document },
       { title: 'Mini App Analytics', path: '/admin/miniapp-analytics', roles: ['ADMIN'], icon: TrendCharts },
+      { title: 'Công cụ Database', path: '/admin/db-tools', roles: ['ADMIN'], icon: Monitor },
     ]
   }
 ];

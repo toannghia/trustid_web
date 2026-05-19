@@ -521,6 +521,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'miniapp-analytics',
         component: () => import('../modules/miniapp/views/MiniAppDashboard.vue'),
         meta: { roles: ['ADMIN'], title: 'Mini App Analytics' }
+      },
+      {
+        path: '/admin/db-tools',
+        name: 'admin-db-tools',
+        component: () => import('@/modules/core/views/AdminDbTools.vue'),
+        meta: { roles: ['ADMIN'], title: 'Công cụ Database' }
       }
     ]
   },
