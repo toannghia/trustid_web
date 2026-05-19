@@ -190,8 +190,8 @@ export const supplyApi = {
     searchSerialPrefixes(productId?: string) {
         return api.get<string[]>(`${baseUrl}/packaging/serial-prefixes`, { params: { product_id: productId } });
     },
-    getPrefixNextNumber(prefix: string) {
-        return api.get<{ next_number: string; full_serial: string }>(`${baseUrl}/packaging/prefix-next-number`, { params: { prefix } });
+    getPrefixNextNumber(prefix: string, productId?: string) {
+        return api.get<{ next_number: string; full_serial: string; real_prefix?: string }>(`${baseUrl}/packaging/prefix-next-number`, { params: { prefix, product_id: productId } });
     },
     lookupSerials(serials: string[]) {
         return api.post<any[]>(`${baseUrl}/packaging/lookup-serials`, { serials });

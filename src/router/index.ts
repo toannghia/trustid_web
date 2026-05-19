@@ -366,6 +366,18 @@ const routes: Array<RouteRecordRaw> = [
       },
       // Supply Chain Module Routes
       {
+        path: '/supply/production-orders',
+        name: 'ProductionOrderList',
+        component: () => import('@/modules/supply/views/ProductionOrderManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], title: 'Lệnh sản xuất' }
+      },
+      {
+        path: '/supply/production-orders/:id',
+        name: 'ProductionOrderDetail',
+        component: () => import('@/modules/supply/views/ProductionOrderDetail.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], title: 'Chi tiết lệnh sản xuất' }
+      },
+      {
         path: '/supply/inventory',
         name: 'InventoryDashboard',
         component: () => import('@/modules/supply/views/InventoryDashboard.vue'),
