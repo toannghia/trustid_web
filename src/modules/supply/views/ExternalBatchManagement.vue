@@ -68,6 +68,7 @@ const initialSourceInfo = () => ({
   cultivationProcess: '',
   // Nhóm 3: Tùy chỉnh & Ghi chú
   customFields: [],
+  customBlocks: [],
   note: ''
 });
 
@@ -84,19 +85,78 @@ const batchForm = ref<any>({
 const activeSections = ref(['general', 'origin']);
 const uploadFileList = ref<any[]>([]);
 
-const querySearchFields = (queryString: string, cb: any) => {
-  const results = queryString
-    ? SUGGESTED_FIELDS.filter(f => f.key.toLowerCase().includes(queryString.toLowerCase()))
-    : SUGGESTED_FIELDS;
-  cb(results.map(f => ({ value: f.key })));
+const selectedBatchToCopy = ref('');
+
+const supportedIcons = [
+  { label: 'DNA (Sinh học)', value: 'Cpu' },
+  { label: 'Địa điểm (Sản xuất)', value: 'Location' },
+  { label: 'Bảo vệ (Kiểm định)', value: 'Shield' },
+  { label: 'Hộp hàng (Sản phẩm)', value: 'Box' },
+  { label: 'Biểu đồ (Thống kê)', value: 'TrendCharts' },
+  { label: 'Lịch trình (Thời gian)', value: 'Calendar' },
+  { label: 'Chứng chỉ (Danh hiệu)', value: 'Medal' },
+  { label: 'Tài liệu (Hồ sơ)', value: 'Document' }
+];
+
+const addCustomBlock = () => {
+  if (!batchForm.value.source_info.customBlocks) {
+    batchForm.value.source_info.customBlocks = [];
+  }
+  batchForm.value.source_info.customBlocks.push({
+    id: 'block_' + Date.now(),
+    title: '',
+    icon: 'Shield',
+    fields: [{ key: '', value: '' }]
+  });
 };
 
-const addCustomField = () => {
-  batchForm.value.source_info.customFields.push({ key: '', value: '' });
+const removeCustomBlock = (index: any) => {
+  batchForm.value.source_info.customBlocks.splice(index, 1);
 };
 
-const removeCustomField = (index: any) => {
-  batchForm.value.source_info.customFields.splice(index, 1);
+const addBlockField = (bIndex: any) => {
+  batchForm.value.source_info.customBlocks[bIndex].fields.push({ key: '', value: '' });
+};
+
+const removeBlockField = (bIndex: any, fIndex: any) => {
+  batchForm.value.source_info.customBlocks[bIndex].fields.splice(fIndex, 1);
+};
+
+const handleCopyStructure = (batchId: string) => {
+  if (!batchId) return;
+  const targetBatch = batches.value.find(b => b.id === batchId);
+  if (targetBatch && targetBatch.sourceInfo) {
+    const source = targetBatch.sourceInfo;
+    let blocks: any[] = [];
+    if (source.customBlocks && Array.isArray(source.customBlocks)) {
+      blocks = JSON.parse(JSON.stringify(source.customBlocks));
+    } else if (source.customFields && typeof source.customFields === 'object') {
+      const fields = Object.entries(source.customFields).map(([key, value]) => ({
+        key,
+        value: ''
+      }));
+      if (fields.length > 0) {
+        blocks.push({
+          id: 'block_default',
+          title: 'Thông tin bổ sung',
+          icon: 'Box',
+          fields: fields
+        });
+      }
+    }
+    
+    // Reset values to blank for fresh entry
+    blocks.forEach(block => {
+      block.id = 'block_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      block.fields.forEach((f: any) => {
+        f.value = '';
+      });
+    });
+
+    batchForm.value.source_info.customBlocks = blocks;
+    ElMessage.success(`Đã sao chép cấu trúc từ lô ${targetBatch.batchCode}!`);
+  }
+  selectedBatchToCopy.value = ''; // Reset selection
 };
 
 const handleUploadSuccess = (res: any) => {
@@ -266,6 +326,26 @@ const handleEdit = (row: any) => {
     });
   }
 
+  // Load customBlocks from DB
+  let customBlocksArr: any[] = [];
+  if (source.customBlocks && Array.isArray(source.customBlocks)) {
+    customBlocksArr = JSON.parse(JSON.stringify(source.customBlocks));
+  } else if (source.customFields && typeof source.customFields === 'object') {
+    // Backward compatibility: Convert flat customFields to a default "Thông tin bổ sung" block
+    const fields = Object.entries(source.customFields).map(([key, value]) => ({
+      key,
+      value: String(value)
+    }));
+    if (fields.length > 0) {
+      customBlocksArr.push({
+        id: 'block_default',
+        title: 'Thông tin bổ sung',
+        icon: 'Box',
+        fields: fields
+      });
+    }
+  }
+
   const qty = Number(row.totalUnitsExpected || 0);
   displayQuantity.value = qty;
   inputUnit.value = 'kg';
@@ -282,7 +362,8 @@ const handleEdit = (row: any) => {
     source_info: {
       ...initialSourceInfo(),
       ...source,
-      customFields: customFieldsArr
+      customFields: customFieldsArr,
+      customBlocks: customBlocksArr
     }
   };
 
@@ -343,7 +424,35 @@ const saveBatch = async () => {
     payload.source_info.customFields.forEach((f: any) => {
       if (f.key && f.value) customFieldsObj[f.key] = f.value;
     });
-    payload.source_info.customFields = customFieldsObj;
+
+    // Clean and validate customBlocks
+    const cleanBlocks = (payload.source_info.customBlocks || [])
+      .map((block: any) => ({
+        id: block.id,
+        title: block.title?.trim(),
+        icon: block.icon || 'Shield',
+        fields: (block.fields || [])
+          .map((f: any) => ({ key: f.key?.trim(), value: f.value?.trim() }))
+          .filter((f: any) => f.key)
+      }))
+      .filter((block: any) => block.title);
+
+    payload.source_info.customBlocks = cleanBlocks;
+
+    // Synchronize flat customFields with customBlocks for backward compatibility
+    const syncedFields: Record<string, any> = {};
+    cleanBlocks.forEach((block: any) => {
+      block.fields.forEach((f: any) => {
+        syncedFields[f.key] = f.value;
+      });
+    });
+    // Add legacy fields if any not present in blocks
+    Object.entries(customFieldsObj).forEach(([k, v]) => {
+      if (!(k in syncedFields)) {
+        syncedFields[k] = v;
+      }
+    });
+    payload.source_info.customFields = syncedFields;
 
     if (isEdit.value) {
       await supplyApi.updateExternalBatch(payload.id, payload);
@@ -361,11 +470,29 @@ const saveBatch = async () => {
 
 const onProductSelect = () => {
   const p = products.value.find(item => item.id === batchForm.value.product_id);
-  if (p && p.netWeight && !batchForm.value.source_info.unitWeightKg) {
-    let weight = Number(p.netWeight);
-    const unit = (p.weightUnit || 'kg').toLowerCase();
-    if (unit === 'g' || unit === 'ml') weight /= 1000;
-    batchForm.value.source_info.unitWeightKg = weight;
+  if (p) {
+    if (p.netWeight && !batchForm.value.source_info.unitWeightKg) {
+      let weight = Number(p.netWeight);
+      const unit = (p.weightUnit || 'kg').toLowerCase();
+      if (unit === 'g' || unit === 'ml') weight /= 1000;
+      batchForm.value.source_info.unitWeightKg = weight;
+    }
+
+    // Auto-load template if in create mode
+    if (!isEdit.value) {
+      if (p.attributes && p.attributes.batchTemplate) {
+        const template = JSON.parse(JSON.stringify(p.attributes.batchTemplate));
+        batchForm.value.source_info.customBlocks = template.map((block: any) => ({
+          id: block.id,
+          title: block.title,
+          icon: block.icon,
+          fields: (block.fields || []).map((f: any) => ({ key: f.key, value: '' }))
+        }));
+        ElMessage.success(`Đã áp dụng mẫu khung thuộc tính của sản phẩm ${p.name}!`);
+      } else {
+        batchForm.value.source_info.customBlocks = [];
+      }
+    }
   }
 };
 
@@ -584,18 +711,40 @@ onMounted(fetchData);
                   </div>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-4 col-span-2 sm:col-span-1">
                   <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                    <el-icon><Operation /></el-icon> Thông tin bổ sung
+                    <el-icon><Operation /></el-icon> Thông tin bổ sung (Khối thông tin)
                   </h4>
-                  <div class="grid grid-cols-1 gap-1">
-                    <!-- Custom Fields -->
-                    <template v-if="row.sourceInfo?.customFields">
-                      <div v-for="(val, key) in row.sourceInfo.customFields" :key="key" class="flex text-sm">
-                        <span class="w-32 text-gray-400">{{ key }}:</span>
-                        <span class="text-gray-700 font-medium">{{ val }}</span>
+                  <div class="flex flex-col gap-3">
+                    <!-- If has customBlocks, render block by block -->
+                    <template v-if="row.sourceInfo?.customBlocks && row.sourceInfo.customBlocks.length">
+                      <div 
+                        v-for="block in row.sourceInfo.customBlocks" 
+                        :key="block.id"
+                        class="bg-white p-2.5 rounded border border-gray-200 shadow-sm"
+                      >
+                        <div class="flex items-center gap-1.5 font-bold text-xs text-blue-600 mb-1.5 pb-1 border-b border-gray-100">
+                          <el-icon><component :is="block.icon || 'Shield'" /></el-icon>
+                          <span>{{ block.title }}</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1 pl-4 border-l border-blue-100">
+                          <div v-for="f in block.fields" :key="f.key" class="flex text-xs">
+                            <span class="w-28 text-gray-400">{{ f.key }}:</span>
+                            <span class="text-gray-700 font-medium">{{ f.value }}</span>
+                          </div>
+                        </div>
                       </div>
                     </template>
+                    <!-- Fallback to legacy customFields if customBlocks is empty -->
+                    <template v-else-if="row.sourceInfo?.customFields && Object.keys(row.sourceInfo.customFields).length">
+                      <div class="grid grid-cols-1 gap-1">
+                        <div v-for="(val, key) in row.sourceInfo.customFields" :key="key" class="flex text-sm">
+                          <span class="w-32 text-gray-400">{{ key }}:</span>
+                          <span class="text-gray-700 font-medium">{{ val }}</span>
+                        </div>
+                      </div>
+                    </template>
+                    <div v-else class="text-xs text-gray-400 italic">Không có thuộc tính bổ sung</div>
                     <!-- Images -->
                     <div v-if="row.images?.length" class="mt-2 flex gap-2 overflow-x-auto pb-2">
                       <el-image 
@@ -759,24 +908,90 @@ onMounted(fetchData);
             </div>
           </el-collapse-item>
 
-          <!-- Phần 3: Tuỳ chỉnh -->
-          <el-collapse-item name="custom">
+          <!-- Phần 3: Các khối dữ liệu tùy chỉnh (Custom Blocks) -->
+          <el-collapse-item name="customBlocks">
             <template #title>
-              <div class="flex items-center gap-2 font-bold text-gray-600 uppercase">
-                <el-icon><Setting /></el-icon> Trường tùy chỉnh bổ sung
+              <div class="flex items-center justify-between w-full pr-4 font-bold text-blue-600 uppercase">
+                <div class="flex items-center gap-2">
+                  <el-icon><Setting /></el-icon> Các khối thông tin bổ sung (Custom Blocks)
+                </div>
+                <div class="flex gap-2 items-center" @click.stop>
+                  <!-- Quick copy from batch structure dropdown -->
+                  <el-select 
+                    v-model="selectedBatchToCopy" 
+                    placeholder="Sao chép khung từ lô cũ..." 
+                    size="small" 
+                    style="width: 220px;"
+                    @change="handleCopyStructure"
+                    clearable
+                  >
+                    <el-option 
+                      v-for="b in filteredBatches.slice(0, 10)" 
+                      :key="b.id" 
+                      :label="b.batchCode + ' (' + b.product?.name + ')'" 
+                      :value="b.id" 
+                    />
+                  </el-select>
+                  <el-button type="primary" size="small" :icon="Plus" plain @click="addCustomBlock">Thêm Khối mới</el-button>
+                </div>
               </div>
             </template>
-            <div v-for="(field, index) in batchForm.source_info.customFields" :key="index" class="flex gap-2 mb-2">
-              <el-autocomplete
-                v-model="field.key"
-                :fetch-suggestions="querySearchFields"
-                placeholder="Tên trường (VD: Độ ẩm)"
-                class="flex-1"
-              />
-              <el-input v-model="field.value" placeholder="Giá trị" class="flex-1" />
-              <el-button type="danger" :icon="Delete" circle @click="removeCustomField(index)" />
+            
+            <div v-if="!batchForm.source_info.customBlocks || batchForm.source_info.customBlocks.length === 0" class="text-xs text-gray-400 text-center py-6 bg-gray-50 rounded-lg border border-dashed">
+              Chưa có khối thông tin bổ sung nào. Bạn có thể tự thêm khối mới hoặc chọn mẫu tự động khi chọn sản phẩm.
             </div>
-            <el-button type="primary" size="small" link icon="Plus" @click="addCustomField">Thêm trường dữ liệu</el-button>
+
+            <div v-else class="flex flex-col gap-4">
+              <div 
+                v-for="(block, bIndex) in batchForm.source_info.customBlocks" 
+                :key="block.id" 
+                class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm"
+              >
+                <!-- Block Header -->
+                <div class="flex justify-between items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                  <div class="flex items-center gap-2 flex-1">
+                    <el-input 
+                      v-model="block.title" 
+                      placeholder="Tên khối (VD: Dữ liệu Kiểm định)" 
+                      size="small"
+                      style="max-width: 250px"
+                    />
+                    <el-select v-model="block.icon" placeholder="Icon" size="small" style="width: 150px">
+                      <el-option v-for="ico in supportedIcons" :key="ico.value" :label="ico.label" :value="ico.value">
+                        <span class="flex items-center gap-2">
+                          <el-icon><component :is="ico.value" /></el-icon>
+                          <span>{{ ico.label }}</span>
+                        </span>
+                      </el-option>
+                    </el-select>
+                  </div>
+                  <el-button type="danger" :icon="Delete" size="small" circle plain @click="removeCustomBlock(bIndex)" />
+                </div>
+
+                <!-- Block Fields -->
+                <div class="pl-4 border-l-2 border-blue-200 flex flex-col gap-2">
+                  <div v-for="(field, fIndex) in block.fields" :key="fIndex" class="flex gap-2 items-center">
+                    <el-input 
+                      v-model="field.key" 
+                      placeholder="Tên trường (VD: Độ ẩm)" 
+                      size="small" 
+                      style="flex: 1"
+                    />
+                    <el-input 
+                      v-model="field.value" 
+                      placeholder="Giá trị (VD: 12.8%)" 
+                      size="small" 
+                      style="flex: 1"
+                    />
+                    <el-button type="danger" :icon="Delete" size="small" circle plain @click="removeBlockField(bIndex, fIndex)" />
+                  </div>
+                  
+                  <el-button type="dashed" size="small" class="w-full mt-1" :icon="Plus" @click="addBlockField(bIndex)">
+                    Thêm trường dữ liệu
+                  </el-button>
+                </div>
+              </div>
+            </div>
           </el-collapse-item>
 
           <!-- Phần 6: Ảnh -->

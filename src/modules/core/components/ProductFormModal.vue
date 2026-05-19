@@ -5,7 +5,7 @@ import { fileApi } from '../api/file';
 import { tenantApi } from '../api/tenant'; 
 import { useAuthStore } from '../store/auth';
 import { ElMessage } from 'element-plus';
-import { Plus, Delete, Upload } from '@element-plus/icons-vue';
+import { Plus, Delete, Upload, Connection } from '@element-plus/icons-vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import MediaManager from './MediaManager.vue';
@@ -140,6 +140,40 @@ const getImageUrl = (path: string) => {
     return `${baseUrl}${path}`;
 };
 
+const batchTemplate = ref<any[]>([]);
+
+const supportedIcons = [
+  { label: 'DNA (Sinh học)', value: 'Cpu' },
+  { label: 'Địa điểm (Sản xuất)', value: 'Location' },
+  { label: 'Bảo vệ (Kiểm định)', value: 'Shield' },
+  { label: 'Hộp hàng (Sản phẩm)', value: 'Box' },
+  { label: 'Biểu đồ (Thống kê)', value: 'TrendCharts' },
+  { label: 'Lịch trình (Thời gian)', value: 'Calendar' },
+  { label: 'Chứng chỉ (Danh hiệu)', value: 'Medal' },
+  { label: 'Tài liệu (Hồ sơ)', value: 'Document' }
+];
+
+const addTemplateBlock = () => {
+    batchTemplate.value.push({
+        id: 'block_' + Date.now(),
+        title: '',
+        icon: 'Shield',
+        fields: [{ key: '' }]
+    });
+};
+
+const removeTemplateBlock = (bIndex: any) => {
+    batchTemplate.value.splice(bIndex, 1);
+};
+
+const addTemplateField = (bIndex: any) => {
+    batchTemplate.value[bIndex].fields.push({ key: '' });
+};
+
+const removeTemplateField = (bIndex: any, fIndex: any) => {
+    batchTemplate.value[bIndex].fields.splice(fIndex, 1);
+};
+
 const initCreate = () => {
     productForm.id = '';
     productForm.name = '';
@@ -157,6 +191,7 @@ const initCreate = () => {
     productForm.description = '';
     productForm.hasNoGtin = false;
     dynamicAttrs.value = [{ key: '', value: '' }];
+    batchTemplate.value = [];
     quillKey.value++;
 };
 
@@ -179,11 +214,16 @@ const initEdit = (row: any) => {
         productForm.tenant_id = row.tenant?.id || row.tenantId || '';
     }
 
-    // Attributes
+    // Attributes & batchTemplate
     dynamicAttrs.value = [];
+    batchTemplate.value = [];
     if (row.attributes) {
         Object.entries(row.attributes).forEach(([key, value]) => {
-            dynamicAttrs.value.push({ key, value: String(value) });
+            if (key === 'batchTemplate' && Array.isArray(value)) {
+                batchTemplate.value = JSON.parse(JSON.stringify(value));
+            } else {
+                dynamicAttrs.value.push({ key, value: String(value) });
+            }
         });
     }
     if (dynamicAttrs.value.length === 0) {
@@ -251,10 +291,25 @@ const handleSubmit = async () => {
         }
     }
 
-    const attrObject: Record<string, string> = {};
+    const attrObject: Record<string, any> = {};
     dynamicAttrs.value.forEach(item => {
         if (item.key) attrObject[item.key] = item.value;
     });
+
+    const cleanTemplate = batchTemplate.value
+        .map(block => ({
+            id: block.id,
+            title: block.title?.trim(),
+            icon: block.icon,
+            fields: (block.fields || [])
+                .map((f: any) => ({ key: f.key?.trim() }))
+                .filter((f: any) => f.key)
+        }))
+        .filter(block => block.title);
+
+    if (cleanTemplate.length > 0) {
+        attrObject.batchTemplate = cleanTemplate;
+    }
     
     const cleanImages = productForm.images.filter(url => url && url.trim() !== '');
 
@@ -321,10 +376,25 @@ const handleSubmitWithSync = async () => {
         return;
     }
 
-    const attrObject: Record<string, string> = {};
+    const attrObject: Record<string, any> = {};
     dynamicAttrs.value.forEach(item => {
         if (item.key) attrObject[item.key] = item.value;
     });
+
+    const cleanTemplate = batchTemplate.value
+        .map(block => ({
+            id: block.id,
+            title: block.title?.trim(),
+            icon: block.icon,
+            fields: (block.fields || [])
+                .map((f: any) => ({ key: f.key?.trim() }))
+                .filter((f: any) => f.key)
+        }))
+        .filter(block => block.title);
+
+    if (cleanTemplate.length > 0) {
+        attrObject.batchTemplate = cleanTemplate;
+    }
     
     const cleanImages = productForm.images.filter(url => url && url.trim() !== '');
 
@@ -484,6 +554,46 @@ const handleSubmitWithSync = async () => {
                     <el-button type="danger" :icon="Delete" circle size="small" @click="removeAttr(index)" />
                 </div>
                 <el-button type="dashed" class="w-full" :icon="Plus" size="small" @click="addAttr">Thêm</el-button>
+            </div>
+
+            <!-- Batch Template Builder (Cấu hình mẫu thuộc tính lô hàng) -->
+            <div class="bg-gray-50 p-3 rounded col-span-2 border border-dashed border-gray-300">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-bold text-gray-700 flex items-center gap-1">
+                        <el-icon><Connection /></el-icon> Mẫu khung thuộc tính lô sản xuất/nhập khẩu
+                    </span>
+                    <el-button type="primary" :icon="Plus" size="small" link @click="addTemplateBlock">Thêm Khối mới</el-button>
+                </div>
+                
+                <div v-if="batchTemplate.length === 0" class="text-xs text-gray-400 text-center py-4 bg-white rounded border border-dashed">
+                    Chưa cấu hình mẫu khối thuộc tính nào cho lô hàng. Lô hàng sẽ dùng thuộc tính phẳng mặc định.
+                </div>
+
+                <div v-else class="flex flex-col gap-3">
+                    <div v-for="(block, bIndex) in batchTemplate" :key="block.id" class="bg-white p-3 rounded border shadow-sm">
+                        <div class="flex gap-2 items-center mb-2">
+                            <el-input v-model="block.title" placeholder="Tên khối (VD: Dữ liệu Kiểm định)" size="small" style="flex: 2" />
+                            <el-select v-model="block.icon" placeholder="Icon" size="small" style="width: 150px">
+                                <el-option v-for="ico in supportedIcons" :key="ico.value" :label="ico.label" :value="ico.value">
+                                    <span class="flex items-center gap-2">
+                                        <el-icon><component :is="ico.value" /></el-icon>
+                                        <span>{{ ico.label }}</span>
+                                    </span>
+                                </el-option>
+                            </el-select>
+                            <el-button type="danger" :icon="Delete" circle size="small" @click="removeTemplateBlock(bIndex)" />
+                        </div>
+
+                        <!-- Fields inside block -->
+                        <div class="pl-4 border-l-2 border-blue-200 mt-2">
+                            <div v-for="(field, fIndex) in block.fields" :key="fIndex" class="flex gap-2 mb-2 items-center">
+                                <el-input v-model="field.key" placeholder="Tên trường (VD: Tỷ lệ nảy mầm)" size="small" />
+                                <el-button type="danger" :icon="Delete" circle size="small" @click="removeTemplateField(bIndex, fIndex)" />
+                            </div>
+                            <el-button type="dashed" size="small" class="w-full mt-1" :icon="Plus" @click="addTemplateField(bIndex)">Thêm trường dữ liệu</el-button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Images -->
