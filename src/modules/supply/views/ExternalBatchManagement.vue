@@ -10,7 +10,7 @@ import {
   Plus, Edit, Delete, Box, Download, Connection, 
   Search, Refresh, Close, VideoPlay, ArrowRight,
   Picture, Operation, Tickets, List, Coordinate,
-  Management, Calendar, Setting, Stamp
+  Management, Calendar, Setting, Stamp, CopyDocument, View
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
@@ -35,6 +35,7 @@ const displayQuantity = ref(1);
 
 // Dialogs
 const showBatchDialog = ref(false);
+const showBatchId = ref(false);
 const isEdit = ref(false);
 
 const SUGGESTED_FIELDS = [
@@ -296,6 +297,7 @@ const fetchData = async () => {
 
 const handleAdd = () => {
   isEdit.value = false;
+  showBatchId.value = false;
   batchForm.value = {
     id: null,
     product_id: '',
@@ -314,8 +316,28 @@ const handleAdd = () => {
   showBatchDialog.value = true;
 };
 
+const handleCopyBatchId = (id: string) => {
+  if (!id) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(id).then(() => {
+      ElMessage.success('Đã sao chép ID lô thành công!');
+    }).catch(() => {
+      ElMessage.error('Không thể sao chép ID.');
+    });
+  } else {
+    const input = document.createElement('input');
+    input.setAttribute('value', id);
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    ElMessage.success('Đã sao chép ID lô thành công!');
+  }
+};
+
 const handleEdit = (row: any) => {
   isEdit.value = true;
+  showBatchId.value = false;
   const source = row.sourceInfo || {};
   
   // Convert customFields object from DB to array for UI
@@ -352,6 +374,8 @@ const handleEdit = (row: any) => {
 
   batchForm.value = {
     id: row.id,
+    batch_code: row.batchCode,
+    product_name: row.product?.name || 'N/A',
     product_id: row.productId,
     batch_type: row.batchType,
     quantity: qty,
@@ -824,11 +848,59 @@ onMounted(fetchData);
 
     <el-dialog
       v-model="showBatchDialog"
-      :title="isEdit ? 'Chỉnh sửa lô nhập ngoài' : 'Nhập lô nguyên liệu ngoài'"
       width="1000px"
       :close-on-click-modal="false"
       class="rounded-xl"
     >
+      <template #header>
+        <div class="flex items-center justify-between pr-6 py-2 border-b border-gray-100">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-base font-bold text-gray-800">
+              {{ isEdit ? 'Chỉnh sửa lô nhập ngoài' : 'Nhập lô nguyên liệu ngoài' }}
+            </span>
+            <template v-if="isEdit">
+              <!-- Hiển thị Mã lô -->
+              <span class="px-2 py-0.5 text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded">
+                Mã lô: {{ batchForm.batch_code || 'N/A' }}
+              </span>
+              <!-- Xem/Sao chép ID -->
+              <div class="flex items-center gap-2">
+                <el-button 
+                  v-if="!showBatchId"
+                  type="primary" 
+                  link 
+                  size="small" 
+                  :icon="View"
+                  @click="showBatchId = true"
+                >
+                  Xem ID Lô
+                </el-button>
+                <div v-else class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-0.5">
+                  <span class="text-[10px] font-mono text-gray-500">ID: {{ batchForm.id }}</span>
+                  <el-button 
+                    type="primary" 
+                    link 
+                    size="small" 
+                    :icon="CopyDocument" 
+                    class="!p-0 !h-auto ml-1 font-bold text-blue-600 hover:text-blue-800"
+                    @click="handleCopyBatchId(batchForm.id)"
+                  >
+                    Sao chép
+                  </el-button>
+                  <el-button 
+                    type="danger" 
+                    link 
+                    size="small" 
+                    :icon="Close" 
+                    class="!p-0 !h-auto ml-1 font-bold"
+                    @click="showBatchId = false"
+                  />
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
       <el-form :model="batchForm" label-width="150px" label-position="left">
         <el-collapse v-model="activeSections">
           <!-- Phàn 1: Chung -->
