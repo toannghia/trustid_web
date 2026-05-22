@@ -230,14 +230,18 @@ const compressImage = (file: File, maxWidth = 2560, maxHeight = 2560, quality = 
 
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // PNG keeps PNG format, others default to JPEG for optimal compression
-                const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                // Convert all images to image/jpeg for optimal lossy compression (converts massive PNG screenshots to lightweight JPEGs)
+                const outputType = 'image/jpeg';
+                let outputName = file.name;
+                if (file.type === 'image/png') {
+                    outputName = file.name.replace(/\.png$/i, '.jpg');
+                }
                 
                 canvas.toBlob(
                     (blob) => {
                         if (!blob) return resolve(file);
                         
-                        const compressedFile = new File([blob], file.name, {
+                        const compressedFile = new File([blob], outputName, {
                             type: outputType,
                             lastModified: Date.now(),
                         });
