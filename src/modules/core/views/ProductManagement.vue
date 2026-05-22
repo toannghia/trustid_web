@@ -54,8 +54,8 @@ const handleDelete = async (row: any) => {
         await productApi.delete(row.id);
         ElMessage.success('Xóa sản phẩm thành công');
         fetchProducts();
-      } catch (error) {
-         ElMessage.error('Xóa thất bại');
+      } catch (error: any) {
+         ElMessage.error(error.response?.data?.message || error.message || 'Xóa thất bại');
       }
     })
     .catch(() => {});

@@ -196,13 +196,92 @@ const handleDelete = async (file: any, event: Event) => {
 };
 
 // Upload Logic
-const handleFileSelect = (e: any) => {
+const compressImage = (file: File, maxWidth = 2560, maxHeight = 2560, quality = 0.9): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Keep aspect ratio under maxWidth/maxHeight
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(file);
+
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // PNG keeps PNG format, others default to JPEG for optimal compression
+                const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) return resolve(file);
+                        
+                        const compressedFile = new File([blob], file.name, {
+                            type: outputType,
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    },
+                    outputType,
+                    quality
+                );
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
+const handleFileSelect = async (e: any) => {
     const files = Array.from(e.target.files) as File[];
-    files.forEach(file => {
-        if (file.type.startsWith('image/')) {
+    
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+            ElMessage.warning(`File "${file.name}" không phải là ảnh hợp lệ.`);
+            continue;
+        }
+
+        // Validate original file size (Max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            ElMessage.warning(`Ảnh gốc "${file.name}" vượt quá dung lượng tối đa cho phép (10MB). Vui lòng chọn ảnh khác.`);
+            continue;
+        }
+
+        try {
+            const compressedFile = await compressImage(file);
+            uploadList.value.push(compressedFile);
+        } catch (error) {
+            console.error('Lỗi khi nén ảnh:', error);
+            // Fallback: use original file since it is < 5MB
             uploadList.value.push(file);
         }
-    });
+    }
+    
+    // Reset file input to allow selecting the same file again if removed
+    if (uploadInput.value) {
+        uploadInput.value.value = '';
+    }
 };
 
 const removeUploadFile = (index: number) => {
@@ -338,7 +417,7 @@ const handleClose = () => {
                 </div>
 
                 <!-- Upload View -->
-                <div v-if="activeTab === 'upload'" class="h-full flex flex-col">
+                <div v-if="activeTab === 'upload'" class="flex flex-col">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Thư mục lưu trữ</label>
                         <div class="flex gap-2">
@@ -386,16 +465,19 @@ const handleClose = () => {
                     </div>
 
                     <div 
-                        class="border-2 border-dashed border-blue-300 bg-blue-50 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition"
+                        class="border-2 border-dashed border-blue-300 bg-blue-50 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition"
                         @click="uploadInput?.click()"
                     >
                         <el-icon class="text-blue-500 text-6xl mb-4"><UploadFilled /></el-icon>
                         <div class="text-lg font-medium text-gray-700">Kéo thả hoặc bấm để chọn ảnh</div>
-                        <div class="text-sm text-gray-500 mt-1">Hỗ trợ JPG, PNG, WEBP (Max 5MB)</div>
+                        <div class="text-sm text-gray-500 mt-1">Hỗ trợ JPG, PNG, WEBP (Ảnh gốc Max 10MB)</div>
+                        <div class="text-xs text-blue-500 mt-2 bg-blue-100/50 px-3 py-1 rounded-full font-medium">
+                            💡 Hệ thống sẽ tự động tối ưu hóa dung lượng hình ảnh trước khi tải lên
+                        </div>
                         <input type="file" ref="uploadInput" class="hidden" multiple accept="image/*" @change="handleFileSelect" />
                     </div>
 
-                    <div v-if="uploadList.length > 0" class="mt-4 flex-1 overflow-y-auto">
+                    <div v-if="uploadList.length > 0" class="mt-4">
                         <div class="font-bold mb-2">Đã chọn {{ uploadList.length }} file:</div>
                         <div class="space-y-2">
                             <div v-for="(file, idx) in uploadList" :key="idx" class="flex items-center justify-between p-2 bg-white rounded border">

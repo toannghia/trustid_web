@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { categoryApi } from '../api/category';
 import { ElMessage, ElMessageBox } from 'element-plus'; // Keep ElMessageBox here
 import { useAuthStore } from '../store/auth';
@@ -11,7 +11,7 @@ const filterText = ref('');
 const showSharedOnly = ref(false);
 const treeRef = ref<any>(null);
 
-const isAdmin = ref(authStore.user?.role === 'ADMIN');
+const isAdmin = computed(() => authStore.user?.role === 'ADMIN');
 
 watch([filterText, showSharedOnly], () => {
   treeRef.value?.filter({
@@ -55,8 +55,8 @@ const handleEditCategory = (nodeData: any) => {
       });
       ElMessage.success('Cập nhật thành công');
       fetchCategories();
-    } catch (error) {
-       ElMessage.error('Có lỗi xảy ra');
+    } catch (error: any) {
+       ElMessage.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra khi cập nhật');
     }
   });
 };
@@ -75,8 +75,8 @@ const handleAddCategory = (nodeData: any) => {
       });
       ElMessage.success('Thêm danh mục thành công');
       fetchCategories();
-    } catch (error) {
-       ElMessage.error('Có lỗi xảy ra');
+    } catch (error: any) {
+       ElMessage.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra khi thêm danh mục');
     }
   });
 };
@@ -96,8 +96,8 @@ const handleDeleteCategory = (nodeData: any) => {
         await categoryApi.delete(nodeData.id);
         ElMessage.success('Xóa danh mục thành công');
         fetchCategories();
-      } catch (error) {
-        ElMessage.error('Không thể xóa danh mục này');
+      } catch (error: any) {
+        ElMessage.error(error.response?.data?.message || error.message || 'Không thể xóa danh mục này');
       }
     });
 };
