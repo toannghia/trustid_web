@@ -13,6 +13,8 @@ import {
   Management, Calendar, Setting, Stamp, CopyDocument, View
 } from '@element-plus/icons-vue';
 
+import MediaManager from '@/modules/core/components/MediaManager.vue';
+
 const router = useRouter();
 
 // State
@@ -67,6 +69,7 @@ const initialSourceInfo = () => ({
   plantingDate: null,
   harvestDate: null,
   cultivationProcess: '',
+  farmingLogs: [],
   // Nhóm 3: Tùy chỉnh & Ghi chú
   customFields: [],
   customBlocks: [],
@@ -82,6 +85,60 @@ const batchForm = ref<any>({
   source_info: initialSourceInfo(),
   images: []
 });
+
+const addFarmingLog = () => {
+  if (!batchForm.value.source_info.farmingLogs) {
+    batchForm.value.source_info.farmingLogs = [];
+  }
+  batchForm.value.source_info.farmingLogs.push({
+    completedAt: null,
+    title: '',
+    description: '',
+    images: []
+  });
+};
+
+const removeFarmingLog = (index: number) => {
+  batchForm.value.source_info.farmingLogs.splice(index, 1);
+};
+
+const showLogMediaManager = ref(false);
+const activeLogIndexForMedia = ref<number | null>(null);
+
+const openLogMediaManager = (index: number) => {
+  activeLogIndexForMedia.value = index;
+  showLogMediaManager.value = true;
+};
+
+const handleLogMediaSelect = (selected: any) => {
+  const index = activeLogIndexForMedia.value;
+  if (index === null || index === undefined) return;
+  
+  if (!batchForm.value.source_info.farmingLogs[index]) return;
+  
+  if (!batchForm.value.source_info.farmingLogs[index].images) {
+    batchForm.value.source_info.farmingLogs[index].images = [];
+  }
+  
+  if (Array.isArray(selected)) {
+    selected.forEach(url => {
+      if (!batchForm.value.source_info.farmingLogs[index].images.includes(url)) {
+        batchForm.value.source_info.farmingLogs[index].images.push(url);
+      }
+    });
+  } else {
+    if (!batchForm.value.source_info.farmingLogs[index].images.includes(selected)) {
+      batchForm.value.source_info.farmingLogs[index].images.push(selected);
+    }
+  }
+};
+
+const getImageUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.trustid.com.vn';
+  return `${baseUrl}${path}`;
+};
 
 const activeSections = ref(['general', 'origin']);
 const uploadFileList = ref<any[]>([]);
@@ -719,6 +776,29 @@ onMounted(fetchData);
                       </div>
                     </template>
                   </div>
+                  <div v-if="row.sourceInfo?.farmingLogs && row.sourceInfo.farmingLogs.length" class="mt-4 space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <h5 class="text-xs font-bold text-gray-500 flex items-center gap-1">
+                      <el-icon class="text-green-600"><Calendar /></el-icon>
+                      Nhật ký canh tác ({{ row.sourceInfo.farmingLogs.length }})
+                    </h5>
+                    <div v-for="(log, idx) in row.sourceInfo.farmingLogs" :key="idx" class="text-xs bg-white p-2.5 rounded border border-gray-200 shadow-xs">
+                      <div class="flex justify-between font-bold text-blue-600 mb-1">
+                        <span>{{ log.title }}</span>
+                        <span class="text-gray-400 font-normal">{{ formatMetadataValue('completedAt', log.completedAt) }}</span>
+                      </div>
+                      <p class="text-gray-600" v-if="log.description">{{ log.description }}</p>
+                      <div v-if="log.images?.length" class="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
+                        <el-image 
+                          v-for="img in log.images" 
+                          :key="img" 
+                          :src="img" 
+                          class="w-8 h-8 rounded border"
+                          :preview-src-list="log.images"
+                          fit="cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="space-y-4">
@@ -974,9 +1054,78 @@ onMounted(fetchData);
               <el-form-item label="Ngày thu hoạch" required>
                 <el-date-picker v-model="batchForm.source_info.harvestDate" type="date" class="!w-full" />
               </el-form-item>
-              <el-form-item label="Quy trình canh tác" class="col-span-2">
-                <el-input v-model="batchForm.source_info.cultivationProcess" type="textarea" :rows="2" placeholder="Mô tả quy trình canh tác nếu có" />
-              </el-form-item>
+              <div class="col-span-2 mt-4">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                  <span class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <el-icon class="text-green-600"><Calendar /></el-icon>
+                    Nhật ký canh tác lô ngoài
+                  </span>
+                  <el-button type="primary" size="small" :icon="Plus" plain @click="addFarmingLog">
+                    Thêm nhật ký công việc
+                  </el-button>
+                </div>
+                
+                <div v-if="!batchForm.source_info.farmingLogs || batchForm.source_info.farmingLogs.length === 0" class="text-xs text-gray-400 text-center py-6 bg-gray-50 rounded-lg border border-dashed mb-4">
+                  Chưa có nhật ký canh tác nào cho lô ngoài này. Hãy thêm nhật ký công việc ở trên.
+                </div>
+                
+                <div v-else class="flex flex-col gap-4 mb-4">
+                  <div 
+                    v-for="(log, lIndex) in batchForm.source_info.farmingLogs" 
+                    :key="lIndex"
+                    class="p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm relative"
+                  >
+                    <el-button 
+                      type="danger" 
+                      :icon="Delete" 
+                      size="small" 
+                      circle 
+                      plain 
+                      class="absolute top-2.5 right-2.5 z-10"
+                      @click="removeFarmingLog(lIndex)" 
+                    />
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <el-form-item label="Ngày thực hiện" required class="!mb-0">
+                        <el-date-picker v-model="log.completedAt" type="date" placeholder="Chọn ngày" class="!w-full" />
+                      </el-form-item>
+                      <el-form-item label="Công việc" required class="!mb-0">
+                        <el-input v-model="log.title" placeholder="Ví dụ: Bón phân, Tưới nước, Làm cỏ..." />
+                      </el-form-item>
+                      <el-form-item label="Nội dung" class="col-span-2 !mb-0">
+                        <el-input v-model="log.description" type="textarea" :rows="2" placeholder="Chi tiết các công việc đã thực hiện..." />
+                      </el-form-item>
+                      <el-form-item label="Ảnh minh chứng" class="col-span-2 !mb-0">
+                        <div class="flex flex-wrap gap-2">
+                          <div 
+                            v-for="(img, imgIndex) in log.images" 
+                            :key="imgIndex" 
+                            class="relative group w-20 h-20 border rounded overflow-hidden"
+                          >
+                            <el-image :src="getImageUrl(img)" class="w-full h-full object-cover" fit="cover" />
+                            <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center">
+                              <el-button 
+                                type="danger" 
+                                :icon="Delete" 
+                                circle 
+                                size="small" 
+                                @click="log.images.splice(imgIndex, 1)" 
+                              />
+                            </div>
+                          </div>
+                          
+                          <div 
+                            class="w-20 h-20 border border-dashed border-gray-300 rounded flex flex-col items-center justify-center hover:border-blue-500 cursor-pointer bg-white"
+                            @click="openLogMediaManager(lIndex)"
+                          >
+                            <el-icon class="text-lg text-gray-400"><Plus /></el-icon>
+                            <span class="text-[10px] text-gray-400 mt-1">Chọn ảnh</span>
+                          </div>
+                        </div>
+                      </el-form-item>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </el-collapse-item>
 
@@ -1244,6 +1393,12 @@ onMounted(fetchData);
         </el-button>
       </template>
     </el-dialog>
+
+    <MediaManager 
+      v-model="showLogMediaManager" 
+      :multiple="true"
+      @select="handleLogMediaSelect"
+    />
   </div>
 </template>
 
