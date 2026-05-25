@@ -26,6 +26,8 @@ const submitting = ref(false);
 const quillKey = ref(0);
 const dynamicAttrs = ref<{key: string, value: string}[]>([{ key: '', value: '' }]);
 const showMediaManager = ref(false); // Media Manager Visibility
+const quillEditorRef = ref<any>(null);
+const showQuillMediaManager = ref(false);
 
 // NDA Logic
 const currentTenantNdaEnabled = ref(false);
@@ -84,6 +86,28 @@ const handleMediaSelect = (selected: any) => {
 
 const openMediaManager = () => {
     showMediaManager.value = true;
+};
+
+const onQuillReady = (quillInstance: any) => {
+    const toolbar = quillInstance.getModule('toolbar');
+    if (toolbar) {
+        toolbar.addHandler('image', () => {
+            showQuillMediaManager.value = true;
+        });
+    }
+};
+
+const handleQuillMediaSelect = (selected: any) => {
+    const quill = quillEditorRef.value?.getQuill();
+    if (!quill) return;
+    
+    const urls = Array.isArray(selected) ? selected : [selected];
+    urls.forEach(url => {
+        const absoluteUrl = getImageUrl(url);
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', absoluteUrl);
+        quill.setSelection(range.index + 1);
+    });
 };
 // ... existing code ...
 
@@ -538,8 +562,16 @@ const handleSubmitWithSync = async () => {
             </el-form-item>
             
             <el-form-item label="Mô tả chi tiết" class="col-span-2">
-                <div class="border rounded overflow-hidden flex flex-col resize-y overflow-y-auto" style="min-height: 200px; max-height: 600px; height: 300px">
-                    <QuillEditor :key="quillKey" theme="snow" v-model:content="productForm.description" contentType="html" toolbar="full" />
+                <div class="border rounded overflow-hidden flex flex-col resize-y" style="min-height: 200px; max-height: 600px; height: 300px">
+                    <QuillEditor 
+                        ref="quillEditorRef"
+                        :key="quillKey" 
+                        theme="snow" 
+                        v-model:content="productForm.description" 
+                        contentType="html" 
+                        toolbar="full"
+                        @ready="onQuillReady"
+                    />
                 </div>
             </el-form-item>
         </div>
@@ -645,4 +677,21 @@ const handleSubmitWithSync = async () => {
         :multiple="true"
         @select="handleMediaSelect"
     />
+
+    <MediaManager 
+        v-model="showQuillMediaManager" 
+        :multiple="true"
+        @select="handleQuillMediaSelect"
+    />
 </template>
+
+<style scoped>
+:deep(.ql-container) {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+:deep(.ql-editor) {
+  min-height: 100%;
+}
+</style>
