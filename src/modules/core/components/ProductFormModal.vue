@@ -291,6 +291,12 @@ const handleSubmit = async () => {
         ElMessage.warning('Vui lòng nhập tên sản phẩm và danh mục');
         return;
     }
+
+    // Short Description validation (Backend max length limit is 500)
+    if (productForm.short_description && productForm.short_description.length > 500) {
+        ElMessage.warning('Mô tả ngắn không được vượt quá 500 ký tự');
+        return;
+    }
     
     // 2. Tenant Validation
     if (props.isSystemAdmin && !productForm.tenant_id) {
@@ -385,6 +391,12 @@ const handleSubmitWithSync = async () => {
     // Reuse validation from handleSubmit
     if (!productForm.name || !productForm.category_id) {
         ElMessage.warning('Vui lòng nhập tên sản phẩm và danh mục');
+        return;
+    }
+
+    // Short Description validation (Backend max length limit is 500)
+    if (productForm.short_description && productForm.short_description.length > 500) {
+        ElMessage.warning('Mô tả ngắn không được vượt quá 500 ký tự');
         return;
     }
     
@@ -569,8 +581,23 @@ const handleSubmitWithSync = async () => {
                 </el-select>
             </el-form-item>
 
-            <el-form-item label="Mô tả ngắn" class="col-span-2">
-                <el-input v-model="productForm.short_description" type="textarea" :rows="2" placeholder="Tóm tắt về sản phẩm..." />
+            <el-form-item 
+                label="Mô tả ngắn" 
+                class="col-span-2 font-medium"
+                :error="productForm.short_description && productForm.short_description.length > 500 ? 'Mô tả ngắn không được vượt quá 500 ký tự' : ''"
+            >
+                <el-input 
+                    v-model="productForm.short_description" 
+                    type="textarea" 
+                    :rows="2" 
+                    placeholder="Tóm tắt về sản phẩm..." 
+                />
+                <div 
+                    class="text-right text-xs mt-1 select-none" 
+                    :class="productForm.short_description && productForm.short_description.length > 500 ? 'text-red-500 font-semibold' : 'text-gray-400'"
+                >
+                    {{ productForm.short_description ? productForm.short_description.length : 0 }} / 500
+                </div>
             </el-form-item>
             
             <el-form-item label="Mô tả chi tiết" class="col-span-2">
