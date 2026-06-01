@@ -63,99 +63,133 @@
       :data="tableData"
       border
       stripe
+      size="small"
       style="width: 100%"
       @row-click="goToDetail"
       class="cursor-pointer"
     >
+      <el-table-column prop="createdAt" label="Ngày Tạo" width="120" sortable>
+        <template #default="{ row }">
+          <span class="text-gray-600 font-semibold">{{ formatDate(row.createdAt) }}</span>
+        </template>
+      </el-table-column>
+
       <el-table-column prop="orderCode" label="Mã Lệnh" width="160" sortable>
         <template #default="{ row }">
-          <span class="font-mono font-bold text-blue-600">{{ row.orderCode }}</span>
+          <span class="font-mono font-bold text-blue-600 hover:underline">{{ row.orderCode }}</span>
         </template>
       </el-table-column>
       
-      <el-table-column prop="product.name" label="Sản phẩm thành phẩm" min-width="200">
+      <el-table-column prop="product.name" label="Tên sản phẩm" min-width="220">
         <template #default="{ row }">
           <div>
             <div class="font-semibold text-gray-800">{{ row.product?.name }}</div>
-            <div class="text-2xs text-gray-400 font-mono">{{ row.product?.sku || row.product?.gtin }}</div>
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column prop="sourceType" label="Nguồn gốc" width="140">
-        <template #default="{ row }">
-          <el-tag :type="getSourceTagType(row.sourceType)" size="small">
-            {{ getSourceLabel(row.sourceType) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Quy cách đóng gói" width="150" align="right">
-        <template #default="{ row }">
-          <span class="font-semibold text-gray-700">{{ (row.unitWeightKg || 0).toFixed(1) }} kg/gói</span>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Khối lượng Kế hoạch" width="160" align="right">
-        <template #default="{ row }">
-          <span class="font-bold text-gray-800">{{ row.plannedWeightKg.toFixed(1) }} kg</span>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Tiến độ thực tế" width="200">
-        <template #default="{ row }">
-          <div class="w-full">
-            <el-progress
-              :percentage="getProgressPercentage(row)"
-              :status="getProgressStatus(row)"
-            />
-            <div class="text-2xs text-gray-500 mt-1 text-right">
-              {{ (row.actualWeightKg || 0).toFixed(1) }} / {{ row.plannedWeightKg.toFixed(1) }} kg
+            <div class="text-2xs text-gray-400 font-mono" v-if="row.product?.sku || row.product?.gtin">
+              {{ row.product?.sku || row.product?.gtin }}
             </div>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column prop="status" label="Trạng thái" width="140" align="center">
+      <el-table-column label="Số gói / Số bao" width="140" align="center">
         <template #default="{ row }">
-          <el-tag :type="getStatusTagType(row.status)">
+          <div class="text-xs">
+            <div>
+              <strong class="text-gray-800">{{ row.plannedUnits }}</strong> <span class="text-gray-500 text-3xs">gói</span>
+            </div>
+            <div class="text-2xs text-gray-500 mt-0.5" v-if="row.orderType === 'BAG_PACKAGING' && row.packagingSpec">
+              <strong class="text-orange-600">{{ Math.ceil(row.plannedUnits / row.packagingSpec) }}</strong> <span class="text-gray-400 text-3xs">bao</span>
+            </div>
+            <div class="text-3xs text-gray-400 mt-0.5" v-else>
+              -
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column prop="notes" label="Ghi chú" min-width="180" :show-overflow-tooltip="true">
+        <template #default="{ row }">
+          <span class="text-gray-500 italic text-2xs">{{ row.notes || '-' }}</span>
+        </template>
+      </el-table-column>
+
+      <el-table-column prop="status" label="Trạng thái" width="130" align="center">
+        <template #default="{ row }">
+          <el-tag :type="getStatusTagType(row.status)" size="small" effect="plain" class="font-semibold rounded-md">
             {{ row.status }}
           </el-tag>
         </template>
       </el-table-column>
 
-      <el-table-column prop="plannedDate" label="Ngày Thực Hiện" width="130">
+      <el-table-column label="Thao tác" width="220" align="center" fixed="right">
         <template #default="{ row }">
-          {{ formatDate(row.plannedDate) }}
-        </template>
-      </el-table-column>
+          <div class="flex items-center justify-center gap-1.5" @click.stop>
+            <!-- Chi tiết -->
+            <el-tooltip content="Chi tiết lệnh" placement="top" :enterable="false">
+              <el-button
+                type="primary"
+                icon="View"
+                circle
+                size="small"
+                @click="goToDetail(row)"
+              />
+            </el-tooltip>
 
-      <el-table-column prop="createdAt" label="Ngày Tạo" width="130">
-        <template #default="{ row }">
-          {{ formatDate(row.createdAt) }}
-        </template>
-      </el-table-column>
+            <!-- Sửa (Nếu là nháp/đã duyệt) -->
+            <el-tooltip v-if="['DRAFT', 'APPROVED'].includes(row.status)" content="Chỉnh sửa" placement="top" :enterable="false">
+              <el-button
+                type="warning"
+                icon="Edit"
+                circle
+                size="small"
+                @click="openEditDialog(row)"
+              />
+            </el-tooltip>
 
-      <el-table-column prop="creator" label="Người tạo" min-width="140">
-        <template #default="{ row }">
-          <span>{{ row.creator?.fullName || row.creator?.full_name || row.creator?.username || 'N/A' }}</span>
-        </template>
-      </el-table-column>
+            <!-- Tải mã gói (Không phải nháp) -->
+            <el-tooltip v-if="row.status !== 'DRAFT'" content="Tải mã gói (Excel)" placement="top" :enterable="false">
+              <el-button
+                type="success"
+                icon="Download"
+                circle
+                size="small"
+                @click="handleExportPacketCodes(row)"
+              />
+            </el-tooltip>
 
-      <el-table-column label="Hành động" width="180" align="center" fixed="right">
-        <template #default="{ row }">
-          <el-button type="primary" size="small" link @click.stop="goToDetail(row)">
-            Chi tiết
-          </el-button>
-          <el-button
-            v-if="row.status === 'IN_PROGRESS'"
-            type="success"
-            size="small"
-            link
-            @click.stop="handleDirectPack(row)"
-          >
-            Đóng gói
-          </el-button>
+            <!-- Tải mã bao (Chỉ lệnh đóng bao & không phải nháp) -->
+            <el-tooltip v-if="row.status !== 'DRAFT' && row.orderType === 'BAG_PACKAGING'" content="Tải mã bao (Excel)" placement="top" :enterable="false">
+              <el-button
+                type="info"
+                icon="Document"
+                circle
+                size="small"
+                @click="handleExportBagCodes(row)"
+              />
+            </el-tooltip>
+
+            <!-- Đóng bao (Lệnh đóng bao) -->
+            <el-tooltip v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(row.status) && row.orderType === 'BAG_PACKAGING'" content="Liên kết đóng bao" placement="top" :enterable="false">
+              <el-button
+                type="warning"
+                icon="Connection"
+                circle
+                size="small"
+                @click="router.push(`/supply/production-orders/${row.id}/bag-packaging`)"
+              />
+            </el-tooltip>
+
+            <!-- Đóng gói (Lệnh tiêu chuẩn) -->
+            <el-tooltip v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(row.status) && row.orderType !== 'BAG_PACKAGING'" content="Thực hiện đóng gói" placement="top" :enterable="false">
+              <el-button
+                type="success"
+                icon="Checked"
+                circle
+                size="small"
+                @click="handleDirectPack(row)"
+              />
+            </el-tooltip>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -239,7 +273,7 @@ const fetchOrders = async () => {
 
 const updateStatsSummary = () => {
   stats.draft = tableData.value.filter(o => o.status === 'DRAFT').length;
-  stats.approved = tableData.value.filter(o => o.status === 'APPROVED').length;
+  stats.approved = tableData.value.filter(o => ['APPROVED', 'CODES_READY'].includes(o.status)).length;
   stats.in_progress = tableData.value.filter(o => o.status === 'IN_PROGRESS').length;
   stats.completed = tableData.value.filter(o => o.status === 'COMPLETED').length;
 };
@@ -275,6 +309,7 @@ const getStatusTagType = (status: string) => {
   switch (status) {
     case 'DRAFT': return 'info';
     case 'APPROVED': return 'primary';
+    case 'CODES_READY': return 'primary';
     case 'IN_PROGRESS': return 'warning';
     case 'COMPLETED': return 'success';
     case 'CANCELLED': return 'danger';
@@ -336,8 +371,48 @@ const handleDirectPack = async (row: any) => {
   }
 };
 
+const handleExportPacketCodes = async (row: any) => {
+  try {
+    ElMessage.info('Đang chuẩn bị file excel mã gói...');
+    const res = await productionOrderApi.exportPacketCodesExcel(row.id);
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `ma_goi_${row.orderCode}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    ElMessage.success('Tải danh sách mã gói thành công!');
+  } catch (error: any) {
+    console.error(error);
+    ElMessage.error('Không thể xuất file mã gói');
+  }
+};
+
+const handleExportBagCodes = async (row: any) => {
+  try {
+    ElMessage.info('Đang chuẩn bị file excel mã bao...');
+    const res = await productionOrderApi.exportBagCodesExcel(row.id);
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `ma_bao_${row.orderCode}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    ElMessage.success('Tải danh sách mã bao thành công!');
+  } catch (error: any) {
+    console.error(error);
+    ElMessage.error('Không thể xuất file mã bao');
+  }
+};
+
 const openCreateDialog = () => {
   createDialogRef.value?.open();
+};
+
+const openEditDialog = (row: any) => {
+  createDialogRef.value?.open(row);
 };
 
 onMounted(() => {

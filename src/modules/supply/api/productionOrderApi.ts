@@ -19,6 +19,13 @@ export interface CreateProductionOrderDto {
     excluded_serials?: string[];
 }
 
+export interface CreateBagOrderDto extends CreateProductionOrderDto {
+    packaging_spec: number;
+    spare_packet_quantity?: number;
+    spare_bag_quantity?: number;
+    generate_codes_immediately?: boolean;
+}
+
 export interface ApproveProductionOrderDto {
     approved: boolean;
     rejection_reason?: string;
@@ -84,5 +91,31 @@ export const productionOrderApi = {
     },
     releasePalletCode(id: string) {
         return api.post(`${baseUrl}/production-tickets/${id}/release-pallet`);
+    },
+
+    // Bag Packaging Workflows
+    createBagOrder(data: CreateBagOrderDto) {
+        return api.post(`${baseUrl}/production-orders/bag-packaging`, data);
+    },
+    exportPacketCodesExcel(id: string) {
+        return api.get(`${baseUrl}/production-orders/${id}/export-packet-codes`, { responseType: 'blob' });
+    },
+    exportBagCodesExcel(id: string) {
+        return api.get(`${baseUrl}/production-orders/${id}/export-bag-codes`, { responseType: 'blob' });
+    },
+    getLotMappings(id: string) {
+        return api.get(`${baseUrl}/production-orders/${id}/lot-mappings`);
+    },
+    linkBag(id: string, data: any) {
+        return api.post(`${baseUrl}/production-orders/${id}/link-bag`, data);
+    },
+    replacePacket(id: string, data: any) {
+        return api.post(`${baseUrl}/production-orders/${id}/replace-packet`, data);
+    },
+    completeBagOrder(id: string) {
+        return api.post(`${baseUrl}/production-orders/${id}/complete`);
+    },
+    updateOrder(id: string, data: any) {
+        return api.post(`${baseUrl}/production-orders/${id}/update`, data);
     }
 };

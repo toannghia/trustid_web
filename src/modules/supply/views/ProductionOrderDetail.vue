@@ -100,18 +100,32 @@
               </el-button>
             </div>
 
-            <!-- APPROVED / IN_PROGRESS Operations -->
-            <div v-else-if="order.status === 'APPROVED' || order.status === 'IN_PROGRESS'" class="space-y-3">
+            <!-- APPROVED / CODES_READY / IN_PROGRESS Operations -->
+            <div v-else-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(order.status)" class="space-y-3">
               <div class="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
                 <p class="text-xs text-emerald-800 font-semibold">Lệnh đã được duyệt sản xuất.</p>
                 <p class="text-2xs text-emerald-700 mt-1">Phiếu đóng gói đã được tự động khởi tạo dưới nền.</p>
               </div>
 
+              <!-- Button for Bag Packaging orders -->
               <el-button
-                v-if="order.status === 'IN_PROGRESS'"
-                type="success"
-                class="w-full"
+                v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(order.status) && order.orderType === 'BAG_PACKAGING'"
+                type="warning"
+                class="w-full font-bold"
                 size="large"
+                icon="Connection"
+                @click="router.push(`/supply/production-orders/${order.id}/bag-packaging`)"
+              >
+                🔗 Liên kết đóng bao
+              </el-button>
+
+              <!-- Button for Standard orders -->
+              <el-button
+                v-else-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(order.status)"
+                type="success"
+                class="w-full font-bold"
+                size="large"
+                icon="Checked"
                 @click="startDirectPackaging"
               >
                 🚀 Bắt đầu đóng gói

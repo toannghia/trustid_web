@@ -10,7 +10,10 @@ import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import ProductFormModal from '../components/ProductFormModal.vue';
 
+import { useRoute } from 'vue-router';
+
 const authStore = useAuthStore();
+const route = useRoute();
 const products = ref([]);
 const categories = ref([]); 
 const tenants = ref<any[]>([]);
@@ -72,6 +75,13 @@ const fetchProducts = async () => {
     try {
         const { data } = await productApi.getList({}); 
         products.value = data.data || data.items || data || [];
+        
+        if (route.query.id) {
+            const match = products.value.find((p: any) => p.id === route.query.id);
+            if (match) {
+                handleEdit(match);
+            }
+        }
     } catch (e: any) {
         console.error(e);
         ElMessage.error('Lỗi tải sản phẩm: ' + (e.response?.data?.message || e.message));
@@ -177,6 +187,9 @@ onMounted(() => {
              tenants.value = res.data.data || res.data || [];
          }).catch(() => {});
     }
+    if (route.query.search) {
+        searchTerm.value = String(route.query.search);
+    }
 });
 
 </script>
@@ -252,6 +265,12 @@ onMounted(() => {
         <el-table-column label="Quy cách" width="100" align="center">
             <template #default="scope">
                 <span v-if="scope.row.netWeight">{{ scope.row.netWeight }} {{ scope.row.weightUnit }}</span>
+                <span v-else class="text-gray-400">---</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="Đóng bao" width="100" align="center">
+            <template #default="scope">
+                <span v-if="scope.row.defaultPackagingSpec">{{ scope.row.defaultPackagingSpec }} gói/bao</span>
                 <span v-else class="text-gray-400">---</span>
             </template>
         </el-table-column>
@@ -365,10 +384,17 @@ onMounted(() => {
             </div>
             
             <div class="grid grid-cols-2 gap-4">
-                <div>
+                 <div>
                      <label class="text-sm text-gray-500 block">Trọng lượng (Quy cách)</label>
                      <div class="font-medium">{{ selectedProduct.netWeight || '0' }} {{ selectedProduct.weightUnit || 'kg' }}</div>
                 </div>
+                <div>
+                     <label class="text-sm text-gray-500 block">Quy cách đóng bao</label>
+                     <div class="font-medium">{{ selectedProduct.defaultPackagingSpec ? selectedProduct.defaultPackagingSpec + ' gói/bao' : 'Chưa cài đặt' }}</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
                 <div>
                      <label class="text-sm text-gray-500 block">Hạn sử dụng</label>
                      <div class="font-medium">

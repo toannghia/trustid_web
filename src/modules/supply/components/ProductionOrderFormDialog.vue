@@ -1,29 +1,27 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="Tạo Lệnh Sản Xuất Mới"
     width="820px"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     @closed="resetForm"
     append-to-body
   >
+    <template #header>
+      <div class="flex justify-between items-center w-full pr-8">
+        <span class="text-lg font-bold text-gray-800">
+          {{ editMode ? `Chỉnh sửa Lệnh sản xuất: ${form.order_code}` : 'Tạo Lệnh Sản Xuất Mới' }}
+        </span>
+        <span class="text-xs text-gray-500 font-normal">
+          Người tạo: <strong>{{ editMode ? (form.creator || 'N/A') : (authStore.user?.fullName || authStore.user?.full_name || authStore.user?.username || 'N/A') }}</strong>
+          <span class="mx-2">•</span>
+          Ngày tạo: <strong>{{ editMode ? (form.created_at || 'N/A') : new Date().toLocaleDateString('vi-VN') }}</strong>
+        </span>
+      </div>
+    </template>
+
     <el-form :model="form" label-position="top" :rules="rules" ref="formRef" v-loading="loadingData">
       
-      <!-- Row 1: Thông tin nguồn và người tạo -->
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="Người tạo lệnh (User)">
-            <el-input :value="authStore.user?.fullName || authStore.user?.full_name || authStore.user?.username || 'N/A'" disabled class="premium-disabled-input" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="Ngày tạo lệnh">
-            <el-input :value="new Date().toLocaleDateString('vi-VN')" disabled class="premium-disabled-input" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-
       <!-- Row 2: Sản phẩm và Ngày thực hiện -->
       <el-row :gutter="20">
         <el-col :span="12">
@@ -34,6 +32,7 @@
               filterable
               class="w-full"
               @change="onProductChange"
+              :disabled="isFieldLocked('product_id')"
             >
               <el-option
                 v-for="p in products"
@@ -53,24 +52,63 @@
               class="w-full"
               format="YYYY-MM-DD"
               value-format="YYYY-MM-DD"
+              :disabled="isFieldLocked('planned_date')"
             />
           </el-form-item>
         </el-col>
       </el-row>
 
-      <!-- Row 3: Nguồn gốc nguyên liệu -->
-      <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="Nguồn gốc nguyên liệu" prop="source_type">
-            <el-radio-group v-model="form.source_type" class="w-full-flex" @change="onSourceTypeChange">
-              <el-radio-button label="FARM">Từ Farm</el-radio-button>
-              <el-radio-button label="EXTERNAL">Nhập ngoài</el-radio-button>
-              <el-radio-button label="CROSS_TENANT">Nhận B2B (Cross-Tenant)</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
+      <!-- Row 2b: Dòng quy cách sản phẩm - Dài hết khối hiển thị font và màu đồng bộ -->
+      <el-row :gutter="20" v-if="form.product_id && selectedProduct" class="mb-3">
+        <el-col :span="24">
+          <div class="text-sm text-gray-700 flex items-center justify-between bg-gray-50 p-2.5 rounded border border-gray-200">
+            <span>
+              ℹ️ Quy cách sản phẩm: <strong>{{ form.unit_weight_kg }} kg/gói</strong>
+              <span v-if="form.order_type === 'BAG_PACKAGING'"> | Quy cách đóng bao: <strong>{{ form.packaging_spec }} gói/bao</strong></span>
+            </span>
+            <el-button type="primary" link size="small" @click="goToProductCatalog">
+              ✏️ Cập nhật thông tin sản phẩm
+            </el-button>
+          </div>
         </el-col>
+      </el-row>
 
-        <el-col :span="12">
+      <!-- Dòng quy trình đóng gói & Nguyên liệu nhập ngoài (Nằm thẳng thớm) -->
+      <div class="flex items-center gap-8 mb-4 mt-2">
+        <!-- Đóng bao checkbox inline -->
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-gray-700">Đóng bao:</span>
+          <el-checkbox
+            v-model="orderTypeIsBag"
+            :disabled="isFieldLocked('order_type')"
+          >
+            Có
+          </el-checkbox>
+        </div>
+
+        <!-- Sử dụng nguyên liệu nhập ngoài B2B inline -->
+        <div class="flex items-center gap-4 flex-wrap">
+          <el-checkbox 
+            v-model="form.source_type_checkbox" 
+            :disabled="isFieldLocked('source_type')"
+          >
+            <span class="font-semibold text-gray-700">Nguyên liệu ngoài farm</span>
+          </el-checkbox>
+
+          <div v-if="form.source_type_checkbox" class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-gray-500">Loại:</span>
+            <el-radio-group v-model="form.source_type" @change="onSourceTypeChange" :disabled="isFieldLocked('source_type')" class="!flex items-center">
+              <el-radio label="EXTERNAL" class="!mr-4">Nhập ngoài</el-radio>
+              <el-radio label="CROSS_TENANT" class="!mr-0">Nhận B2B (Cross-Tenant)</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dòng chọn lô và khối lượng sản xuất cho lên cùng dòng -->
+      <el-row :gutter="20">
+        <!-- Chọn Lô (Span 14) -->
+        <el-col :span="14">
           <!-- FARM selection -->
           <el-form-item
             v-if="form.source_type === 'FARM'"
@@ -82,11 +120,12 @@
               placeholder="Chọn lô thu hoạch của nông trại..."
               filterable
               class="w-full"
+              :disabled="isFieldLocked('farm_batch_code')"
             >
               <el-option
-                v-for="h in harvestList"
+                v-for="h in filteredHarvests"
                 :key="h.batchCode"
-                :label="`${h.batchCode} (${h.productName || 'Chưa rõ SP'}) - ${h.quantityKg.toFixed(1)}kg`"
+                :label="`${h.batchCode} (${h.cropCycle?.location?.plantType || h.productName || 'Chưa rõ SP'}) — Khối lượng còn lại: ${h.quantityKg.toFixed(1)} kg`"
                 :value="h.batchCode"
               />
             </el-select>
@@ -103,141 +142,104 @@
               placeholder="Chọn lô nguyên liệu..."
               filterable
               class="w-full"
+              :disabled="isFieldLocked('source_batch_id')"
             >
               <el-option
                 v-for="b in filteredSourceBatches"
                 :key="b.id"
-                :label="`${b.batchCode} (${b.product?.name || 'Không rõ SP'}) - Còn lại: ${(b.totalQuantity || b.totalUnitsExpected || 0).toFixed(1)} kg`"
+                :label="`${b.batchCode} (${b.product?.name || 'Không rõ SP'}) — Khối lượng còn lại: ${(b.totalQuantity || b.totalUnitsExpected || 0).toFixed(1)} kg`"
                 :value="b.id"
               />
             </el-select>
           </el-form-item>
         </el-col>
-      </el-row>
 
-      <el-divider>Thông số sản xuất</el-divider>
-
-      <!-- Row 4: Khối lượng và Quy cách -->
-      <el-row :gutter="20">
+        <!-- Khối lượng kế hoạch (Span 10) -->
         <el-col :span="10">
           <el-form-item label="Khối lượng kế hoạch" prop="planned_weight">
-            <div class="flex gap-2 w-full">
+            <div class="flex gap-1 w-full">
               <el-input-number
                 v-model="form.planned_weight"
-                :min="0.1"
+                :min="0"
+                :max="maxPlannedWeight"
                 :precision="1"
                 class="flex-1"
                 controls-position="right"
+                :disabled="isFieldLocked('planned_weight')"
               />
-              <el-select v-model="form.planned_weight_unit" class="w-[90px]">
+              <el-select v-model="form.planned_weight_unit" class="w-[75px]" :disabled="isFieldLocked('planned_weight')">
                 <el-option label="kg" value="KG" />
                 <el-option label="Yến" value="YEN" />
                 <el-option label="Tạ" value="TA" />
                 <el-option label="Tấn" value="TON" />
               </el-select>
             </div>
-            <div v-if="form.planned_weight_unit !== 'KG'" class="text-xs text-gray-500 mt-1">
-              Quy đổi: <strong class="text-blue-600">{{ form.planned_weight_kg.toFixed(1) }} kg</strong>
-            </div>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-divider>Thông số sản xuất</el-divider>
+
+      <!-- Row 4: Khối sản xuất hiển thị số gói, số bao, gói/bao dự phòng (Căn hàng hoàn hảo không lệch trên dưới) -->
+      <el-row :gutter="20" class="items-start">
+        <!-- Cột 1: Số gói dự kiến -->
+        <el-col :span="6">
+          <el-form-item label="Số gói dự kiến">
+            <el-input readonly :model-value="estimatedUnits" class="w-full" disabled />
           </el-form-item>
         </el-col>
 
-        <el-col :span="7">
-          <el-form-item label="Quy cách đóng gói (kg/gói)" prop="unit_weight_kg">
-            <el-input-number
-              v-model="form.unit_weight_kg"
-              :min="0.1"
-              :precision="1"
+        <!-- Cột 2: Số bao dự kiến -->
+        <el-col :span="6">
+          <el-form-item label="Số bao dự kiến">
+            <el-input readonly :model-value="form.order_type === 'BAG_PACKAGING' ? estimatedBags : 0" class="w-full" disabled />
+          </el-form-item>
+        </el-col>
+
+        <!-- Cột 3: Số gói dự phòng -->
+        <el-col :span="6">
+          <el-form-item label="Số gói dự phòng">
+            <el-input-number 
+              v-model="form.spare_packet_quantity" 
+              :min="0" 
+              controls-position="right" 
               class="w-full"
-              controls-position="right"
-              @change="calculateUnits"
+              :disabled="isFieldLocked('planned_weight')"
             />
           </el-form-item>
         </el-col>
 
-        <el-col :span="7">
-          <el-form-item label="Dung sai cho phép (%)" prop="weight_tolerance_pct">
-            <el-input-number
-              v-model="form.weight_tolerance_pct"
-              :min="0"
-              :max="50"
+        <!-- Cột 4: Số bao dự phòng -->
+        <el-col :span="6">
+          <el-form-item label="Số bao dự phòng">
+            <el-input-number 
+              v-slot
+              v-model="form.spare_bag_quantity" 
+              :min="0" 
+              controls-position="right" 
               class="w-full"
-              controls-position="right"
+              :disabled="isFieldLocked('planned_weight') || form.order_type !== 'BAG_PACKAGING'"
             />
           </el-form-item>
         </el-col>
       </el-row>
 
-      <el-row :gutter="20" class="mt-2">
-        <el-col :span="24">
-          <div class="p-3 bg-gray-50 border border-gray-100 rounded text-sm text-gray-600 flex justify-between">
-            <span>Số lượng gói dự kiến đóng: <strong class="text-blue-600">{{ estimatedUnits }} gói</strong></span>
-            <span>Khoảng khối lượng chấp nhận hoàn thành: <strong class="text-green-600">{{ minAcceptableWeight.toFixed(1) }}kg - {{ maxAcceptableWeight.toFixed(1) }}kg</strong></span>
-          </div>
-        </el-col>
+      <!-- Summary text block -->
+      <el-row :gutter="20" class="mt-2 mb-4" v-if="form.order_type === 'BAG_PACKAGING'">
+         <el-col :span="24">
+           <div class="text-sm text-gray-600 bg-blue-50/50 p-3 rounded border border-blue-100/70 flex items-center justify-between">
+             <span>
+               📋 <strong>Dự kiến tổng cộng:</strong> 
+               <strong class="text-blue-600">{{ estimatedBags }}</strong> lô (bao) + <strong class="text-blue-600">{{ form.spare_bag_quantity }}</strong> dự phòng = <strong class="text-green-600">{{ estimatedBags + form.spare_bag_quantity }}</strong> mã bao.
+             </span>
+             <span>
+               Tổng số gói: <strong class="text-green-600">{{ estimatedUnits + form.spare_packet_quantity }}</strong> mã gói.
+             </span>
+           </div>
+         </el-col>
       </el-row>
 
 
-      <!-- Cấu hình Đóng gói & Giao việc (Tự động cấp phiếu) -->
-      <div class="mt-6 border-t pt-4">
-        <h4 class="text-sm font-bold uppercase text-gray-700 mb-3 flex items-center gap-2">
-          ⚙️ Cấu hình đóng gói & Giao việc (Tự động cấp phiếu)
-        </h4>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="Công nhân đóng gói thực hiện" prop="operator_id">
-              <el-select v-model="form.operator_id" placeholder="Chọn công nhân đóng gói" clearable class="w-full">
-                <el-option
-                  v-for="op in operators"
-                  :key="op.id"
-                  :label="op.fullName || op.full_name || op.username"
-                  :value="op.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          
-          <el-col :span="12">
-            <el-form-item label="Tiền tố Serial đóng gói" prop="serial_prefix">
-              <el-select v-model="form.serial_prefix" placeholder="Chọn tiền tố tem QR" clearable class="w-full" @change="onPrefixChange">
-                <el-option
-                  v-for="pref in prefixList"
-                  :key="pref"
-                  :label="pref"
-                  :value="pref"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        
-        <el-row :gutter="20" class="mt-2">
-          <el-col :span="12">
-            <el-form-item label="Số serial bắt đầu" prop="serial_range_start">
-              <el-input-number
-                v-model="form.serial_range_start"
-                :min="1"
-                class="w-full"
-                controls-position="right"
-                placeholder="Ví dụ: 1"
-              />
-            </el-form-item>
-          </el-col>
-          
-          <el-col :span="12">
-            <el-form-item label="Số serial kết thúc" prop="serial_range_end">
-              <el-input-number
-                v-model="form.serial_range_end"
-                :min="1"
-                class="w-full"
-                controls-position="right"
-                placeholder="Ví dụ: 1000"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </div>
 
       <!-- Row 5: Ghi chú -->
       <el-row :gutter="20" class="mt-4">
@@ -258,7 +260,7 @@
       <span class="dialog-footer">
         <el-button @click="visible = false">Hủy</el-button>
         <el-button type="primary" :loading="submitting" @click="submitForm">
-          Tạo Lệnh Sản Xuất
+          {{ editMode ? 'Cập nhật Lệnh' : 'Tạo Lệnh Sản Xuất' }}
         </el-button>
       </span>
     </template>
@@ -271,10 +273,10 @@ import { ElMessage } from 'element-plus';
 import { useAuthStore } from '@/modules/core/store/auth';
 import { productApi } from '@/modules/core/api/product';
 import { farmApi } from '@/modules/farm/api/farmApi';
-import { userApi } from '@/modules/core/api/user';
 import { supplyApi } from '../api/supplyApi';
 import { productionOrderApi } from '../api/productionOrderApi';
 import type { FormInstance, FormRules } from 'element-plus';
+import dayjs from 'dayjs';
 
 const emit = defineEmits(['success']);
 
@@ -288,35 +290,49 @@ const authStore = useAuthStore();
 const products = ref<any[]>([]);
 const harvestList = ref<any[]>([]);
 const allSourceBatches = ref<any[]>([]);
-const operators = ref<any[]>([]);
-const prefixList = ref<any[]>([]);
+
+const editMode = ref(false);
+const orderId = ref('');
+const editStatus = ref('');
 
 const form = reactive({
+  order_code: '',
+  creator: '',
+  created_at: '',
+  order_type: 'BAG_PACKAGING' as 'STANDARD' | 'BAG_PACKAGING',
   product_id: '',
   source_type: 'FARM' as 'FARM' | 'EXTERNAL' | 'CROSS_TENANT',
+  source_type_checkbox: false,
   source_batch_id: '',
   farm_batch_code: '',
   planned_weight: 100,
   planned_weight_unit: 'KG', // KG, YEN, TA, TON
   planned_weight_kg: 100,
   unit_weight_kg: 1,
-  weight_tolerance_pct: 5,
+  packaging_spec: 0,
+  spare_packet_quantity: 0,
+  spare_bag_quantity: 0,
   planned_date: '',
-  notes: '',
-  operator_id: '',
-  serial_prefix: '',
-  serial_range_start: undefined as number | undefined,
-  serial_range_end: undefined as number | undefined,
-  excluded_serials: [] as string[]
+  notes: ''
 });
 
 const rules = reactive<FormRules>({
   product_id: [{ required: true, message: 'Vui lòng chọn sản phẩm thành phẩm', trigger: 'change' }],
   source_type: [{ required: true, message: 'Vui lòng chọn nguồn gốc nguyên liệu', trigger: 'change' }],
   planned_weight: [{ required: true, message: 'Nhập khối lượng kế hoạch', trigger: 'blur' }],
-  unit_weight_kg: [{ required: true, message: 'Nhập quy cách đóng gói', trigger: 'blur' }],
   planned_date: [{ required: true, message: 'Chọn ngày thực hiện theo kế hoạch', trigger: 'change' }]
 });
+
+// Edit lock utility
+const isFieldLocked = (fieldName: string) => {
+  if (!editMode.value) return false;
+  if (editStatus.value === 'DRAFT') return false;
+  if (editStatus.value === 'APPROVED') {
+    const lockedFields = ['product_id', 'planned_weight', 'unit_weight_kg', 'source_type', 'source_batch_id', 'farm_batch_code', 'planned_date', 'order_type'];
+    return lockedFields.includes(fieldName);
+  }
+  return true; // Locked for in progress / completed
+};
 
 // Convert planned_weight + unit to planned_weight_kg
 const getUnitMultiplier = (unit: string) => {
@@ -332,9 +348,33 @@ watch(() => [form.planned_weight, form.planned_weight_unit], () => {
   form.planned_weight_kg = form.planned_weight * getUnitMultiplier(form.planned_weight_unit);
 }, { immediate: true });
 
-// Filter source batches dynamically based on source_type
+// Toggle helper for checkbox
+const orderTypeIsBag = computed({
+  get: () => form.order_type === 'BAG_PACKAGING',
+  set: (val: boolean) => {
+    form.order_type = val ? 'BAG_PACKAGING' : 'STANDARD';
+  }
+});
+
+const selectedProduct = computed(() => {
+  return products.value.find(p => p.id === form.product_id);
+});
+
+const goToProductCatalog = () => {
+  if (form.product_id) {
+    window.open(`/products?id=${form.product_id}`, '_blank');
+  } else {
+    window.open('/products', '_blank');
+  }
+};
+
+// Filter source batches dynamically based on source_type & selected product
 const filteredSourceBatches = computed(() => {
+  if (!form.product_id) return [];
   return allSourceBatches.value.filter((b: any) => {
+    const isProductMatch = b.productId === form.product_id || b.product?.id === form.product_id;
+    if (!isProductMatch) return false;
+
     if (form.source_type === 'EXTERNAL') {
       return b.batchType === 'EXTERNAL';
     }
@@ -345,38 +385,122 @@ const filteredSourceBatches = computed(() => {
   });
 });
 
-// Computed values
+// Filter harvest lots dynamically based on selected product name
+const filteredHarvests = computed(() => {
+  if (!form.product_id || !selectedProduct.value) return [];
+  const prodName = selectedProduct.value.name.toLowerCase();
+  return harvestList.value.filter((h: any) => {
+    const plantType = h.cropCycle?.location?.plantType?.toLowerCase() || h.productName?.toLowerCase() || '';
+    return plantType && (prodName.includes(plantType) || plantType.includes(prodName));
+  });
+});
+
+// Enforce weight logic: default to remaining lot weight, only allow decrease
+const selectedLotRemainingWeightKg = computed(() => {
+  if (form.source_type === 'FARM') {
+    if (!form.farm_batch_code) return Infinity;
+    const h = harvestList.value.find(item => item.batchCode === form.farm_batch_code);
+    return h ? (h.quantityKg || 0) : Infinity;
+  } else {
+    if (!form.source_batch_id) return Infinity;
+    const b = allSourceBatches.value.find(item => item.id === form.source_batch_id);
+    return b ? (b.totalQuantity || b.totalUnitsExpected || 0) : Infinity;
+  }
+});
+
+const maxPlannedWeight = computed(() => {
+  const maxKg = selectedLotRemainingWeightKg.value;
+  if (maxKg === Infinity) return 999999999;
+  const multiplier = getUnitMultiplier(form.planned_weight_unit);
+  return Number((maxKg / multiplier).toFixed(2));
+});
+
+// Computed values (Default is exactly 0 if product_id is not selected)
 const estimatedUnits = computed(() => {
-  if (!form.planned_weight_kg || !form.unit_weight_kg) return 0;
+  if (!form.product_id || !form.planned_weight_kg || !form.unit_weight_kg) return 0;
   return Math.ceil(form.planned_weight_kg / form.unit_weight_kg);
 });
 
-const minAcceptableWeight = computed(() => {
-  const tolerance = (form.planned_weight_kg * (form.weight_tolerance_pct || 0)) / 100;
-  return Math.max(0.1, parseFloat((form.planned_weight_kg - tolerance).toFixed(1)));
+const estimatedBags = computed(() => {
+  if (!form.product_id || !form.packaging_spec || form.packaging_spec <= 0) return 0;
+  return Math.ceil(estimatedUnits.value / form.packaging_spec);
 });
 
-const maxAcceptableWeight = computed(() => {
-  const tolerance = (form.planned_weight_kg * (form.weight_tolerance_pct || 0)) / 100;
-  return parseFloat((form.planned_weight_kg + tolerance).toFixed(1));
+// 10% Spares auto-calculation watches
+watch(estimatedUnits, (newVal) => {
+  if (!isFieldLocked('planned_weight') && form.product_id) {
+    form.spare_packet_quantity = Math.ceil(newVal * 0.1);
+  } else if (!form.product_id) {
+    form.spare_packet_quantity = 0;
+  }
 });
 
-const open = async () => {
+watch(estimatedBags, (newVal) => {
+  if (!isFieldLocked('planned_weight') && form.product_id) {
+    form.spare_bag_quantity = Math.ceil(newVal * 0.1);
+  } else if (!form.product_id) {
+    form.spare_bag_quantity = 0;
+  }
+});
+
+// Toggle helper for external / B2B checkbox
+watch(() => form.source_type_checkbox, (val) => {
+  if (!val) {
+    form.source_type = 'FARM';
+    form.source_batch_id = '';
+  } else {
+    if (form.source_type === 'FARM') {
+      form.source_type = 'EXTERNAL';
+      form.farm_batch_code = '';
+    }
+  }
+});
+
+const open = async (order?: any) => {
   resetForm();
   visible.value = true;
   loadingData.value = true;
+
+  if (order) {
+    editMode.value = true;
+    orderId.value = order.id;
+    editStatus.value = order.status;
+
+    form.order_code = order.orderCode || '';
+    form.creator = order.creator?.fullName || order.creator?.username || 'N/A';
+    form.created_at = order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : 'N/A';
+    form.order_type = order.orderType || 'STANDARD';
+    form.product_id = order.productId || '';
+    form.source_type = order.sourceType || 'FARM';
+    form.source_type_checkbox = order.sourceType !== 'FARM';
+    form.source_batch_id = order.sourceBatchId || '';
+    form.farm_batch_code = order.farmBatchCode || '';
+    form.planned_weight_kg = order.plannedWeightKg || 100;
+    form.planned_weight = order.plannedWeightKg || 100;
+    form.planned_weight_unit = 'KG';
+    form.unit_weight_kg = order.unitWeightKg || 1;
+    form.packaging_spec = order.packagingSpec || 0;
+    form.spare_packet_quantity = order.sparePacketQuantity || 0;
+    form.spare_bag_quantity = order.spareBagQuantity || 0;
+    form.planned_date = order.plannedDate ? order.plannedDate.substring(0, 10) : '';
+    form.notes = order.notes || '';
+  } else {
+    editMode.value = false;
+    orderId.value = '';
+    editStatus.value = '';
+    form.planned_date = dayjs().format('YYYY-MM-DD');
+    form.order_type = 'BAG_PACKAGING';
+  }
+
   try {
-    const [pRes, hRes, extRes, userRes] = await Promise.all([
+    const [pRes, hRes, extRes] = await Promise.all([
       productApi.getList({}),
       farmApi.getHarvests({}),
-      supplyApi.getExternalBatches(),
-      userApi.getList({ page: 1, limit: 100 })
+      supplyApi.getExternalBatches()
     ]);
     products.value = (pRes as any).data?.data || (pRes as any).data || [];
     harvestList.value = (hRes as any).data?.data || (hRes as any).data || [];
-    // Load all external and cross tenant batches returned by the backend
     allSourceBatches.value = (extRes as any).data || extRes || [];
-    operators.value = (userRes as any).data?.items || (userRes as any).data?.data || [];
   } catch (e) {
     console.error('Failed to load master data for Production Order Form', e);
     ElMessage.error('Lỗi khi tải danh mục sản phẩm/lô thu hoạch');
@@ -392,66 +516,67 @@ const onProductChange = async () => {
     const unit = (p.weightUnit || 'kg').toLowerCase();
     if (unit === 'g' || unit === 'ml') weight /= 1000;
     form.unit_weight_kg = weight;
-  }
-
-  // Load serial prefixes for this product
-  form.serial_prefix = '';
-  if (form.product_id) {
-    try {
-      const prefRes = await supplyApi.searchSerialPrefixes(form.product_id);
-      prefixList.value = (prefRes as any).data || prefRes || [];
-    } catch (e) {
-      console.error('Failed to load prefixes for product', e);
-    }
   } else {
-    prefixList.value = [];
+    form.unit_weight_kg = 1;
   }
+  
+  if (p && p.defaultPackagingSpec && Number(p.defaultPackagingSpec) > 0) {
+      form.packaging_spec = Number(p.defaultPackagingSpec);
+  } else {
+      form.packaging_spec = 0;
+  }
+
+  // Reset selected lots when product changes
+  form.farm_batch_code = '';
+  form.source_batch_id = '';
+
+  // Clear weight and data fields to 0 when product changes and no lot is selected
+  form.planned_weight = 0;
+  form.planned_weight_kg = 0;
+  form.spare_packet_quantity = 0;
+  form.spare_bag_quantity = 0;
 };
 
-const onPrefixChange = async () => {
-  if (!form.serial_prefix) {
-    form.serial_range_start = undefined;
-    form.serial_range_end = undefined;
-    return;
-  }
-  try {
-    const res = await supplyApi.getPrefixNextNumber(form.serial_prefix, form.product_id) as any;
-    if (res.data && res.data.next_number) {
-      const nextNum = parseInt(res.data.next_number, 10);
-      if (!isNaN(nextNum)) {
-        form.serial_range_start = nextNum;
-        if (estimatedUnits.value > 0) {
-          form.serial_range_end = nextNum + estimatedUnits.value - 1;
-        }
-      }
+// Automatically set planned weight to selected lot's remaining weight
+watch(() => form.farm_batch_code, (newVal) => {
+  if (newVal && !editMode.value) {
+    const h = harvestList.value.find(item => item.batchCode === newVal);
+    if (h) {
+      form.planned_weight = Number((h.quantityKg || 0).toFixed(1));
+      form.planned_weight_unit = 'KG';
     }
-  } catch (e: any) {
-    console.error('Failed to get prefix next number', e);
-    ElMessage.warning(e.response?.data?.message || 'Không tìm thấy số serial khả dụng tiếp theo cho tiền tố này.');
-    form.serial_range_start = undefined;
-    form.serial_range_end = undefined;
-  }
-};
-
-watch(estimatedUnits, (newVal) => {
-  if (form.serial_range_start && newVal > 0) {
-    form.serial_range_end = form.serial_range_start + newVal - 1;
+  } else if (!newVal && !editMode.value) {
+    form.planned_weight = 0;
+    form.planned_weight_kg = 0;
+    form.spare_packet_quantity = 0;
+    form.spare_bag_quantity = 0;
   }
 });
 
-watch(() => form.serial_range_start, (newVal) => {
-  if (newVal && estimatedUnits.value > 0) {
-    form.serial_range_end = newVal + estimatedUnits.value - 1;
+watch(() => form.source_batch_id, (newVal) => {
+  if (newVal && !editMode.value) {
+    const b = allSourceBatches.value.find(item => item.id === newVal);
+    if (b) {
+      form.planned_weight = Number((b.totalQuantity || b.totalUnitsExpected || 0).toFixed(1));
+      form.planned_weight_unit = 'KG';
+    }
+  } else if (!newVal && !editMode.value) {
+    form.planned_weight = 0;
+    form.planned_weight_kg = 0;
+    form.spare_packet_quantity = 0;
+    form.spare_bag_quantity = 0;
   }
 });
+
+
 
 const onSourceTypeChange = () => {
   form.source_batch_id = '';
   form.farm_batch_code = '';
-};
-
-const calculateUnits = () => {
-  // Can be used for custom calculations
+  form.planned_weight = 0;
+  form.planned_weight_kg = 0;
+  form.spare_packet_quantity = 0;
+  form.spare_bag_quantity = 0;
 };
 
 const executeSubmit = async () => {
@@ -469,14 +594,8 @@ const executeSubmit = async () => {
       source_type: form.source_type,
       planned_weight_kg: form.planned_weight_kg,
       unit_weight_kg: form.unit_weight_kg,
-      weight_tolerance_pct: form.weight_tolerance_pct,
       planned_date: form.planned_date,
-      notes: form.notes,
-      operator_id: form.operator_id || undefined,
-      serial_prefix: form.serial_prefix || undefined,
-      serial_range_start: form.serial_range_start || undefined,
-      serial_range_end: form.serial_range_end || undefined,
-      excluded_serials: form.excluded_serials && form.excluded_serials.length > 0 ? form.excluded_serials : undefined
+      notes: form.notes
     };
     
     if (form.source_type === 'FARM') {
@@ -485,13 +604,40 @@ const executeSubmit = async () => {
       payload.source_batch_id = form.source_batch_id;
     }
 
-    const { data } = await productionOrderApi.createOrder(payload);
-    ElMessage.success('Tạo Lệnh Sản Xuất thành công!');
-    visible.value = false;
-    emit('success', data);
+    if (form.order_type === 'BAG_PACKAGING') {
+        payload.packaging_spec = form.packaging_spec;
+        payload.spare_packet_quantity = form.spare_packet_quantity;
+        payload.spare_bag_quantity = form.spare_bag_quantity;
+    }
+
+    if (editMode.value) {
+      const { data } = await productionOrderApi.updateOrder(orderId.value, payload);
+      ElMessage.success('Cập nhật Lệnh Sản Xuất thành công!');
+      visible.value = false;
+      emit('success', data);
+    } else {
+      if (form.order_type === 'BAG_PACKAGING') {
+          const { data } = await productionOrderApi.createBagOrder(payload);
+          ElMessage.success('Tạo Lệnh Sản Xuất Đóng Bao thành công!');
+          visible.value = false;
+          emit('success', data);
+      } else {
+          const { data } = await productionOrderApi.createOrder(payload);
+          ElMessage.success('Tạo Lệnh Sản Xuất thành công!');
+          visible.value = false;
+          emit('success', data);
+      }
+    }
   } catch (err: any) {
     console.error(err);
-    ElMessage.error(err?.response?.data?.message || 'Lỗi khi tạo Lệnh Sản Xuất');
+    let msg = 'Lỗi khi lưu Lệnh Sản Xuất';
+    if (err?.response?.data?.message) {
+      const serverMsg = err.response.data.message;
+      msg = Array.isArray(serverMsg) ? serverMsg.join(', ') : serverMsg;
+    } else if (err?.message) {
+      msg = err.message;
+    }
+    ElMessage.error(msg);
   } finally {
     submitting.value = false;
   }
@@ -508,42 +654,29 @@ const submitForm = () => {
 
 const resetForm = () => {
   if (formRef.value) formRef.value.resetFields();
+  form.order_code = '';
+  form.creator = '';
+  form.created_at = '';
+  form.order_type = 'STANDARD';
   form.product_id = '';
   form.source_type = 'FARM';
+  form.source_type_checkbox = false;
   form.source_batch_id = '';
   form.farm_batch_code = '';
-  form.planned_weight = 100;
+  form.planned_weight = 0;
   form.planned_weight_unit = 'KG';
-  form.planned_weight_kg = 100;
+  form.planned_weight_kg = 0;
   form.unit_weight_kg = 1;
-  form.weight_tolerance_pct = 5;
+  form.packaging_spec = 0;
+  form.spare_packet_quantity = 0;
+  form.spare_bag_quantity = 0;
   form.planned_date = '';
   form.notes = '';
-  form.operator_id = '';
-  form.serial_prefix = '';
-  form.serial_range_start = undefined;
-  form.serial_range_end = undefined;
-  form.excluded_serials = [];
 };
 
 defineExpose({ open });
 </script>
 
 <style scoped>
-.premium-disabled-input :deep(.el-input__inner) {
-  color: #374151 !important;
-  font-weight: 600;
-  background-color: #f3f4f6 !important;
-}
-.w-full-flex {
-  display: flex;
-  width: 100%;
-}
-.w-full-flex :deep(.el-radio-button) {
-  flex: 1;
-  text-align: center;
-}
-.w-full-flex :deep(.el-radio-button__inner) {
-  width: 100%;
-}
+/* Scoped styles for precise spacing */
 </style>

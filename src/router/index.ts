@@ -378,6 +378,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], title: 'Chi tiết lệnh sản xuất' }
       },
       {
+        path: '/supply/production-orders/:id/bag-packaging',
+        name: 'BagLinkingView',
+        component: () => import('@/modules/supply/views/BagLinkingView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], title: 'Đóng Bao Lệnh Sản Xuất' }
+      },
+      {
         path: '/supply/inventory',
         name: 'InventoryDashboard',
         component: () => import('@/modules/supply/views/InventoryDashboard.vue'),

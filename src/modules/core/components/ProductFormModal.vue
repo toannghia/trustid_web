@@ -45,6 +45,7 @@ const productForm = reactive({
     expiryUnit: 'MONTH',
     netWeight: 0,
     weightUnit: 'kg',
+    defaultPackagingSpec: 0,
     images: [] as string[], // Explicit array of strings
     short_description: '',
     description: '',
@@ -210,6 +211,7 @@ const initCreate = () => {
     productForm.expiryUnit = 'MONTH';
     productForm.netWeight = 0;
     productForm.weightUnit = 'kg';
+    productForm.defaultPackagingSpec = 0;
     productForm.images = [];
     productForm.short_description = '';
     productForm.description = '';
@@ -232,6 +234,7 @@ const initEdit = (row: any) => {
     productForm.expiryUnit = row.expiryUnit || row.expiry_unit || 'MONTH';
     productForm.netWeight = row.netWeight || row.net_weight || 0;
     productForm.weightUnit = row.weightUnit || row.weight_unit || 'kg';
+    productForm.defaultPackagingSpec = row.defaultPackagingSpec || row.default_packaging_spec || 0;
     
     // Admin Tenant
     if (props.isSystemAdmin) {
@@ -348,6 +351,7 @@ const handleSubmit = async () => {
         expiryUnit: productForm.expiryUnit,
         netWeight: productForm.netWeight,
         weightUnit: productForm.weightUnit,
+        defaultPackagingSpec: productForm.defaultPackagingSpec || null,
         images: cleanImages,
         shortDescription: productForm.short_description,
         description: productForm.description
@@ -433,6 +437,7 @@ const handleSubmitWithSync = async () => {
         expiryUnit: productForm.expiryUnit,
         netWeight: productForm.netWeight,
         weightUnit: productForm.weightUnit,
+        defaultPackagingSpec: productForm.defaultPackagingSpec || null,
         images: cleanImages,
         shortDescription: productForm.short_description,
         description: productForm.description,
@@ -514,8 +519,8 @@ const handleSubmitWithSync = async () => {
                 </el-form-item>
             </div>
 
-            <!-- Row 3: Price, Weight, Shelf Life -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Row 3: Price, Weight, Packaging, Shelf Life -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                  <el-form-item label="Giá bán" class="col-span-1">
                     <el-input 
                         v-model="displayPrice"
@@ -536,6 +541,13 @@ const handleSubmitWithSync = async () => {
                             <el-option label="ml" value="ml" />
                             <el-option label="l" value="l" />
                         </el-select>
+                     </div>
+                </el-form-item>
+                
+                <el-form-item label="Quy cách đóng bao" class="col-span-1">
+                     <div class="flex">
+                        <el-input-number v-model="productForm.defaultPackagingSpec" :min="0" controls-position="right" class="w-full !rounded-r-none" style="width: 60%" />
+                        <div class="flex items-center justify-center bg-gray-50 border border-l-0 border-gray-300 px-3 text-sm text-gray-500 !w-[40%] !rounded-r -ml-px">gói/bao</div>
                      </div>
                 </el-form-item>
 
