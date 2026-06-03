@@ -384,6 +384,18 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], title: 'Đóng Bao Lệnh Sản Xuất' }
       },
       {
+        path: '/supply/pallets',
+        name: 'PalletManagement',
+        component: () => import('@/modules/supply/views/PalletManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], title: 'Quản lý Pallet' }
+      },
+      {
+        path: '/supply/production-orders/:id/pallet-linking',
+        name: 'PalletLinkingView',
+        component: () => import('@/modules/supply/views/PalletLinkingView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Liên kết Pallet' }
+      },
+      {
         path: '/supply/inventory',
         name: 'InventoryDashboard',
         component: () => import('@/modules/supply/views/InventoryDashboard.vue'),

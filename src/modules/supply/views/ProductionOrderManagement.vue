@@ -179,6 +179,17 @@
               />
             </el-tooltip>
 
+            <!-- Đóng pallet (Lệnh đóng bao) -->
+            <el-tooltip v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS', 'COMPLETED'].includes(row.status) && row.orderType === 'BAG_PACKAGING'" content="Liên kết pallet" placement="top" :enterable="false">
+              <el-button
+                color="#e67e22"
+                icon="Box"
+                circle
+                size="small"
+                @click="router.push(`/supply/production-orders/${row.id}/pallet-linking`)"
+              />
+            </el-tooltip>
+
             <!-- Đóng gói (Lệnh tiêu chuẩn) -->
             <el-tooltip v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(row.status) && row.orderType !== 'BAG_PACKAGING'" content="Thực hiện đóng gói" placement="top" :enterable="false">
               <el-button
