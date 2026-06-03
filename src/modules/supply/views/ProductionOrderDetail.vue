@@ -155,6 +155,55 @@
         </div>
       </div>
 
+      <!-- Packaging Receipts Section (Phiếu đóng bao) -->
+        <div v-if="order && order.packagingReceipts && order.packagingReceipts.length > 0" class="space-y-4">
+          <div class="flex justify-between items-center pb-2 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-gray-800">Phiếu Đóng Bao</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <el-card
+              v-for="r in order.packagingReceipts"
+              :key="r.id"
+              shadow="hover"
+              class="border-t-4 cursor-pointer hover:shadow"
+              :class="r.status === 'COMPLETED' ? 'border-t-emerald-500' : 'border-t-amber-400'"
+              @click="router.push(`/supply/production-orders/${order.id}/bag-packaging`)"
+            >
+              <div class="flex justify-between items-start mb-3">
+                <div>
+                  <span class="text-2xs text-gray-400 font-semibold block uppercase">Mã phiếu</span>
+                  <span class="font-bold text-gray-700 text-sm">{{ r.receiptCode }}</span>
+                </div>
+                <el-tag :type="r.status === 'COMPLETED' ? 'success' : 'warning'" size="small">
+                  {{ r.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đang đóng gói' }}
+                </el-tag>
+              </div>
+              <div class="space-y-2 text-xs text-gray-600">
+                <div class="flex justify-between">
+                  <span>Tổng bao:</span>
+                  <strong class="text-gray-800">{{ r.totalBags }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span>Tổng gói:</span>
+                  <strong class="text-gray-800">{{ r.totalPackets }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span>Người đóng:</span>
+                  <strong class="text-blue-600">{{ r.packer?.fullName || r.packer?.full_name || r.packer?.username || 'N/A' }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span>Kho lưu:</span>
+                  <strong class="text-gray-800">{{ r.warehouse?.name || 'Chưa chọn' }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span>Thời gian:</span>
+                  <strong class="text-gray-800">{{ formatDateTime(r.packingTime) }}</strong>
+                </div>
+              </div>
+            </el-card>
+          </div>
+        </div>
+
       <!-- Tickets Panel -->
       <div v-if="order" class="space-y-4">
         <div class="flex justify-between items-center pb-2 border-b border-gray-100">
@@ -462,6 +511,11 @@ const releasePallet = (ticket: any) => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return 'N/A';
   return dayjs(dateStr).format('DD/MM/YYYY');
+};
+
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return 'N/A';
+  return dayjs(dateStr).format('HH:mm:ss DD/MM/YYYY');
 };
 
 onMounted(() => {

@@ -169,6 +169,17 @@ const getNdaTooltip = (row: any) => {
     return 'Chưa đồng bộ';
 };
 
+const getDisplayAttributes = (attributes: any) => {
+    if (!attributes) return {};
+    const result: Record<string, any> = {};
+    Object.entries(attributes).forEach(([key, value]) => {
+        if (key !== 'batchTemplate') {
+            result[key] = value;
+        }
+    });
+    return result;
+};
+
 const handleRetryNda = async (row: any) => {
     try {
         await productApi.update(row.id, { retryNda: true }); // Assuming backend supports this trigger or just update triggers sync
@@ -408,12 +419,31 @@ onMounted(() => {
                 </div>
             </div>
             
-            <div v-if="selectedProduct.attributes && Object.keys(selectedProduct.attributes).length > 0" class="mt-4 border-t pt-4">
+            <!-- Thuộc tính chi tiết phẳng -->
+            <div v-if="selectedProduct.attributes && Object.keys(getDisplayAttributes(selectedProduct.attributes)).length > 0" class="mt-4 border-t pt-4">
                 <label class="text-sm text-gray-500 block mb-2">Thuộc tính chi tiết</label>
                 <div class="grid grid-cols-2 gap-2">
-                    <div v-for="(val, key) in selectedProduct.attributes" :key="key" class="flex justify-between bg-gray-50 p-2 rounded text-sm">
+                    <div v-for="(val, key) in getDisplayAttributes(selectedProduct.attributes)" :key="key" class="flex justify-between bg-gray-50 p-2 rounded text-sm">
                         <span class="text-gray-500">{{ key }}:</span>
                         <span class="font-medium">{{ val }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Khung mẫu thuộc tính lô sản xuất (nếu có cấu hình) -->
+            <div v-if="selectedProduct.attributes && selectedProduct.attributes.batchTemplate && selectedProduct.attributes.batchTemplate.length > 0" class="mt-4 border-t pt-4">
+                <label class="text-sm text-gray-500 block mb-2">Cấu hình mẫu thuộc tính lô sản xuất</label>
+                <div class="space-y-2">
+                    <div v-for="block in selectedProduct.attributes.batchTemplate" :key="block.id" class="bg-blue-50/50 border border-blue-100/60 p-3 rounded-lg">
+                        <div class="flex items-center gap-2 font-bold text-blue-900 text-sm mb-1.5">
+                            <el-icon v-if="block.icon"><component :is="block.icon" /></el-icon>
+                            <span>{{ block.title }}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 pl-6">
+                            <el-tag v-for="f in block.fields" :key="f.key" size="small" type="info" effect="plain" class="rounded font-medium">
+                                {{ f.key }}
+                            </el-tag>
+                        </div>
                     </div>
                 </div>
             </div>

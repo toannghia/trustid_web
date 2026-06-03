@@ -57,7 +57,7 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    label: 'QUẢN LÝ CANH TÁC',
+    label: 'CANH TÁC',
     icon: Management,
     roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'],
     items: [
@@ -77,6 +77,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Quản lý Nông dân', path: '/farm/my-team', roles: ['TEAM_LEADER'], icon: User },
     ]
   },
+  /*
   {
     label: 'TÀI SẢN CÂY TRỒNG',
     icon: Connection,
@@ -88,9 +89,9 @@ const menuGroups: MenuGroup[] = [
       { title: 'Nhật ký chăm sóc', path: '/caretaker/logs', roles: ['ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Tickets },
       { title: 'Tài sản của tôi', path: '/owner/assets', roles: ['END_USER', 'ADMIN'], icon: User },
     ]
-  },
-  {
-    label: 'SẢN XUẤT & ĐÓNG GÓI',
+  }, */
+   {
+    label: 'NGUYÊN LIỆU',
     icon: Box,
     roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
     items: [
@@ -98,11 +99,17 @@ const menuGroups: MenuGroup[] = [
       { title: 'Bán thành phẩm', path: '/supply/semi-finished', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: TrendCharts },
       { title: 'Xuất B2B', path: '/supply/semi-finished/export', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Upload },
       { title: 'Nhập B2B', path: '/supply/semi-finished/import', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Download },
-      //{ title: 'Báo cáo XNT B2B', path: '/supply/semi-finished/report', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: DataLine },
+    ]
+  },
+  {
+    label: 'SẢN XUẤT & ĐÓNG GÓI',
+    icon: Box,
+    roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
+    items: [
       { title: 'Lệnh Sản Xuất', path: '/supply/production-orders', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Tickets },
       { title: 'Lệnh Đóng gói', path: '/supply/packaging', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Postcard },
       { title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },
-      { title: 'Sản phẩm Active', path: '/supply/items', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Goods }
+      { title: 'Sản phẩm Active', path: '/supply/items', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Goods },
     ]
   },
   {
@@ -123,7 +130,7 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    label: 'QUẢN LÝ DANH MỤC',
+    label: 'DANH MỤC',
     icon: Files,
     roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'],
     items: [
@@ -135,7 +142,7 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    label: 'QUẢN LÝ TRUY XUẤT',
+    label: 'CẤP MÃ',
     icon: Tickets,
     roles: ['ADMIN', 'TENANT_ADMIN'],
     items: [
@@ -145,6 +152,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Tra cứu Audit', path: '/traceability/audit', roles: ['ADMIN'], icon: View }
     ]
   },
+  /*
   {
     label: 'BÁN LẺ (RETAIL)',
     icon: ShoppingCart,
@@ -152,7 +160,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { title: 'Bán hàng', path: '/retail/sales', roles: ['ADMIN', 'TENANT_ADMIN', 'RETAILER'], icon: Sell }
     ]
-  },
+  },*/
   {
     label: 'ĐẠI LÝ PHÂN PHỐI',
     icon: Connection,

@@ -117,5 +117,34 @@ export const productionOrderApi = {
     },
     updateOrder(id: string, data: any) {
         return api.post(`${baseUrl}/production-orders/${id}/update`, data);
-    }
+    },
+
+    // ==================== Packaging Receipt (v6) ====================
+    getOrCreateReceipt(orderId: string) {
+        return api.get(`${baseUrl}/packaging-receipts/by-order/${orderId}`);
+    },
+    getReceiptDetail(receiptId: string) {
+        return api.get(`${baseUrl}/packaging-receipts/${receiptId}`);
+    },
+    scanBagLink(receiptId: string, data: { packet_code: string; bag_code?: string }) {
+        return api.post(`${baseUrl}/packaging-receipts/${receiptId}/scan`, data);
+    },
+    getPacketDetail(mappingId: string) {
+        return api.get(`${baseUrl}/bag-mappings/${mappingId}/packets`);
+    },
+    replacePacketV2(receiptId: string, data: { damaged_serial: string; replacement_serial: string; reason: string }) {
+        return api.post(`${baseUrl}/packaging-receipts/${receiptId}/replace-packet`, data);
+    },
+    removeBagFromReceipt(receiptId: string, mappingId: string) {
+        return api.delete(`${baseUrl}/packaging-receipts/${receiptId}/bags/${mappingId}`);
+    },
+    completeReceipt(receiptId: string) {
+        return api.post(`${baseUrl}/packaging-receipts/${receiptId}/complete`);
+    },
+    saveDraftReceipt(receiptId: string) {
+        return api.post(`${baseUrl}/packaging-receipts/${receiptId}/save-draft`);
+    },
+    updateReceiptWarehouse(receiptId: string, data: { warehouse_id: string }) {
+        return api.patch(`${baseUrl}/packaging-receipts/${receiptId}/warehouse`, data);
+    },
 };
