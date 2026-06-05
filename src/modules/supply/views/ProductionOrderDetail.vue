@@ -200,12 +200,22 @@
                   <strong class="text-gray-800">{{ formatDateTime(r.packingTime) }}</strong>
                 </div>
               </div>
+              <div v-if="r.status === 'COMPLETED'" class="mt-3 pt-3 border-t border-gray-100">
+                <el-button
+                  type="warning"
+                  size="small"
+                  style="width: 100%;"
+                  @click.stop="handleReopenReceipt(r)"
+                >
+                  🔓 Mở lại đóng tiếp
+                </el-button>
+              </div>
             </el-card>
           </div>
         </div>
 
       <!-- Tickets Panel -->
-      <div v-if="order" class="space-y-4">
+      <div v-if="order && order.tickets && order.tickets.length > 0" class="space-y-4">
         <div class="flex justify-between items-center pb-2 border-b border-gray-100">
           <h3 class="text-lg font-bold text-gray-800">Phiếu Sản Xuất Trực Thuộc</h3>
           <el-button
@@ -218,12 +228,8 @@
           </el-button>
         </div>
 
-        <div v-if="!order.tickets || order.tickets.length === 0" class="py-12 border border-dashed rounded text-center text-gray-400">
-          Chưa có phiếu đóng gói nào được phát hành cho lệnh sản xuất này.
-        </div>
-
         <!-- Tickets Grid -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <el-card
             v-for="ticket in order.tickets"
             :key="ticket.id"
@@ -506,6 +512,22 @@ const releasePallet = (ticket: any) => {
       ElMessage.error(e.response?.data?.message || 'Lỗi khi giải phóng Pallet');
     }
   });
+};
+
+const handleReopenReceipt = async (r: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Mở lại phiếu ${r.receiptCode} để đóng tiếp?\nHiện tại: ${r.totalBags} bao, ${r.totalPackets} gói.`,
+      'Xác nhận mở lại',
+      { confirmButtonText: 'Mở lại', cancelButtonText: 'Hủy', type: 'warning' }
+    );
+    await productionOrderApi.reopenReceipt(r.id);
+    ElMessage.success(`Đã mở lại phiếu ${r.receiptCode}`);
+    await loadOrderDetails(orderId);
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message || 'Không thể mở lại phiếu');
+  }
 };
 
 const formatDate = (dateStr: string) => {

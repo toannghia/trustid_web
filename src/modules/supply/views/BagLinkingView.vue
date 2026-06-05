@@ -18,9 +18,20 @@
               <p class="sub">{{ productName }}</p>
             </div>
           </div>
-          <el-tag :type="receipt?.status === 'COMPLETED' ? 'success' : 'warning'" size="large" effect="light">
-            {{ receipt?.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đang đóng gói' }}
-          </el-tag>
+          <div class="flex items-center gap-2">
+            <el-tag :type="receipt?.status === 'COMPLETED' ? 'success' : 'warning'" size="large" effect="light">
+              {{ receipt?.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đang đóng gói' }}
+            </el-tag>
+            <el-button
+              v-if="receipt?.status === 'COMPLETED'"
+              type="warning"
+              size="default"
+              @click="handleReopen"
+              :loading="reopening"
+            >
+              🔓 Mở lại đóng tiếp
+            </el-button>
+          </div>
         </div>
 
         <div class="header-row2">
@@ -139,6 +150,11 @@
           Lưu lại
         </el-button>
       </div>
+      <div class="footer-actions" v-else>
+        <el-button size="large" type="warning" @click="handleReopen" :loading="reopening">
+          🔓 Mở lại đóng tiếp
+        </el-button>
+      </div>
     </div>
 
     <!-- Popup chi tiết gói -->
@@ -202,6 +218,7 @@ const prefillDamagedSerial = ref('');
 const completing = ref(false);
 const savingDraft = ref(false);
 const exporting = ref(false);
+const reopening = ref(false);
 
 const formatDate = (d: string | Date) => {
   if (!d) return '—';
@@ -408,6 +425,25 @@ const handleComplete = async () => {
       completing.value = false;
     }
   }).catch(() => {});
+};
+
+const handleReopen = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `Mở lại phiếu ${receipt.value.receiptCode} để đóng tiếp?\nHiện tại: ${receipt.value.totalBags} bao, ${receipt.value.totalPackets} gói.`,
+      'Xác nhận mở lại',
+      { confirmButtonText: 'Mở lại', cancelButtonText: 'Hủy', type: 'warning' }
+    );
+    reopening.value = true;
+    await productionOrderApi.reopenReceipt(receipt.value.id);
+    ElMessage.success('Đã mở lại phiếu — có thể đóng bao tiếp');
+    receipt.value.status = 'PACKING';
+  } catch (e: any) {
+    if (e === 'cancel') return;
+    ElMessage.error(e?.response?.data?.message || 'Không thể mở lại phiếu');
+  } finally {
+    reopening.value = false;
+  }
 };
 
 const handleExportBagCodes = async () => {

@@ -147,4 +147,7 @@ export const productionOrderApi = {
     updateReceiptWarehouse(receiptId: string, data: { warehouse_id: string }) {
         return api.patch(`${baseUrl}/packaging-receipts/${receiptId}/warehouse`, data);
     },
+    reopenReceipt(receiptId: string) {
+        return api.post(`${baseUrl}/packaging-receipts/${receiptId}/reopen`);
+    },
 };
