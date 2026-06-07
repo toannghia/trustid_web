@@ -241,9 +241,25 @@
 
 
 
-      <!-- Row 5: Ghi chú -->
+      <!-- Row: Prefix serial + Ghi chú -->
       <el-row :gutter="20" class="mt-4">
-        <el-col :span="24">
+        <el-col :span="8">
+          <el-form-item label="Mã prefix serial" prop="serial_prefix">
+            <el-input
+              v-model="form.serial_prefix"
+              placeholder="VD: AWD"
+              :maxlength="4"
+              @input="form.serial_prefix = form.serial_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')"
+              :disabled="isFieldLocked('planned_weight')"
+            />
+            <div class="text-xs text-gray-400 mt-1">
+              <span>{{ form.serial_prefix.length }}/4 ký tự</span>
+              <span class="mx-2">·</span>
+              <span>Serial: <strong class="text-blue-500">{{ serialPreview }}</strong></span>
+            </div>
+          </el-form-item>
+        </el-col>
+        <el-col :span="16">
           <el-form-item label="Ghi chú / Chỉ dẫn sản xuất" prop="notes">
             <el-input
               v-model="form.notes"
@@ -313,7 +329,8 @@ const form = reactive({
   spare_packet_quantity: 0,
   spare_bag_quantity: 0,
   planned_date: '',
-  notes: ''
+  notes: '',
+  serial_prefix: ''
 });
 
 const rules = reactive<FormRules>({
@@ -421,6 +438,12 @@ const maxPlannedWeight = computed(() => {
 const estimatedUnits = computed(() => {
   if (!form.product_id || !form.planned_weight_kg || !form.unit_weight_kg) return 0;
   return Math.ceil(form.planned_weight_kg / form.unit_weight_kg);
+});
+
+const serialPreview = computed(() => {
+  const base = form.serial_prefix || 'BKG';
+  const year = new Date().getFullYear().toString().slice(-2);
+  return `${base}-${year}-00001`;
 });
 
 const estimatedBags = computed(() => {
@@ -610,6 +633,9 @@ const executeSubmit = async () => {
         payload.packaging_spec = form.packaging_spec;
         payload.spare_packet_quantity = form.spare_packet_quantity;
         payload.spare_bag_quantity = form.spare_bag_quantity;
+        if (form.serial_prefix) {
+          payload.serial_prefix = form.serial_prefix;
+        }
     }
 
     if (editMode.value) {
@@ -674,6 +700,7 @@ const resetForm = () => {
   form.spare_bag_quantity = 0;
   form.planned_date = '';
   form.notes = '';
+  form.serial_prefix = '';
 };
 
 defineExpose({ open });

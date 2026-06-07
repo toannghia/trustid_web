@@ -43,8 +43,8 @@
                 <span class="text-sm text-gray-700 font-bold">{{ (order.unitWeightKg || 0).toFixed(1) }} kg/gói</span>
               </div>
               <div>
-                <span class="text-2xs text-gray-400 font-semibold block uppercase">Mức dung sai</span>
-                <span class="text-sm text-gray-700 font-bold">± {{ order.weightTolerancePct }}%</span>
+                <span class="text-2xs text-gray-400 font-semibold block uppercase">Prefix serial</span>
+                <span class="text-sm text-gray-700 font-bold font-mono">{{ order.serialPrefix || 'BKG' }}</span>
               </div>
               <div>
                 <span class="text-2xs text-gray-400 font-semibold block uppercase">Lô gốc liên kết</span>
@@ -57,6 +57,14 @@
               <div>
                 <span class="text-2xs text-gray-400 font-semibold block uppercase">Ngày thực hiện</span>
                 <span class="text-sm text-blue-600 font-bold">{{ formatDate(order.plannedDate) }}</span>
+              </div>
+              <div v-if="order.plannedUnits">
+                <span class="text-2xs text-gray-400 font-semibold block uppercase">Số mã gói</span>
+                <span class="text-sm text-gray-700 font-bold">{{ order.plannedUnits }}{{ order.sparePacketQuantity ? ` + ${order.sparePacketQuantity} dự phòng` : '' }}</span>
+              </div>
+              <div v-if="order.packagingSpec">
+                <span class="text-2xs text-gray-400 font-semibold block uppercase">Số mã bao</span>
+                <span class="text-sm text-gray-700 font-bold">{{ Math.ceil(order.plannedUnits / order.packagingSpec) }}{{ order.spareBagQuantity ? ` + ${order.spareBagQuantity} dự phòng` : '' }}</span>
               </div>
             </div>
 
@@ -73,6 +81,7 @@
                 :status="progressStatus"
               />
             </div>
+            
             
             <div v-if="order.notes" class="mt-4 p-3 bg-yellow-50/50 border border-yellow-100 rounded text-sm text-gray-600">
                <strong>Chỉ dẫn/Ghi chú:</strong> {{ order.notes }}
@@ -108,28 +117,20 @@
               </div>
 
               <!-- Button for Bag Packaging orders -->
-              <el-button
-                v-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(order.status) && order.orderType === 'BAG_PACKAGING'"
-                type="warning"
-                class="w-full font-bold"
-                size="large"
-                icon="Connection"
-                @click="router.push(`/supply/production-orders/${order.id}/bag-packaging`)"
-              >
+              <el-button type="warning" class="w-full font-bold" size="large" icon="Connection"
+                @click="router.push(`/supply/production-orders/${order.id}/bag-packaging`)">
                 🔗 Liên kết đóng bao
               </el-button>
 
-              <!-- Button for Standard orders -->
-              <el-button
-                v-else-if="['APPROVED', 'CODES_READY', 'IN_PROGRESS'].includes(order.status)"
-                type="success"
-                class="w-full font-bold"
-                size="large"
-                icon="Checked"
-                @click="startDirectPackaging"
-              >
-                🚀 Bắt đầu đóng gói
-              </el-button>
+              <!-- Download buttons -->
+              <div v-if="['CODES_READY', 'IN_PROGRESS', 'COMPLETED'].includes(order.status)" class="flex gap-2 w-full">
+                <el-button type="primary" plain class="flex-1" size="default" :loading="downloadingPacket" @click="downloadPacketCodes">
+                  📦 Mã gói
+                </el-button>
+                <el-button type="success" plain class="flex-1" size="default" :loading="downloadingBag" @click="downloadBagCodes">
+                  🛍️ Mã bao
+                </el-button>
+              </div>
 
               <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
                 Hủy lệnh sản xuất
@@ -344,6 +345,46 @@ const ticketExecutionRef = ref<any>(null);
 
 const rejectionDialogVisible = ref(false);
 const rejectionReason = ref('');
+const downloadingPacket = ref(false);
+const downloadingBag = ref(false);
+
+const downloadPacketCodes = async () => {
+  downloadingPacket.value = true;
+  try {
+    const response = await productionOrderApi.exportPacketCodesExcel(orderId);
+    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${order.value?.orderCode || 'packet'}_ma_goi.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('Tải mã gói thành công!');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Lỗi khi tải mã gói');
+  } finally {
+    downloadingPacket.value = false;
+  }
+};
+
+const downloadBagCodes = async () => {
+  downloadingBag.value = true;
+  try {
+    const response = await productionOrderApi.exportBagCodesExcel(orderId);
+    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${order.value?.orderCode || 'bag'}_ma_bao.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('Tải mã bao thành công!');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Lỗi khi tải mã bao');
+  } finally {
+    downloadingBag.value = false;
+  }
+};
 
 const loadOrderDetails = async (id: string) => {
   loadingData.value = true;
