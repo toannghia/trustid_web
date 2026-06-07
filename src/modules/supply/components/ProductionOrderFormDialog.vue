@@ -372,14 +372,16 @@ const goToProductCatalog = () => {
 const filteredSourceBatches = computed(() => {
   if (!form.product_id) return [];
   return allSourceBatches.value.filter((b: any) => {
+    // B2B: lô nhập về có productId khác (sản phẩm A) → không lọc theo productId
+    if (form.source_type === 'CROSS_TENANT') {
+      return b.batchType === 'CROSS_TENANT' || b.batchType === 'SEMI_FINISHED';
+    }
+
     const isProductMatch = b.productId === form.product_id || b.product?.id === form.product_id;
     if (!isProductMatch) return false;
 
     if (form.source_type === 'EXTERNAL') {
       return b.batchType === 'EXTERNAL';
-    }
-    if (form.source_type === 'CROSS_TENANT') {
-      return b.batchType === 'CROSS_TENANT';
     }
     return true;
   });

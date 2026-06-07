@@ -72,6 +72,12 @@ export const productionOrderApi = {
     cancelOrder(id: string) {
         return api.post(`${baseUrl}/production-orders/${id}/cancel`);
     },
+    retryGenerateCodes(id: string) {
+        return api.post(`${baseUrl}/production-orders/${id}/retry-generate`);
+    },
+    deleteOrder(id: string) {
+        return api.delete(`${baseUrl}/production-orders/${id}`);
+    },
 
     // Tickets
     createTicket(data: CreateProductionTicketDto) {

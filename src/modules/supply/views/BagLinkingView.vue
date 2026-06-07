@@ -288,10 +288,25 @@ const fetchBags = async () => {
   }
 };
 
-// ==================== SCAN ====================
+// Extract mã thực từ URL QR (http://trustid.com.vn/?Code=XXX → XXX)
+const extractCodeFromQr = (raw: string): string => {
+  const trimmed = raw.trim();
+  // Nếu là URL chứa ?Code= hoặc &Code= → lấy giá trị sau đó
+  if (trimmed.includes('?Code=') || trimmed.includes('&Code=')) {
+    try {
+      const url = new URL(trimmed);
+      return url.searchParams.get('Code') || trimmed;
+    } catch {
+      // Fallback: lấy sau dấu = cuối cùng
+      const idx = trimmed.lastIndexOf('=');
+      return idx >= 0 ? trimmed.substring(idx + 1) : trimmed;
+    }
+  }
+  return trimmed;
+};
 
 const handleScan = async () => {
-  const code = scanInput.value.trim();
+  const code = extractCodeFromQr(scanInput.value);
   if (!code) return;
 
   if (isBagCode(code)) {

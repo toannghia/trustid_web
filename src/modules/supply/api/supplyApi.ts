@@ -195,5 +195,9 @@ export const supplyApi = {
     },
     lookupSerials(serials: string[]) {
         return api.post<any[]>(`${baseUrl}/packaging/lookup-serials`, { serials });
+    },
+
+    createSupplementaryCodes(batchId: string, data: { serials: string[]; reason: string; note?: string }) {
+        return api.post(`${baseUrl}/batches/${batchId}/supplementary-codes`, data);
     }
 };

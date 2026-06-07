@@ -21,6 +21,7 @@
           <el-option label="Đang đóng gói (IN_PROGRESS)" value="IN_PROGRESS" />
           <el-option label="Hoàn thành (COMPLETED)" value="COMPLETED" />
           <el-option label="Đã Hủy (CANCELLED)" value="CANCELLED" />
+          <el-option label="Lỗi sinh mã" value="GENERATION_FAILED" />
         </el-select>
       </div>
 
@@ -113,10 +114,10 @@
         </template>
       </el-table-column>
 
-      <el-table-column prop="status" label="Trạng thái" width="130" align="center">
+      <el-table-column prop="status" label="Trạng thái" width="160" align="center">
         <template #default="{ row }">
           <el-tag :type="getStatusTagType(row.status)" size="small" effect="plain" class="font-semibold rounded-md">
-            {{ row.status }}
+            {{ getStatusLabel(row.status) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -200,6 +201,28 @@
                 @click="handleDirectPack(row)"
               />
             </el-tooltip>
+
+            <!-- Retry sinh mã (GENERATION_FAILED) -->
+            <el-tooltip v-if="row.status === 'GENERATION_FAILED'" content="Thử lại sinh mã" placement="top" :enterable="false">
+              <el-button
+                type="warning"
+                icon="RefreshRight"
+                circle
+                size="small"
+                @click="handleRetryGenerate(row)"
+              />
+            </el-tooltip>
+
+            <!-- Xóa lệnh (GENERATION_FAILED / CANCELLED) -->
+            <el-tooltip v-if="['GENERATION_FAILED', 'CANCELLED'].includes(row.status)" content="Xóa lệnh" placement="top" :enterable="false">
+              <el-button
+                type="danger"
+                icon="Delete"
+                circle
+                size="small"
+                @click="handleDeleteOrder(row)"
+              />
+            </el-tooltip>
           </div>
         </template>
       </el-table-column>
@@ -229,7 +252,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { productionOrderApi } from '../api/productionOrderApi';
 import ProductionOrderFormDialog from '../components/ProductionOrderFormDialog.vue';
 import ProductionTicketExecutionDialog from '../components/ProductionTicketExecutionDialog.vue';
@@ -324,7 +347,23 @@ const getStatusTagType = (status: string) => {
     case 'IN_PROGRESS': return 'warning';
     case 'COMPLETED': return 'success';
     case 'CANCELLED': return 'danger';
+    case 'GENERATION_FAILED': return 'danger';
+    case 'GENERATING': return 'warning';
     default: return 'info';
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'DRAFT': return 'Nháp';
+    case 'APPROVED': return 'Đã duyệt';
+    case 'CODES_READY': return 'Mã sẵn sàng';
+    case 'GENERATING': return 'Đang sinh mã...';
+    case 'IN_PROGRESS': return 'Đang SX';
+    case 'COMPLETED': return 'Hoàn thành';
+    case 'CANCELLED': return 'Đã hủy';
+    case 'GENERATION_FAILED': return 'Lỗi sinh mã';
+    default: return status;
   }
 };
 
@@ -397,6 +436,38 @@ const handleExportPacketCodes = async (row: any) => {
   } catch (error: any) {
     console.error(error);
     ElMessage.error('Không thể xuất file mã gói');
+  }
+};
+
+const handleRetryGenerate = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      'Bạn có chắc muốn thử lại sinh mã cho lệnh này? Hãy đảm bảo hạn mức mã đã được cấp đủ.',
+      'Xác nhận thử lại sinh mã',
+      { confirmButtonText: 'Thử lại', cancelButtonText: 'Hủy', type: 'warning' }
+    );
+    await productionOrderApi.retryGenerateCodes(row.id);
+    ElMessage.success('Đang thử lại sinh mã... Vui lòng đợi và làm mới trang.');
+    fetchOrders();
+  } catch (err: any) {
+    if (err === 'cancel') return;
+    ElMessage.error(err?.response?.data?.message || 'Lỗi khi thử lại sinh mã');
+  }
+};
+
+const handleDeleteOrder = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Bạn có chắc muốn xóa lệnh ${row.orderCode}? Hành động này không thể hoàn tác.`,
+      'Xác nhận xóa lệnh',
+      { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'error', confirmButtonClass: 'el-button--danger' }
+    );
+    await productionOrderApi.deleteOrder(row.id);
+    ElMessage.success('Đã xóa lệnh sản xuất thành công!');
+    fetchOrders();
+  } catch (err: any) {
+    if (err === 'cancel') return;
+    ElMessage.error(err?.response?.data?.message || 'Lỗi khi xóa lệnh');
   }
 };
 
