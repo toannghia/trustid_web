@@ -580,8 +580,33 @@ const createAndExport = async () => {
       id: editingId.value || undefined,
       status: 'PENDING'
     };
-    const { data: transfer } = await supplyApi.createTransfer(payload);
-    await supplyApi.confirmTransferExport(transfer.id, warehouseId.value);
+
+    // Step 1: Tạo/cập nhật phiếu
+    let transfer: any;
+    try {
+      const res = await supplyApi.createTransfer(payload);
+      transfer = res.data;
+    } catch (e1: any) {
+      const msg = e1?.response?.data?.message || e1?.message || 'Không rõ lỗi';
+      ElMessage.error(`Lỗi tạo phiếu: ${msg}`);
+      console.error('[B2B Export] createTransfer failed:', e1?.response?.data || e1);
+      return;
+    }
+
+    // Step 2: Xác nhận xuất kho (reserve hàng)
+    try {
+      await supplyApi.confirmTransferExport(transfer.id, warehouseId.value);
+    } catch (e2: any) {
+      const msg = e2?.response?.data?.message || e2?.message || 'Không rõ lỗi';
+      ElMessage.error(`Phiếu ${transfer.transferCode} đã tạo nhưng lỗi khi xuất kho: ${msg}`);
+      console.error('[B2B Export] confirmExport failed:', e2?.response?.data || e2);
+      // Reload để hiển thị phiếu PENDING ở sidebar
+      await load();
+      editingId.value = transfer.id;
+      transferCode.value = transfer.transferCode || '';
+      currentStatus.value = 'PENDING';
+      return;
+    }
     
     lastCreatedTransfer.value = transfer;
     transferCode.value = transfer.transferCode || '';
@@ -595,8 +620,7 @@ const createAndExport = async () => {
     // Reset form
     resetForm();
     await load();
-  } catch (e: any) { ElMessage.error(e?.response?.data?.message || 'Xử lý thất bại'); }
-  finally { creating.value = false; loading.close(); }
+  } finally { creating.value = false; loading.close(); }
 };
 
 const resetForm = () => {
