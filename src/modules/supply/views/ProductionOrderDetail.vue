@@ -107,6 +107,35 @@
               <el-button type="danger" class="w-full" plain @click="showRejectionPrompt">
                 Từ chối duyệt
               </el-button>
+
+              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+                Hủy lệnh sản xuất
+              </el-button>
+            </div>
+
+            <!-- GENERATING Operations -->
+            <div v-else-if="order.status === 'GENERATING'" class="space-y-3">
+              <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <p class="text-xs text-blue-800 font-semibold">⏳ Đang sinh mã gói & mã bao...</p>
+                <p class="text-2xs text-blue-700 mt-1">Vui lòng đợi hoặc tải lại trang sau ít giây.</p>
+              </div>
+              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+                Hủy lệnh sản xuất
+              </el-button>
+            </div>
+
+            <!-- GENERATION_FAILED -->
+            <div v-else-if="order.status === 'GENERATION_FAILED'" class="space-y-3">
+              <div class="p-3 bg-red-50 border border-red-100 rounded-lg">
+                <p class="text-xs text-red-800 font-semibold">❌ Sinh mã thất bại.</p>
+                <p class="text-2xs text-red-700 mt-1">Có thể thử lại hoặc hủy lệnh.</p>
+              </div>
+              <el-button type="warning" class="w-full" @click="retryGenerate">
+                🔄 Thử lại sinh mã
+              </el-button>
+              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+                Hủy lệnh sản xuất
+              </el-button>
             </div>
 
             <!-- APPROVED / CODES_READY / IN_PROGRESS Operations -->
@@ -123,7 +152,7 @@
               </el-button>
 
               <!-- Download buttons -->
-              <div v-if="['CODES_READY', 'IN_PROGRESS', 'COMPLETED'].includes(order.status)" class="flex gap-2 w-full">
+              <div v-if="['CODES_READY', 'IN_PROGRESS'].includes(order.status)" class="flex gap-2 w-full">
                 <el-button type="primary" plain class="flex-1" size="default" :loading="downloadingPacket" @click="downloadPacketCodes">
                   📦 Mã gói
                 </el-button>
@@ -320,6 +349,64 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- Cancel Order Confirmation Dialog -->
+    <el-dialog
+      v-model="cancelDialogVisible"
+      title="⚠️ Xác nhận Hủy Lệnh Sản xuất"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <div class="space-y-4">
+        <!-- Warning box -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm font-bold text-red-800 mb-2">❌ Thao tác này không thể hoàn tác!</p>
+          <ul class="text-xs text-red-700 space-y-1 list-disc pl-4">
+            <li>Toàn bộ <strong>mã gói</strong> và <strong>mã bao</strong> đã sinh sẽ bị xóa vĩnh viễn</li>
+            <li>Các phiếu sản xuất liên quan sẽ bị đóng</li>
+            <li>Không thể hủy nếu đã có lô được liên kết bao</li>
+          </ul>
+        </div>
+
+        <!-- Order code display -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <span class="text-xs text-gray-500 block mb-1">Mã lệnh sản xuất</span>
+          <span class="font-mono font-bold text-gray-800 text-lg">{{ order?.orderCode }}</span>
+        </div>
+
+        <!-- Confirmation checkbox -->
+        <div
+          class="flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors"
+          :class="cancelConfirmed ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'"
+          @click="cancelConfirmed = !cancelConfirmed"
+        >
+          <div
+            class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors"
+            :class="cancelConfirmed ? 'bg-red-500 border-red-500' : 'border-gray-300'"
+          >
+            <svg v-if="cancelConfirmed" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span class="text-sm text-gray-700 leading-snug select-none">
+            Tôi đã đọc kỹ và đồng ý hủy lệnh sản xuất
+            <strong class="text-gray-900 font-mono">{{ order?.orderCode }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="cancelDialogVisible = false; cancelConfirmed = false">Quay lại</el-button>
+        <el-button
+          type="danger"
+          :disabled="!cancelConfirmed"
+          :loading="cancelling"
+          @click="confirmCancelOrder"
+        >
+          Xác nhận Hủy Lệnh
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -327,7 +414,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, InfoFilled } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import dayjs from 'dayjs';
 import { productionOrderApi } from '../api/productionOrderApi';
 import ProductionTicketFormDialog from '../components/ProductionTicketFormDialog.vue';
@@ -347,6 +434,11 @@ const rejectionDialogVisible = ref(false);
 const rejectionReason = ref('');
 const downloadingPacket = ref(false);
 const downloadingBag = ref(false);
+
+// Cancel dialog state
+const cancelDialogVisible = ref(false);
+const cancelConfirmed = ref(false);
+const cancelling = ref(false);
 
 const downloadPacketCodes = async () => {
   downloadingPacket.value = true;
@@ -482,23 +574,45 @@ const showRejectionPrompt = () => {
 };
 
 const cancelOrder = () => {
-  ElMessageBox.confirm(
-    'Bạn chắc chắn muốn hủy Lệnh sản xuất này? Các phiếu trực thuộc chưa hoàn thành cũng sẽ bị đóng.',
-    'Cảnh báo',
-    {
-      confirmButtonText: 'Đồng ý',
-      cancelButtonText: 'Quay lại',
-      type: 'warning',
-    }
-  ).then(async () => {
-    try {
-      await productionOrderApi.cancelOrder(orderId);
-      ElMessage.warning('Đã hủy lệnh sản xuất thành công!');
-      await loadOrderDetails(orderId);
-    } catch (e: any) {
-      ElMessage.error(e.response?.data?.message || 'Không thể hủy lệnh');
-    }
-  });
+  cancelConfirmed.value = false;
+  cancelDialogVisible.value = true;
+};
+
+const confirmCancelOrder = async () => {
+  if (!cancelConfirmed.value) return;
+  cancelling.value = true;
+  try {
+    await productionOrderApi.cancelOrder(orderId);
+    cancelDialogVisible.value = false;
+    cancelConfirmed.value = false;
+    ElMessage.warning('Đã hủy lệnh sản xuất. Toàn bộ mã gói và mã bao đã được giải phóng.');
+    await loadOrderDetails(orderId);
+  } catch (e: any) {
+    const serverMsg = e.response?.data?.message
+      || e.response?.data?.error
+      || e.message
+      || 'Không thể hủy lệnh — lỗi không xác định';
+    ElNotification({
+      title: 'Hủy lệnh thất bại',
+      message: serverMsg,
+      type: 'error',
+      duration: 8000,
+      position: 'top-right',
+    });
+    console.error('[cancelOrder] frontend error:', e.response?.data || e);
+  } finally {
+    cancelling.value = false;
+  }
+};
+
+const retryGenerate = async () => {
+  try {
+    await productionOrderApi.retryGenerateCodes(orderId);
+    ElMessage.success('Đã bắt đầu thử lại sinh mã. Vui lòng tải lại trang sau ít giây.');
+    await loadOrderDetails(orderId);
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Không thể thử lại');
+  }
 };
 
 const startDirectPackaging = async () => {
