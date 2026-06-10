@@ -76,6 +76,12 @@
     <!-- Create Dialog -->
     <el-dialog v-model="showCreateDialog" title="Tạo Pallet mới" width="420" :close-on-click-modal="false">
       <el-form label-position="top">
+        <el-form-item label="Tiền tố mã pallet">
+          <el-input v-model="createForm.prefix" placeholder="PLT" maxlength="10" style="width: 100%" @input="createForm.prefix = createForm.prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')">
+            <template #prepend>Prefix</template>
+          </el-input>
+          <p class="form-hint">Mã tạo ra: <strong class="code-preview">{{ (createForm.prefix || 'PLT').toUpperCase() }}-{{ new Date().getFullYear() }}-0001</strong></p>
+        </el-form-item>
         <el-form-item label="Số lượng pallet">
           <el-input-number v-model="createForm.quantity" :min="1" :max="100" style="width: 100%" />
         </el-form-item>
@@ -157,7 +163,7 @@ const exporting = ref(false)
 // Create
 const showCreateDialog = ref(false)
 const creating = ref(false)
-const createForm = ref({ quantity: 5, maxBags: 0 })
+const createForm = ref({ quantity: 5, maxBags: 0, prefix: 'PLT' })
 
 // Detail
 const showDetailDialog = ref(false)
@@ -197,10 +203,11 @@ async function handleCreate() {
   try {
     const payload: any = { quantity: createForm.value.quantity }
     if (createForm.value.maxBags > 0) payload.maxBags = createForm.value.maxBags
+    if (createForm.value.prefix) payload.prefix = createForm.value.prefix
     const { data } = await api.post('/supply/pallets/batch-create', payload)
     ElMessage.success(`Đã tạo ${data.created} pallet`)
     showCreateDialog.value = false
-    createForm.value = { quantity: 5, maxBags: 0 }
+    createForm.value = { quantity: 5, maxBags: 0, prefix: 'PLT' }
     fetchPallets()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.message || 'Lỗi tạo pallet')
@@ -377,5 +384,10 @@ onMounted(fetchPallets)
   color: #999;
   font-size: 12px;
   margin: 4px 0 0;
+}
+.code-preview {
+  color: #2c6ecb;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
 }
 </style>
