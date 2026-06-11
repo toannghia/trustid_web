@@ -227,6 +227,19 @@ const formatDate = (d: string | Date) => {
 
 const isBagCode = (code: string) => code.includes('-B');
 
+const extractCodeFromQr = (raw: string): string => {
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    const code = url.searchParams.get('Code') || url.searchParams.get('code');
+    if (code?.trim()) return code.trim();
+  } catch {
+    // Not a URL; continue with generic fallback below.
+  }
+  const idx = trimmed.lastIndexOf('=');
+  return idx >= 0 ? trimmed.substring(idx + 1).trim() : trimmed;
+};
+
 const getSummaries = (param: { columns: any[]; data: any[] }) => {
   const { columns, data } = param;
   const sums: string[] = [];
@@ -286,23 +299,6 @@ const fetchBags = async () => {
   } finally {
     loadingBags.value = false;
   }
-};
-
-// Extract mã thực từ URL QR (http://trustid.com.vn/?Code=XXX → XXX)
-const extractCodeFromQr = (raw: string): string => {
-  const trimmed = raw.trim();
-  // Nếu là URL chứa ?Code= hoặc &Code= → lấy giá trị sau đó
-  if (trimmed.includes('?Code=') || trimmed.includes('&Code=')) {
-    try {
-      const url = new URL(trimmed);
-      return url.searchParams.get('Code') || trimmed;
-    } catch {
-      // Fallback: lấy sau dấu = cuối cùng
-      const idx = trimmed.lastIndexOf('=');
-      return idx >= 0 ? trimmed.substring(idx + 1) : trimmed;
-    }
-  }
-  return trimmed;
 };
 
 const handleScan = async () => {

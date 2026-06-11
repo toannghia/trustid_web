@@ -314,6 +314,19 @@ const bagCount = ref<number>(0);
 const serialInput = ref('');
 const serialRows = ref<Array<{ serial: string; qrCode?: string; status?: string }>>([]);
 
+const extractCodeFromQr = (raw: string): string => {
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    const code = url.searchParams.get('Code') || url.searchParams.get('code');
+    if (code?.trim()) return code.trim();
+  } catch {
+    // Not a URL; continue with generic fallback below.
+  }
+  const idx = trimmed.lastIndexOf('=');
+  return idx >= 0 ? trimmed.substring(idx + 1).trim() : trimmed;
+};
+
 // --- RANGE MODE STATES ---
 const serialMode = ref<'SCAN' | 'RANGE'>('RANGE');
 const availablePrefixes = ref<string[]>([]);
@@ -619,7 +632,7 @@ const load = async () => {
 };
 
 const addSerial = async () => {
-  const input = serialInput.value.trim();
+  const input = extractCodeFromQr(serialInput.value);
   if (!input) return;
   
   try {

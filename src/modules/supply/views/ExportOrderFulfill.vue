@@ -153,19 +153,29 @@
                         <h4 class="font-bold mb-2 flex items-center gap-2 text-blue-700">
                             <el-icon><Camera /></el-icon> Quét QR Code
                         </h4>
-                        <el-input 
-                            v-model="scanInput" 
-                            ref="scanInputRef"
-                            size="large" 
-                            placeholder="Quét mã Thùng hoặc mã Sản Phẩm..." 
-                            clearable
-                            @keyup.enter="handleScan"
-                            :disabled="scanning"
-                        >
-                            <template #append>
-                                <el-button icon="Search" @click="handleScan" :loading="scanning">Quét</el-button>
-                            </template>
-                        </el-input>
+                        <div class="flex items-center gap-3 mb-4">
+                            <el-input 
+                                v-model="scanInput" 
+                                ref="scanInputRef"
+                                size="large" 
+                                :placeholder="unscanMode ? 'Quét mã cần XÓA khỏi phiếu...' : 'Quét mã Thùng hoặc mã Sản Phẩm...'" 
+                                clearable
+                                @keyup.enter="handleScan"
+                                :disabled="scanning"
+                                :class="{ 'unscan-input': unscanMode }"
+                            >
+                                <template #append>
+                                    <el-button :icon="unscanMode ? 'Delete' : 'Search'" @click="handleScan" :loading="scanning">{{ unscanMode ? 'Xóa' : 'Quét' }}</el-button>
+                                </template>
+                            </el-input>
+                            <el-switch 
+                                v-model="unscanMode" 
+                                active-text="Quét xóa" 
+                                inactive-text=""
+                                style="--el-switch-on-color: #ef4444;"
+                                size="large"
+                            />
+                        </div>
                     </div>
                     <!-- Trạng thái hoàn thành -->
                     <div v-else class="bg-green-50 p-4 rounded-xl border border-green-200 mb-6 text-green-700 font-bold flex items-center gap-2">
@@ -193,42 +203,47 @@
 
                         <!-- SCANNED LOGS -->
                         <el-col :span="14">
-                            <h4 class="font-bold mb-3 flex items-center gap-2 text-gray-700">
-                                <el-icon class="text-green-500"><Check /></el-icon> Mã đã quét
-                            </h4>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-bold flex items-center gap-2 text-gray-700">
+                                    <el-icon class="text-green-500"><Check /></el-icon> Mã đã quét ({{ scannedItems.length }} gói)
+                                </h4>
+                            </div>
+
+                            <!-- BAG SUMMARY TAGS -->
+                            <div v-if="scannedBags.length > 0 && selectedOrder.status !== 'EXPORTED'" class="flex flex-wrap gap-2 mb-3">
+                                <el-tag 
+                                    v-for="bag in scannedBags" 
+                                    :key="bag.bagCode"
+                                    type="success" 
+                                    size="default"
+                                    closable
+                                    effect="dark"
+                                    @close="removeBag(bag.bagCode)"
+                                >
+                                    🛍️ {{ bag.bagCode }} ({{ bag.count }} gói)
+                                </el-tag>
+                            </div>
                             
-                            <el-tabs type="border-card" class="bg-white">
-                                <el-tab-pane label="Mã lẻ (Sản phẩm)">
-                                    <el-table :data="logsData.individual" size="small" height="300" empty-text="Chưa có mã lẻ">
-                                        <el-table-column type="index" label="STT" width="60" align="center" />
-                                        <el-table-column label="Mã QR" min-width="150" show-overflow-tooltip>
-                                            <template #default="{row}">{{ formatQR(row.fullQrCode) }}</template>
-                                        </el-table-column>
-                                        <el-table-column label="Sản phẩm" min-width="180" show-overflow-tooltip>
-                                            <template #default="{row}">{{ getProductName(row.productId) }}</template>
-                                        </el-table-column>
-                                        <el-table-column prop="itemSerial" label="Serial" width="120" />
-                                        <el-table-column width="60" align="center" v-if="selectedOrder.status !== 'EXPORTED'">
-                                            <template #default="{row}">
-                                                <el-button type="danger" link icon="Close" @click="unscanItem(row.itemSerial)"></el-button>
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                </el-tab-pane>
-                                <el-tab-pane label="Mã Thùng">
-                                    <el-table :data="logsData.boxes" size="small" height="300" empty-text="Chưa có thùng">
-                                        <el-table-column prop="parentCode" label="Mã Thùng" />
-                                        <el-table-column label="Số lượng" width="100" align="center">
-                                            <template #default="{row}">{{ row.items?.length }} SP</template>
-                                        </el-table-column>
-                                        <el-table-column width="60" align="center" v-if="selectedOrder.status !== 'EXPORTED'">
-                                            <template #default="{row}">
-                                                <el-button type="danger" link icon="Close" @click="unscanBox(row.parentCode)"></el-button>
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                </el-tab-pane>
-                            </el-tabs>
+                            <el-table :data="scannedItems" size="small" height="320" empty-text="Chưa quét mã nào" border class="rounded-lg overflow-hidden bg-white">
+                                <el-table-column type="index" label="STT" width="50" align="center" />
+                                <el-table-column label="Serial" width="120" show-overflow-tooltip>
+                                    <template #default="{row}">{{ row.serialCode || '—' }}</template>
+                                </el-table-column>
+                                <el-table-column label="Mã QR gói" min-width="160" show-overflow-tooltip>
+                                    <template #default="{row}">{{ row.itemSerial }}</template>
+                                </el-table-column>
+                                <el-table-column label="Mã bao" width="180" show-overflow-tooltip>
+                                    <template #default="{row}">
+                                        <el-tag v-if="row.bagCode" type="success" size="small" effect="plain">{{ row.bagCode }}</el-tag>
+                                        <span v-else class="text-gray-300">—</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column width="60" align="center" v-if="selectedOrder.status !== 'EXPORTED'">
+                                    <template #default="{row}">
+                                        <el-button type="danger" link icon="Close" @click="removeScannedItem(row)"></el-button>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
                         </el-col>
                     </el-row>
                 </div>
@@ -415,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { exportOrderApi } from '../api/exportOrderApi';
 import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
@@ -439,6 +454,7 @@ const selectedOrder = ref<any>(null);
 const scanInput = ref('');
 const scanInputRef = ref<any>(null);
 const scanning = ref(false);
+const unscanMode = ref(false);
 
 const showReadonlyDialog = ref(false);
 const readonlyOrder = ref<any>(null);
@@ -463,7 +479,7 @@ const manualExtDriverPhone = ref('');
 const dealers = ref<any[]>([]);
 const warehouseMap = ref<Record<string, string>>({}); // UUID -> Name 
 
-const logsData = ref({ individual: [] as any[], boxes: [] as any[] });
+
 
 const getPXKCode = (lxh: string) => lxh ? lxh.replace('LXH', 'PXK') : 'PXK-XXX';
 
@@ -566,6 +582,20 @@ const viewDetail = async (row: any) => {
     }
 };
 
+const logsData = ref<any>({ items: [] });
+
+const scannedItems = computed(() => logsData.value.items || []);
+
+const scannedBags = computed(() => {
+    const bagMap = new Map<string, number>();
+    for (const item of scannedItems.value) {
+        if (item.bagCode) {
+            bagMap.set(item.bagCode, (bagMap.get(item.bagCode) || 0) + 1);
+        }
+    }
+    return Array.from(bagMap.entries()).map(([bagCode, count]) => ({ bagCode, count }));
+});
+
 const refreshLogs = async (id: string) => {
     try {
         const { data } = await exportOrderApi.getScanLogs(id);
@@ -577,13 +607,47 @@ const handleScan = async () => {
     if (!scanInput.value.trim() || !selectedOrder.value) return;
     scanning.value = true;
     try {
-        const res = await exportOrderApi.scanItem(selectedOrder.value.id, scanInput.value.trim());
-        if (res.data.invalidCount > 0) {
-           ElMessage.warning(`Quét thành công ${res.data.validCount} mã. Lỗi ${res.data.invalidCount} mã: ${res.data.invalidReasons.join(', ')}`);
+        if (unscanMode.value) {
+            // UNSCAN MODE: tìm mã trong logs rồi gọi unscan
+            const code = scanInput.value.trim();
+            const matchedBag = scannedItems.value.find((i: any) => i.bagCode === code || i.bagSerial === code);
+            if (matchedBag) {
+                await exportOrderApi.unscanBox(selectedOrder.value.id, matchedBag.bagCode);
+                ElMessage.success(`🗑️ Đã xóa bao ${matchedBag.bagCode} khỏi phiếu`);
+            } else {
+                const matchedItem = scannedItems.value.find((i: any) => i.itemSerial === code || i.fullQrCode === code);
+                if (matchedItem) {
+                    if (matchedItem.bagCode) {
+                        await exportOrderApi.unscanBox(selectedOrder.value.id, matchedItem.bagCode);
+                        ElMessage.success(`🗑️ Đã xóa bao ${matchedItem.bagCode} khỏi phiếu`);
+                    } else {
+                        await exportOrderApi.unscanItem(selectedOrder.value.id, matchedItem.itemSerial);
+                        ElMessage.success(`🗑️ Đã xóa mã ${code} khỏi phiếu`);
+                    }
+                } else {
+                    ElMessage.warning(`Không tìm thấy mã ${code} trong danh sách đã quét`);
+                }
+            }
+            await viewDetail({ id: selectedOrder.value.id });
         } else {
-           ElMessage.success(`Quét xong. Đã ghi nhận ${res.data.validCount} mã sản phẩm.`);
+            // NORMAL SCAN MODE
+            const res = await exportOrderApi.scanItem(selectedOrder.value.id, scanInput.value.trim());
+            await viewDetail({ id: selectedOrder.value.id });
+            const overItems = (selectedOrder.value?.items || []).filter((i: any) => i.scannedQuantity > i.expectedQuantity);
+            
+            if (overItems.length > 0) {
+                ElMessage.warning(`⚠️ Vượt số lượng yêu cầu: ${overItems.map((i: any) => `${i.product?.name}: ${i.scannedQuantity}/${i.expectedQuantity}`).join(', ')}`);
+            } else if (res.data.invalidCount > 0) {
+               ElMessage.warning(`Quét thành công ${res.data.validCount} mã. Lỗi ${res.data.invalidCount} mã: ${res.data.invalidReasons.join(', ')}`);
+            } else {
+               const bagInfo = res.data.bagInfo;
+               if (bagInfo) {
+                   ElMessage.success(`✅ Quét bao ${bagInfo.bagSerial} thành công (${bagInfo.packetCount} gói)`);
+               } else {
+                   ElMessage.success(`Quét xong. Đã ghi nhận ${res.data.validCount} mã sản phẩm.`);
+               }
+            }
         }
-        await viewDetail({ id: selectedOrder.value.id });
     } catch (err: any) {
         ElMessage.error(err.response?.data?.message || 'Có lỗi khi quét');
     } finally {
@@ -593,22 +657,40 @@ const handleScan = async () => {
     }
 };
 
-const unscanItem = async (serial: string) => {
+const removeScannedItem = async (row: any) => {
     if (!selectedOrder.value) return;
     try {
-        await ElMessageBox.confirm(`Bạn có chắc muốn bỏ mã khỏi lệnh?`, 'Cảnh báo', { type: 'error' });
-        await exportOrderApi.unscanItem(selectedOrder.value.id, serial);
+        if (row.bagCode) {
+            await ElMessageBox.confirm(
+                `Xóa toàn bộ bao ${row.bagCode}? Sẽ trả lại tồn kho và xóa tất cả gói trong bao.`,
+                'Xác nhận xóa bao',
+                { type: 'warning' }
+            );
+            await exportOrderApi.unscanBox(selectedOrder.value.id, row.bagCode);
+        } else {
+            await ElMessageBox.confirm('Bạn có chắc muốn bỏ mã khỏi lệnh?', 'Cảnh báo', { type: 'error' });
+            await exportOrderApi.unscanItem(selectedOrder.value.id, row.itemSerial);
+        }
         await viewDetail({ id: selectedOrder.value.id });
-    } catch (err: any) { if (err !== 'cancel') ElMessage.error('Lỗi hủy'); }
+    } catch (err: any) {
+        if (err !== 'cancel') ElMessage.error(err.response?.data?.message || 'Lỗi xóa');
+    }
 };
 
-const unscanBox = async (parentCode: string) => {
+const removeBag = async (bagCode: string) => {
     if (!selectedOrder.value) return;
     try {
-        await ElMessageBox.confirm(`Bạn có chắc muốn bỏ thùng khỏi lệnh?`, 'Cảnh báo', { type: 'error' });
-        await exportOrderApi.unscanBox(selectedOrder.value.id, parentCode);
+        await ElMessageBox.confirm(
+            `Xóa toàn bộ bao ${bagCode} khỏi phiếu? Sẽ trả lại tồn kho.`,
+            'Xác nhận xóa bao',
+            { type: 'warning' }
+        );
+        await exportOrderApi.unscanBox(selectedOrder.value.id, bagCode);
+        ElMessage.success(`Đã xóa bao ${bagCode}`);
         await viewDetail({ id: selectedOrder.value.id });
-    } catch (err: any) { if (err !== 'cancel') ElMessage.error('Lỗi hủy'); }
+    } catch (err: any) {
+        if (err !== 'cancel') ElMessage.error(err.response?.data?.message || 'Lỗi xóa bao');
+    }
 };
 
 const finishPicking = async (order: any) => {
