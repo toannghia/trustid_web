@@ -25,7 +25,7 @@
             <div class="flex items-center gap-2 font-bold text-gray-700">
               <el-icon><FolderOpened /></el-icon> Thông tin lô nguồn
             </div>
-            <el-tag effect="light" type="info" class="font-mono">{{ nextBatchCode }}</el-tag>
+            <el-tag effect="light" type="info" class="font-mono">{{ customBatchCode || nextBatchCode }}</el-tag>
           </div>
         </template>
         
@@ -52,7 +52,12 @@
             <el-input :value="sourceProvinceName" readonly disabled class="!bg-gray-50" />
           </el-form-item>
           <el-form-item label="Mã lô nội bộ">
-            <el-input :value="nextBatchCode" readonly class="font-mono bg-gray-50" />
+            <div class="flex gap-1">
+              <el-input v-model="customBatchCode" placeholder="Nhập mã lô..." class="font-mono" clearable />
+              <el-button @click="resetToAutoCode" title="Tạo tự động">
+                <el-icon><Refresh /></el-icon>
+              </el-button>
+            </div>
           </el-form-item>
         </div>
       </el-card>
@@ -272,7 +277,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Operation, FolderOpened, ScaleToOriginal, Box, CircleCheck, CircleCheckFilled, SuccessFilled, Search, Delete, Back, Bottom, Warning, Location, House, User } from '@element-plus/icons-vue';
+import { Operation, FolderOpened, ScaleToOriginal, Box, CircleCheck, CircleCheckFilled, SuccessFilled, Search, Delete, Back, Bottom, Warning, Location, House, User, Refresh } from '@element-plus/icons-vue';
 import { productApi } from '@/modules/core/api/product';
 import { supplyApi } from '../api/supplyApi';
 import { transportApi } from '../api/transportApi';
@@ -339,6 +344,7 @@ const rangeConfig = ref({
 const qrInputRef = ref<any>(null);
 const createdBatchCode = ref('');
 const nextBatchCode = ref('');
+const customBatchCode = ref('');
 
 const form = ref({
   source_batch_code: '',
@@ -485,6 +491,14 @@ const loadNextBatchCode = async () => {
   
   const { data } = await supplyApi.getNextSemiFinishedBatchCode(code || undefined);
   nextBatchCode.value = data?.next_batch_code || '';
+  if (!customBatchCode.value || customBatchCode.value === nextBatchCode.value) {
+    customBatchCode.value = nextBatchCode.value;
+  }
+};
+
+const resetToAutoCode = async () => {
+  await loadNextBatchCode();
+  customBatchCode.value = nextBatchCode.value;
 };
 
 watch([currentInputWeightKg, packageWeightKg], ([weight, spec]) => {
@@ -735,6 +749,7 @@ const submit = async () => {
       ...form.value,
       serials: serialRows.value.map(r => r.serial),
       expected_code: nextBatchCode.value,
+      custom_batch_code: customBatchCode.value !== nextBatchCode.value ? customBatchCode.value : undefined,
       packer: packagingInfo.value.packer,
       production_address: provinceCode, // Lưu MÃ TỈNH 2 ký tự để không lỗi giao diện
       warehouse_id: packagingInfo.value.warehouse_id,

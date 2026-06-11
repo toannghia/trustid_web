@@ -65,6 +65,7 @@ export interface RefineSemiFinishedDto {
     production_address?: string;
     serials?: string[];
     expected_code?: string;
+    custom_batch_code?: string;
 }
 
 export interface CreateCrossTenantTransferDto {
@@ -199,5 +200,9 @@ export const supplyApi = {
 
     createSupplementaryCodes(batchId: string, data: { serials: string[]; reason: string; note?: string }) {
         return api.post(`${baseUrl}/batches/${batchId}/supplementary-codes`, data);
+    },
+
+    updateBatchCode(batchId: string, batchCode: string) {
+        return api.patch(`${baseUrl}/batches/${batchId}/batch-code`, { batch_code: batchCode });
     }
 };

@@ -109,7 +109,21 @@
       <el-dialog v-model="detailVisible" title="Chi tiết lô bán thành phẩm" width="700px">
         <div v-if="selectedBatch" class="space-y-4">
             <el-descriptions :column="2" border>
-              <el-descriptions-item label="Mã lô">{{ selectedBatch.batchCode }}</el-descriptions-item>
+              <el-descriptions-item label="Mã lô">
+                <div class="flex items-center gap-2">
+                  <template v-if="editingBatchCode">
+                    <el-input v-model="newBatchCode" size="small" class="!w-48 font-mono" />
+                    <el-button size="small" type="primary" :loading="savingBatchCode" @click="saveBatchCode">Lưu</el-button>
+                    <el-button size="small" @click="cancelEditBatchCode">Hủy</el-button>
+                  </template>
+                  <template v-else>
+                    <span class="font-mono font-bold">{{ selectedBatch.batchCode }}</span>
+                    <el-button size="small" link type="primary" @click="startEditBatchCode">
+                      <el-icon><Edit /></el-icon>
+                    </el-button>
+                  </template>
+                </div>
+              </el-descriptions-item>
               <el-descriptions-item label="Trạng thái">{{ selectedBatch.status }}</el-descriptions-item>
               <el-descriptions-item label="Sản phẩm">{{ selectedBatch.product?.name }}</el-descriptions-item>
               <el-descriptions-item label="Lô nguồn">{{ selectedBatch.parentBatch?.batchCode || '-' }}</el-descriptions-item>
@@ -251,7 +265,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
-import { Bottom, Calendar, Delete, Upload, Download, Plus, Search, Refresh, ShoppingCart, User } from '@element-plus/icons-vue';
+import { Bottom, Calendar, Delete, Upload, Download, Plus, Search, Refresh, ShoppingCart, User, Edit } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
@@ -265,6 +279,10 @@ const detailVisible = ref(false);
 const selectedBatch = ref<any>(null);
 const batchItems = ref<any[]>([]);
 const selectedBatches = ref<any[]>([]);
+
+const editingBatchCode = ref(false);
+const newBatchCode = ref('');
+const savingBatchCode = ref(false);
 
 // --- Supplementary codes state ---
 const showSupplementaryDialog = ref(false);
@@ -330,11 +348,40 @@ const viewDetail = async (row: any) => {
   selectedBatch.value = row;
   detailVisible.value = true;
   batchItems.value = [];
+  editingBatchCode.value = false;
   try {
     const { data } = await supplyApi.getBatchItems(row.id);
     batchItems.value = data || [];
   } catch (error) {
     console.error('Lỗi khi lấy danh sách item:', error);
+  }
+};
+
+const startEditBatchCode = () => {
+  newBatchCode.value = selectedBatch.value.batchCode;
+  editingBatchCode.value = true;
+};
+
+const cancelEditBatchCode = () => {
+  editingBatchCode.value = false;
+};
+
+const saveBatchCode = async () => {
+  if (!newBatchCode.value.trim()) {
+    ElMessage.warning('Mã lô không được để trống');
+    return;
+  }
+  savingBatchCode.value = true;
+  try {
+    await supplyApi.updateBatchCode(selectedBatch.value.id, newBatchCode.value.trim());
+    ElMessage.success('Đã cập nhật mã lô thành công');
+    selectedBatch.value.batchCode = newBatchCode.value.trim();
+    editingBatchCode.value = false;
+    await loadData();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Cập nhật mã lô thất bại');
+  } finally {
+    savingBatchCode.value = false;
   }
 };
 
