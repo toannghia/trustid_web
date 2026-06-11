@@ -1,9 +1,14 @@
 <template>
   <div class="pallet-management">
-    <div class="page-header">
-      <div>
-        <h2>📦 Quản lý Pallet</h2>
-        <p class="subtitle">Quản lý pallet tái sử dụng cho quy trình kho vận</p>
+    <div class="page-header flex items-center justify-between mb-6">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 flex items-center justify-center" style="font-size: 20px; line-height: 1;">
+          📦
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-[var(--tid-text-primary)] m-0 leading-tight">Quản lý Pallet</h2>
+          <p class="subtitle text-slate-500 text-xs mt-1 m-0">Quản lý pallet tái sử dụng cho quy trình kho vận</p>
+        </div>
       </div>
       <div class="header-actions">
         <el-button @click="handleExportCodes" :icon="Download" :loading="exporting">Tải mã vạch</el-button>
@@ -25,8 +30,8 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="pallets" v-loading="loading" stripe @row-click="handleRowClick" style="cursor: pointer;">
-      <el-table-column prop="palletCode" label="Mã Pallet" width="180">
+    <el-table :data="pallets" v-loading="loading" stripe @row-click="handleRowClick" style="cursor: pointer;" class="modern-table">
+      <el-table-column prop="palletCode" label="Mã Pallet" min-width="180">
         <template #default="{ row }">
           <strong class="code-text">{{ row.palletCode }}</strong>
         </template>
@@ -40,7 +45,7 @@
       </el-table-column>
       <el-table-column label="Số bao" width="120">
         <template #default="{ row }">
-          <span>{{ row.currentBagCount }} <span v-if="row.maxBags" class="max-label">/ {{ row.maxBags }}</span></span>
+          <span class="font-semibold text-slate-700">{{ row.currentBagCount }} <span v-if="row.maxBags" class="max-label">/ {{ row.maxBags }}</span></span>
         </template>
       </el-table-column>
       <el-table-column label="Giới hạn" width="100">
@@ -53,7 +58,7 @@
           {{ formatDate(row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="Người tạo" prop="creator.fullName" width="140" />
+      <el-table-column label="Người tạo" prop="creator.fullName" min-width="140" />
       <el-table-column label="Thao tác" width="200" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click.stop="viewDetail(row)">Chi tiết</el-button>
@@ -74,7 +79,7 @@
     />
 
     <!-- Create Dialog -->
-    <el-dialog v-model="showCreateDialog" title="Tạo Pallet mới" width="420" :close-on-click-modal="false">
+    <el-dialog v-model="showCreateDialog" title="Tạo Pallet mới" width="420" :close-on-click-modal="false" class="rounded-dialog">
       <el-form label-position="top">
         <el-form-item label="Tiền tố mã pallet">
           <el-input v-model="createForm.prefix" placeholder="PLT" maxlength="10" style="width: 100%" @input="createForm.prefix = createForm.prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')">
@@ -97,27 +102,60 @@
     </el-dialog>
 
     <!-- Detail Dialog -->
-    <el-dialog v-model="showDetailDialog" :title="`Chi tiết — ${detailPallet?.palletCode}`" width="680" :close-on-click-modal="false">
+    <el-dialog v-model="showDetailDialog" :title="`Chi tiết — ${detailPallet?.palletCode}`" width="800" :close-on-click-modal="false" class="rounded-dialog">
       <div v-if="detailPallet" v-loading="loadingDetail">
-        <div class="detail-header">
-          <el-tag :type="statusType(detailPallet.status)" effect="dark" size="large">{{ statusLabel(detailPallet.status) }}</el-tag>
-          <span>{{ detailPallet.currentBagCount }} / {{ detailPallet.maxBags || '∞' }} bao</span>
+        <div class="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mã Pallet</div>
+            <div class="font-mono font-bold text-[var(--tid-text-primary)] text-sm">{{ detailPallet.palletCode }}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Trạng thái</div>
+            <div>
+              <el-tag :type="statusType(detailPallet.status)" effect="light" size="small">
+                {{ statusLabel(detailPallet.status) }}
+              </el-tag>
+            </div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sức chứa</div>
+            <div class="font-bold text-slate-700">
+              {{ detailPallet.currentBagCount }} / <span class="text-slate-500 font-medium">{{ detailPallet.maxBags || '∞' }}</span> bao
+            </div>
+          </div>
         </div>
-        <el-table :data="detailPallet.bagMappings || []" stripe size="small" max-height="400" empty-text="Pallet chưa có bao nào">
-          <el-table-column prop="bagSerial" label="Mã Bao" width="160" />
-          <el-table-column prop="productName" label="Sản phẩm" />
-          <el-table-column prop="packetCount" label="Số gói" width="80" />
-          <el-table-column label="Người liên kết" width="140">
+        <el-table :data="detailPallet.bagMappings || []" stripe size="small" empty-text="Pallet chưa có bao nào" class="modern-table">
+          <el-table-column label="Mã Bao / QR" width="180">
             <template #default="{ row }">
-              {{ row.linker?.fullName || '—' }}
+              <div class="flex flex-col">
+                <strong class="font-mono text-xs text-slate-800">{{ row.bagSerial }}</strong>
+                <span v-if="row.bagQrCode" class="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[170px]" :title="row.bagQrCode">
+                  {{ row.bagQrCode }}
+                </span>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="Thời gian" width="140">
+          <el-table-column prop="productName" label="Sản phẩm" min-width="160">
             <template #default="{ row }">
-              {{ formatDate(row.linkedAt) }}
+              <span class="text-xs font-medium text-slate-600">{{ row.productName || '—' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="" width="80">
+          <el-table-column prop="packetCount" label="Số gói" width="80" align="center">
+            <template #default="{ row }">
+              <span class="font-semibold text-slate-700">{{ row.packetCount }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Người liên kết" width="120">
+            <template #default="{ row }">
+              <span class="text-xs text-slate-600">{{ row.linker?.fullName || '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Thời gian" width="110">
+            <template #default="{ row }">
+              <span class="text-xs text-slate-400">{{ formatDate(row.linkedAt) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="60" align="center">
             <template #default="{ row }">
               <el-button link type="danger" size="small" @click="unlinkBag(row)" :disabled="detailPallet.status === 'EXPORTING'">Gỡ</el-button>
             </template>
@@ -131,7 +169,7 @@
     </el-dialog>
 
     <!-- Edit Dialog -->
-    <el-dialog v-model="showEditDialog" title="Cập nhật Pallet" width="380">
+    <el-dialog v-model="showEditDialog" title="Cập nhật Pallet" width="380" class="rounded-dialog">
       <el-form label-position="top">
         <el-form-item label="Giới hạn bao / pallet">
           <el-input-number v-model="editForm.maxBags" :min="0" :max="999" style="width: 100%" />
@@ -327,19 +365,8 @@ onMounted(fetchPallets)
 .pallet-management {
   padding: 24px;
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-}
-.page-header h2 {
-  margin: 0 0 4px;
-  font-size: 22px;
-  color: #1a1a2e;
-}
 .subtitle {
-  color: #888;
+  color: var(--tid-text-secondary);
   font-size: 13px;
   margin: 0;
 }
@@ -355,39 +382,71 @@ onMounted(fetchPallets)
 }
 .total-count {
   margin-left: auto;
-  color: #666;
+  color: var(--tid-text-secondary);
   font-size: 13px;
 }
+.total-count strong {
+  color: var(--tid-text-primary);
+  font-weight: 700;
+}
 .code-text {
-  color: #2c6ecb;
+  color: var(--tid-secondary);
   font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 700;
 }
 .max-label {
-  color: #999;
+  color: var(--tid-text-muted);
   font-size: 12px;
 }
 .pagination {
-  margin-top: 16px;
+  margin-top: 24px;
   display: flex;
   justify-content: center;
 }
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-}
 .form-hint {
-  color: #999;
+  color: var(--tid-text-muted);
   font-size: 12px;
   margin: 4px 0 0;
 }
 .code-preview {
-  color: #2c6ecb;
+  color: var(--tid-secondary);
   font-family: 'Courier New', monospace;
   font-size: 13px;
+}
+
+/* Modern tables styling matching SemiFinishedImportView.vue */
+.modern-table :deep(.el-table__header-wrapper) th {
+  background-color: #f8fafc;
+  color: var(--tid-text-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 10px 0;
+}
+
+/* Rounded and refined Element Plus dialogs styles */
+:deep(.el-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+:deep(.el-dialog__header) {
+  margin-right: 0;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--tid-border);
+}
+:deep(.el-dialog__title) {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tid-text-primary);
+}
+:deep(.el-dialog__body) {
+  padding: 24px;
+}
+:deep(.el-dialog__footer) {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--tid-border);
 }
 </style>
