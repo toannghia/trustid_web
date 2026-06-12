@@ -31,7 +31,7 @@
         </div>
         <el-input
           v-model="scanInput"
-          :placeholder="pendingPalletCode ? 'Bước 2: Quét mã bao (serial)...' : 'Bước 1: Quét mã pallet trước (PLT-...)...'"
+          :placeholder="pendingPalletCode ? 'Bước 2: Quét mã bao (serial)...' : 'Bước 1: Quét mã pallet trước...'"
           size="large"
           class="scan-input"
           ref="scanInputRef"
@@ -212,26 +212,44 @@ async function loadOrderInfo() {
   }
 }
 
-function isPalletCode(code: string): boolean {
-  return code.toUpperCase().startsWith('PLT-')
-}
-
 async function handleScan() {
   const code = scanInput.value.trim()
   if (!code) return
 
-  // Bước 1: Quét pallet code
-  if (isPalletCode(code)) {
-    await handleScanPallet(code)
-  } else {
-    // Bước 2: Quét mã bao
-    if (!pendingPalletId.value) {
-      ElMessage.warning('⚠️ Vui lòng quét mã Pallet trước (PLT-...) rồi mới quét mã bao!')
-      scanInput.value = ''
+  // Nếu chưa có pallet → thử tìm pallet trước
+  if (!pendingPalletId.value) {
+    // Thử tìm pallet bằng code
+    scanning.value = true
+    try {
+      const { data } = await api.get('/supply/pallets', { params: { search: code, limit: 1 } })
+      const pallet = (data.items || []).find((p: any) => p.palletCode.toUpperCase() === code.toUpperCase())
+      if (pallet) {
+        await handleScanPallet(code)
+        return
+      }
+    } catch {}
+    scanning.value = false
+    // Không phải pallet → cảnh báo
+    ElMessage.warning('⚠️ Vui lòng quét mã Pallet trước rồi mới quét mã bao!')
+    scanInput.value = ''
+    return
+  }
+
+  // Đã có pallet → kiểm tra xem có phải quét pallet khác không
+  scanning.value = true
+  try {
+    const { data } = await api.get('/supply/pallets', { params: { search: code, limit: 1 } })
+    const pallet = (data.items || []).find((p: any) => p.palletCode.toUpperCase() === code.toUpperCase())
+    if (pallet) {
+      // Chuyển sang pallet mới
+      await handleScanPallet(code)
       return
     }
-    await handleScanBag(code)
-  }
+  } catch {}
+  scanning.value = false
+
+  // Không phải pallet → xử lý như mã bao
+  await handleScanBag(code)
 }
 
 async function handleScanPallet(code: string) {
