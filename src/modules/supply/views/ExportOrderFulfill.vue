@@ -640,8 +640,11 @@ const handleScan = async () => {
             } else if (res.data.invalidCount > 0) {
                ElMessage.warning(`Quét thành công ${res.data.validCount} mã. Lỗi ${res.data.invalidCount} mã: ${res.data.invalidReasons.join(', ')}`);
             } else {
+               const palletInfo = res.data.palletInfo;
                const bagInfo = res.data.bagInfo;
-               if (bagInfo) {
+               if (palletInfo) {
+                   ElMessage.success(`📦 Pallet ${palletInfo.palletCode}: ${palletInfo.scannedBags}/${palletInfo.totalBags} bao (${palletInfo.totalPackets} gói)${palletInfo.skippedBags ? `, bỏ qua ${palletInfo.skippedBags} bao đã quét` : ''}`);
+               } else if (bagInfo) {
                    ElMessage.success(`✅ Quét bao ${bagInfo.bagSerial} thành công (${bagInfo.packetCount} gói)`);
                } else {
                    ElMessage.success(`Quét xong. Đã ghi nhận ${res.data.validCount} mã sản phẩm.`);
@@ -763,7 +766,15 @@ const confirmManualDelivery = async () => {
 
 const cancelOrder = async (order: any) => {
     try {
-        await ElMessageBox.confirm(`Xác nhận hủy lệnh xuất kho?`, 'Cảnh báo', { type: 'error', confirmButtonText: 'Hủy' });
+        await ElMessageBox.confirm(
+            'Hành động này sẽ Hủy lệnh xuất kho và giải phóng (trả lại) toàn bộ sản phẩm đã quét về kho khả dụng. Bạn có chắc chắn muốn hủy lệnh này?',
+            'Cảnh báo hủy lệnh',
+            { 
+                type: 'warning', 
+                confirmButtonText: 'Đồng ý hủy',
+                cancelButtonText: 'Bỏ qua'
+            }
+        );
         await exportOrderApi.cancel(order.id);
         selectedOrder.value = null;
         loadOrders();

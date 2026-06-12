@@ -37,12 +37,15 @@
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <el-form-item label="Đại lý (Khách hàng)" required class="col-span-2">
-                <el-select v-model="form.dealerId" class="w-full" filterable placeholder="Tìm và chọn đại lý...">
-                  <el-option v-for="d in dealers" :key="d.id" :label="d.name" :value="d.id">
-                    <span style="float: left">{{ d.name }}</span>
-                    <span style="float: right; color: #8492a6; font-size: 13px">{{ d.taxCode }}</span>
-                  </el-option>
-                </el-select>
+                <div class="flex gap-2 w-full">
+                  <el-select v-model="form.dealerId" class="flex-1" filterable placeholder="Tìm và chọn đại lý...">
+                    <el-option v-for="d in dealers" :key="d.id" :label="d.name" :value="d.id">
+                      <span style="float: left">{{ d.name }}</span>
+                      <span style="float: right; color: #8492a6; font-size: 13px">{{ d.taxCode }}</span>
+                    </el-option>
+                  </el-select>
+                  <el-button type="primary" icon="Plus" @click="showCreateDealerDialog = true" title="Thêm đại lý mới" />
+                </div>
               </el-form-item>
               
               <el-form-item label="Kho Xuất Hàng" required class="col-span-2">
@@ -157,6 +160,11 @@
         <span>Tổng cộng SL: <span class="text-blue-600 text-lg">{{ totalQuantity }}</span></span>
       </div>
     </el-card>
+
+    <DealerCreateDialog
+      v-model="showCreateDealerDialog"
+      @created="handleDealerCreated"
+    />
   </div>
 </template>
 
@@ -171,9 +179,23 @@ import { useAuthStore } from '@/modules/core/store/auth';
 import { ElMessage } from 'element-plus';
 import { Back, Delete, Plus, Upload, Document, Box, Check } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+import DealerCreateDialog from '../components/DealerCreateDialog.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+
+const showCreateDealerDialog = ref(false);
+const handleDealerCreated = async (newDealer: any) => {
+  try {
+    const dealerRes = await dealerApi.getList();
+    dealers.value = dealerRes.data;
+    if (newDealer && newDealer.id) {
+      form.dealerId = newDealer.id;
+    }
+  } catch (err: any) {
+    ElMessage.error('Lỗi tải lại danh mục đại lý: ' + (err.message || 'Server Error'));
+  }
+};
 const saving = ref(false);
 
 const currentUser = computed(() => authStore.user || {});
@@ -187,7 +209,7 @@ const form = reactive({
   orderCode: '',
   dealerId: '',
   sourceWarehouseId: '',
-  expectedDeliveryDate: '' as any,
+  expectedDeliveryDate: new Date(),
   priority: 'MEDIUM',
   notes: '',
   items: [

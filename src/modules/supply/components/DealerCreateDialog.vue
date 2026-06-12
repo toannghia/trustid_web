@@ -66,7 +66,7 @@ const form = ref<DealerDto>({
     managerId: '',
     projectedInfo: {},
     coordinate: null,
-    createAccount: false,
+    createAccount: true,
     accountInfo: {
         username: '',
         password: ''
@@ -233,6 +233,11 @@ const saveDealer = async () => {
         return;
     }
     
+    if (!isEditMode.value && !form.value.createAccount) {
+        ElMessage.warning('Bắt buộc phải bật "Tạo tài khoản" để đăng ký đại lý mới');
+        return;
+    }
+
     if (form.value.createAccount) {
         if (!form.value.accountInfo?.username || !form.value.accountInfo?.password) {
             ElMessage.warning('Vui lòng nhập tài khoản và mật khẩu');
@@ -313,7 +318,7 @@ watch(() => props.modelValue, (val) => {
             form.value = {
                 name: '', taxCode: '', address: '', phone: '', email: '',
                 contactPerson: '', provinces: [], dealerTenantId: '', managerId: '',
-                projectedInfo: {}, coordinate: null, createAccount: false,
+                projectedInfo: {}, coordinate: null, createAccount: true,
                 accountInfo: { username: '', password: '' }
             };
             selectedProvince.value = '';
@@ -450,7 +455,7 @@ onUnmounted(() => {
             <template v-else>
                 <el-form-item label="Tạo tài khoản">
                     <el-switch v-model="form.createAccount" />
-                    <span class="text-xs text-gray-400 ml-2">Tạo Tenant & User với quyền DEALER</span>
+                    <span class="text-xs text-red-500 font-semibold ml-2">(Bắt buộc để lưu đại lý)</span>
                 </el-form-item>
                 <div v-if="form.createAccount" class="bg-gray-50 p-4 rounded-lg mb-4 border border-blue-50">
                     <el-form-item label="Username" required>
