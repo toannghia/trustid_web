@@ -68,6 +68,42 @@ export interface RefineSemiFinishedDto {
     custom_batch_code?: string;
 }
 
+export type SemiFinishedDraftSerialMode = 'SCAN' | 'RANGE';
+
+export interface SemiFinishedDraftPayload {
+    sourceBatchId?: string;
+    sourceBatchCode?: string;
+    productId?: string;
+    inputWeightKg?: number;
+    packageWeightKg?: number;
+    bagCount?: number;
+    warehouseId?: string;
+    nextCode?: string;
+    customBatchCode?: string;
+    packagingDate?: string;
+    packer?: string;
+    productionAddress?: string;
+    locationName?: string;
+    serialMode?: SemiFinishedDraftSerialMode;
+    serialRows?: Array<{ serialNumber: string; fullQrCode?: string; status?: string }>;
+    rangeConfig?: any;
+    manualCode?: string;
+    scanStarted?: boolean;
+    editConfig?: boolean;
+    updatedAt?: string;
+}
+
+export interface SemiFinishedDraftResponse {
+    id: string;
+    payload: SemiFinishedDraftPayload | null;
+    payload_version: number;
+    lock_token: string;
+    locked_by_client_id?: string | null;
+    locked_by_client_label?: string | null;
+    lock_expires_at?: string | null;
+    updated_at?: string | null;
+}
+
 export interface CreateCrossTenantTransferDto {
     to_tenant_id: string;
     notes?: string;
@@ -148,6 +184,26 @@ export const supplyApi = {
 
     refineSemiFinished(data: RefineSemiFinishedDto) {
         return api.post(`${baseUrl}/batches/refine-semi-finished`, data);
+    },
+
+    openSemiFinishedPackagingDraft(data: { client_id: string; client_label?: string }) {
+        return api.post<SemiFinishedDraftResponse>(`${baseUrl}/packaging/semi-finished-draft/open`, data);
+    },
+
+    saveSemiFinishedPackagingDraft(data: { lock_token: string; payload: SemiFinishedDraftPayload }) {
+        return api.put<SemiFinishedDraftResponse>(`${baseUrl}/packaging/semi-finished-draft`, data);
+    },
+
+    heartbeatSemiFinishedPackagingDraft(lockToken: string) {
+        return api.post<SemiFinishedDraftResponse>(`${baseUrl}/packaging/semi-finished-draft/heartbeat`, { lock_token: lockToken });
+    },
+
+    releaseSemiFinishedPackagingDraft(lockToken: string) {
+        return api.post(`${baseUrl}/packaging/semi-finished-draft/release`, { lock_token: lockToken });
+    },
+
+    clearSemiFinishedPackagingDraft() {
+        return api.delete(`${baseUrl}/packaging/semi-finished-draft`);
     },
 
     getNextSemiFinishedBatchCode(production_address?: string) {

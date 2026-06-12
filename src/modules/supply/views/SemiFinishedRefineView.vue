@@ -17,6 +17,15 @@
       </div>
     </div>
 
+    <el-alert
+      v-if="draftBlocked"
+      type="error"
+      show-icon
+      :closable="false"
+      class="!mb-3"
+      :title="draftBlocked"
+    />
+
     <el-form label-position="top" class="space-y-1">
       <!-- SECTION 1: Thông tin lô nguồn -->
       <el-card shadow="never" class="!border-gray-200 !rounded-xl">
@@ -274,12 +283,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Operation, FolderOpened, ScaleToOriginal, Box, CircleCheck, CircleCheckFilled, SuccessFilled, Search, Delete, Back, Bottom, Warning, Location, House, User, Refresh } from '@element-plus/icons-vue';
 import { productApi } from '@/modules/core/api/product';
 import { supplyApi } from '../api/supplyApi';
+import type { SemiFinishedDraftPayload } from '../api/supplyApi';
 import { transportApi } from '../api/transportApi';
 import { useAuthStore } from '@/modules/core/store/auth';
 
@@ -293,6 +303,11 @@ const warehouses = ref<any[]>([]);
 const saving = ref(false);
 let previewTimer: any = null;
 let rangeDebounceTimer: any = null;
+let draftSaveTimer: any = null;
+let draftHeartbeatTimer: any = null;
+const draftLockToken = ref('');
+const draftBlocked = ref('');
+const applyingDraft = ref(false);
 
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 
@@ -309,7 +324,9 @@ const weightUnits = [
 const inputWeightUnit = ref('ton');
 const displayInputWeight = ref(0);
 
-const goBack = () => {
+const goBack = async () => {
+  await saveDraftNow();
+  await releaseDraftLock();
   router.push('/supply/semi-finished');
 };
 const selectedSourceBatchId = ref('');
@@ -366,6 +383,10 @@ const voidSerials = ref<string[]>([]);
 const searchSerial = ref('');
 
 const addVoidSerial = () => {
+  if (!canEditDraft.value) {
+    ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
+    return;
+  }
   let val = voidInput.value.trim();
   if (!val) return;
 
@@ -384,6 +405,10 @@ const addVoidSerial = () => {
 };
 
 const handleVoidInTable = (serial: string) => {
+  if (!canEditDraft.value) {
+    ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
+    return;
+  }
   if (!voidSerials.value.includes(serial)) {
     voidSerials.value.push(serial);
     generateRange();
@@ -479,7 +504,151 @@ const validationMessage = computed(() => {
   if (computedOutputWeight.value > currentInputWeightKg.value) return 'Output vượt quá Input, vui lòng kiểm tra lại quy cách hoặc số bao.';
   return '';
 });
-const canSubmit = computed(() => validationMessage.value.length === 0);
+const canEditDraft = computed(() => !!draftLockToken.value && !draftBlocked.value);
+const canSubmit = computed(() => canEditDraft.value && validationMessage.value.length === 0);
+
+const getDraftClientId = () => {
+  const key = 'supply_semi_finished_draft_web_client_id';
+  let id = sessionStorage.getItem(key);
+  if (!id) {
+    id = `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(key, id);
+  }
+  return id;
+};
+
+const buildDraftPayload = (): SemiFinishedDraftPayload => ({
+  sourceBatchId: selectedSourceBatchId.value,
+  sourceBatchCode: selectedSourceBatch.value?.batchCode || form.value.source_batch_code,
+  productId: form.value.product_id,
+  inputWeightKg: currentInputWeightKg.value,
+  packageWeightKg: packageWeightKg.value,
+  bagCount: bagCount.value,
+  warehouseId: packagingInfo.value.warehouse_id,
+  nextCode: nextBatchCode.value,
+  customBatchCode: customBatchCode.value,
+  packagingDate: packagingInfo.value.date?.toISOString?.() || new Date().toISOString(),
+  packer: packagingInfo.value.packer,
+  productionAddress: form.value.production_address,
+  locationName: packagingInfo.value.location,
+  serialMode: serialMode.value,
+  serialRows: serialRows.value.map((row) => ({
+    serialNumber: row.serial,
+    fullQrCode: row.qrCode,
+    status: row.status,
+  })),
+  rangeConfig: {
+    ...rangeConfig.value,
+    voidSerials: [...voidSerials.value],
+  },
+  manualCode: serialInput.value,
+  scanStarted: serialRows.value.length > 0,
+  editConfig: false,
+  updatedAt: new Date().toISOString(),
+});
+
+const applyDraftPayload = (payload: SemiFinishedDraftPayload) => {
+  applyingDraft.value = true;
+  selectedSourceBatchId.value = payload.sourceBatchId || '';
+  form.value.source_batch_code = payload.sourceBatchCode || '';
+  form.value.product_id = payload.productId || '';
+  form.value.production_address = payload.productionAddress || '';
+  const inputKg = Number(payload.inputWeightKg || 0);
+  if (inputKg >= 1000) {
+    inputWeightUnit.value = 'ton';
+    displayInputWeight.value = inputKg / 1000;
+  } else {
+    inputWeightUnit.value = 'kg';
+    displayInputWeight.value = inputKg;
+  }
+  packageWeightKg.value = Number(payload.packageWeightKg || 50);
+  bagCount.value = Number(payload.bagCount || 0);
+  packagingInfo.value.warehouse_id = payload.warehouseId || '';
+  packagingInfo.value.location = payload.locationName || '';
+  packagingInfo.value.packer = payload.packer || packagingInfo.value.packer;
+  packagingInfo.value.date = payload.packagingDate ? new Date(payload.packagingDate) : new Date();
+  nextBatchCode.value = payload.nextCode || '';
+  customBatchCode.value = payload.customBatchCode || payload.nextCode || '';
+  serialMode.value = payload.serialMode || 'SCAN';
+  rangeConfig.value = {
+    prefix: payload.rangeConfig?.prefix || '',
+    startNumber: payload.rangeConfig?.startNumber || '',
+    endNumber: payload.rangeConfig?.endNumber || '',
+    voidSerials: Array.isArray(payload.rangeConfig?.voidSerials) ? payload.rangeConfig.voidSerials : [],
+  };
+  voidSerials.value = [...rangeConfig.value.voidSerials];
+  serialRows.value = (payload.serialRows || []).map((row: any) => ({
+    serial: row.serialNumber || row.serial,
+    qrCode: row.fullQrCode || row.qrCode,
+    status: row.status || 'AVAILABLE',
+  })).filter((row) => row.serial);
+  serialInput.value = payload.manualCode || '';
+  setTimeout(() => {
+    applyingDraft.value = false;
+  }, 0);
+};
+
+const openDraftLock = async () => {
+  try {
+    const { data } = await supplyApi.openSemiFinishedPackagingDraft({
+      client_id: getDraftClientId(),
+      client_label: 'Web',
+    });
+    draftLockToken.value = data.lock_token;
+    draftBlocked.value = '';
+    if (data.payload) {
+      applyDraftPayload(data.payload);
+      ElMessage.success('Đã khôi phục phiếu lưu tạm từ backend.');
+    }
+  } catch (e: any) {
+    const raw = e?.response?.data?.message;
+    draftBlocked.value = typeof raw === 'string'
+      ? raw
+      : 'Phiếu lưu tạm đang được mở ở thiết bị khác hoặc không thể khóa backend.';
+    draftLockToken.value = '';
+  }
+};
+
+const saveDraftNow = async () => {
+  if (!draftLockToken.value || draftBlocked.value || applyingDraft.value) return;
+  try {
+    await supplyApi.saveSemiFinishedPackagingDraft({
+      lock_token: draftLockToken.value,
+      payload: buildDraftPayload(),
+    });
+  } catch (e: any) {
+    draftBlocked.value = e?.response?.data?.message || 'Không thể lưu phiếu nháp lên backend. Vui lòng mở lại màn hình.';
+  }
+};
+
+const scheduleSaveDraft = () => {
+  if (!draftLockToken.value || draftBlocked.value || applyingDraft.value) return;
+  if (draftSaveTimer) clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => {
+    saveDraftNow();
+  }, 500);
+};
+
+const startDraftHeartbeat = () => {
+  if (draftHeartbeatTimer) clearInterval(draftHeartbeatTimer);
+  draftHeartbeatTimer = setInterval(async () => {
+    if (!draftLockToken.value) return;
+    try {
+      const { data } = await supplyApi.heartbeatSemiFinishedPackagingDraft(draftLockToken.value);
+      draftLockToken.value = data.lock_token || draftLockToken.value;
+    } catch {
+      draftBlocked.value = 'Phiên lưu tạm đã hết hạn hoặc mất kết nối. Vui lòng mở lại màn hình.';
+      draftLockToken.value = '';
+    }
+  }, 4 * 60 * 1000);
+};
+
+const releaseDraftLock = async () => {
+  if (!draftLockToken.value) return;
+  const token = draftLockToken.value;
+  draftLockToken.value = '';
+  await supplyApi.releaseSemiFinishedPackagingDraft(token).catch(() => {});
+};
 
 const loadNextBatchCode = async () => {
   // Ưu tiên lấy theo địa điểm đóng gói mới, nếu chưa chọn thì lấy theo địa điểm sản xuất lô nguồn
@@ -502,6 +671,7 @@ const resetToAutoCode = async () => {
 };
 
 watch([currentInputWeightKg, packageWeightKg], ([weight, spec]) => {
+  if (applyingDraft.value) return;
   if (weight > 0 && spec > 0) {
     bagCount.value = Math.floor(weight / spec);
   }
@@ -643,9 +813,15 @@ const load = async () => {
   const extList = (extRes.data as any)?.data?.items || (extRes.data as any)?.items || (extRes.data as any)?.data || extRes.data || [];
   externalBatches.value = extList.filter((b: any) => (b.batchType || '').toUpperCase() === 'EXTERNAL');
   await loadNextBatchCode();
+  await openDraftLock();
+  startDraftHeartbeat();
 };
 
 const addSerial = async () => {
+  if (!canEditDraft.value) {
+    ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
+    return;
+  }
   const input = extractCodeFromQr(serialInput.value);
   if (!input) return;
   
@@ -677,6 +853,7 @@ const addSerial = async () => {
         qrCode: item.fullQrCode,
         status: item.status
       });
+      scheduleSaveDraft();
 
       // Thông báo khi đủ số lượng
       if (serialRows.value.length === bagCount.value) {
@@ -695,7 +872,12 @@ const addSerial = async () => {
 };
 
 const removeSerial = (idx: number) => {
+  if (!canEditDraft.value) {
+    ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
+    return;
+  }
   serialRows.value.splice(idx, 1);
+  scheduleSaveDraft();
 };
 
 const submit = async () => {
@@ -760,6 +942,8 @@ const submit = async () => {
     
     saving.value = true;
     await supplyApi.refineSemiFinished(payload as any);
+    await supplyApi.clearSemiFinishedPackagingDraft().catch(() => {});
+    draftLockToken.value = '';
     ElMessage.success('Thành công: Đã tạo lô bán thành phẩm và nhập kho hoàn tất.');
     router.push('/supply/semi-finished');
   } catch (e: any) {
@@ -779,6 +963,38 @@ watch(
     }, 250);
   }
 );
+
+watch(
+  [
+    selectedSourceBatchId,
+    displayInputWeight,
+    inputWeightUnit,
+    packageWeightKg,
+    bagCount,
+    serialMode,
+    serialRows,
+    voidSerials,
+    rangeConfig,
+    serialInput,
+    customBatchCode,
+    nextBatchCode,
+    () => packagingInfo.value.date,
+    () => packagingInfo.value.packer,
+    () => packagingInfo.value.location,
+    () => packagingInfo.value.warehouse_id,
+    () => form.value.source_batch_code,
+    () => form.value.product_id,
+    () => form.value.production_address,
+  ],
+  () => scheduleSaveDraft(),
+  { deep: true }
+);
+
+onBeforeUnmount(() => {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer);
+  if (draftHeartbeatTimer) clearInterval(draftHeartbeatTimer);
+  releaseDraftLock();
+});
 
 onMounted(load);
 </script>
