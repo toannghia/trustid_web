@@ -158,7 +158,7 @@
                                 v-model="scanInput" 
                                 ref="scanInputRef"
                                 size="large" 
-                                :placeholder="unscanMode ? 'Quét mã cần XÓA khỏi phiếu...' : 'Quét mã Thùng hoặc mã Sản Phẩm...'" 
+                                :placeholder="unscanMode ? 'Quét mã cần XÓA khỏi phiếu...' : 'Quét mã qr sản phẩm, mã bao, mã pallet, mã thùng...'" 
                                 clearable
                                 @keyup.enter="handleScan"
                                 :disabled="scanning"

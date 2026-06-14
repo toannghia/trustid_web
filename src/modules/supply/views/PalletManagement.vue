@@ -102,7 +102,7 @@
     </el-dialog>
 
     <!-- Detail Dialog -->
-    <el-dialog v-model="showDetailDialog" :title="`Chi tiết — ${detailPallet?.palletCode}`" width="800" :close-on-click-modal="false" class="rounded-dialog">
+    <el-dialog v-model="showDetailDialog" :title="`Chi tiết — ${detailPallet?.palletCode}`" width="860" :close-on-click-modal="false" class="rounded-dialog">
       <div v-if="detailPallet" v-loading="loadingDetail">
         <div class="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
           <div>
@@ -125,17 +125,17 @@
           </div>
         </div>
         <el-table :data="detailPallet.bagMappings || []" stripe size="small" empty-text="Pallet chưa có bao nào" class="modern-table">
-          <el-table-column label="Mã Bao / QR" width="180">
+          <el-table-column label="Mã Bao / Serial" width="130">
             <template #default="{ row }">
-              <div class="flex flex-col">
-                <strong class="font-mono text-xs text-slate-800">{{ row.bagSerial }}</strong>
-                <span v-if="row.bagQrCode" class="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[170px]" :title="row.bagQrCode">
-                  {{ row.bagQrCode }}
-                </span>
-              </div>
+              <strong class="font-mono text-xs text-slate-800">{{ row.bagSerial }}</strong>
             </template>
           </el-table-column>
-          <el-table-column prop="productName" label="Sản phẩm" min-width="160">
+          <el-table-column label="Mã QR" min-width="150">
+            <template #default="{ row }">
+              <span class="font-mono text-[10px] text-slate-500 break-all">{{ row.bagQrCode || '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="productName" label="Sản phẩm" min-width="140">
             <template #default="{ row }">
               <span class="text-xs font-medium text-slate-600">{{ row.productName || '—' }}</span>
             </template>
@@ -145,17 +145,17 @@
               <span class="font-semibold text-slate-700">{{ row.packetCount }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Người liên kết" width="120">
+          <el-table-column label="Người liên kết" width="100">
             <template #default="{ row }">
               <span class="text-xs text-slate-600">{{ row.linker?.fullName || '—' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Thời gian" width="110">
+          <el-table-column label="Thời gian" width="100">
             <template #default="{ row }">
               <span class="text-xs text-slate-400">{{ formatDate(row.linkedAt) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="" width="60" align="center">
+          <el-table-column label="" width="50" align="center">
             <template #default="{ row }">
               <el-button link type="danger" size="small" @click="unlinkBag(row)" :disabled="detailPallet.status === 'EXPORTING'">Gỡ</el-button>
             </template>

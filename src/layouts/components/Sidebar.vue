@@ -99,6 +99,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Bán thành phẩm', path: '/supply/semi-finished', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: TrendCharts },
       { title: 'Xuất B2B', path: '/supply/semi-finished/export', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Upload },
       { title: 'Nhập B2B', path: '/supply/semi-finished/import', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Download },
+      { title: 'Pallet BTP', path: '/supply/semi-finished/pallets', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
     ]
   },
   {

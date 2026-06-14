@@ -90,16 +90,23 @@
                 <el-icon class="mr-1"><Tickets /></el-icon>
                 Từng bao
               </div>
+              <div 
+                class="mode-item" 
+                :class="{ active: scanMode === 'PALLET' }"
+                @click="scanMode = 'PALLET'"
+              >
+                📦 Pallet BTP
+              </div>
             </div>
           </div>
           <div class="flex gap-2">
-            <el-input v-model="scanInput" ref="scanInputRef" placeholder="Quét mã QR sản phẩm..." @keyup.enter="handleScan" class="flex-1">
+            <el-input v-model="scanInput" ref="scanInputRef" :placeholder="scanMode === 'PALLET' ? 'Quét mã pallet BTP...' : 'Quét mã QR sản phẩm...'" @keyup.enter="handleScan" class="flex-1">
               <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
             <el-button type="warning" @click="handleScan">Xác nhận mã</el-button>
           </div>
           <div class="text-[10px] text-orange-600 mt-2 italic">
-            * <b>Nguyên lô</b>: Quét 1 tem → thêm toàn bộ lô. * <b>Từng bao</b>: Quét bao nào xuất bao đó.
+            * <b>Nguyên lô</b>: Quét 1 tem → thêm toàn bộ lô. * <b>Từng bao</b>: Quét bao nào xuất bao đó. * <b>Pallet BTP</b>: Quét pallet → xuất toàn bộ SP trong pallet.
           </div>
         </el-card>
 
@@ -310,7 +317,7 @@ const newBatchId = ref('');
 const newExpectedQty = ref(0);
 const maxAvailable = ref(0);
 const scanInput = ref('');
-const scanMode = ref<'BATCH' | 'ITEM'>('BATCH');
+const scanMode = ref<'BATCH' | 'ITEM' | 'PALLET'>('BATCH');
 const scanInputRef = ref<any>(null);
 const detailVisible = ref(false);
 const selectedTransfer = ref<any>(null);
@@ -494,6 +501,49 @@ const onBatchSelect = (batchId: string) => {
 const handleScan = async () => {
   const code = scanInput.value.trim();
   if (!code) return;
+
+  // ── PALLET MODE: lookup pallet by code ──
+  if (scanMode.value === 'PALLET') {
+    try {
+      const { data: result } = await supplyApi.listSFPallets({ search: code, limit: 1 });
+      const pallets = result?.items || [];
+      const pallet = pallets.find((p: any) => p.palletCode === code.toUpperCase());
+      if (!pallet) { ElMessage.error(`Không tìm thấy pallet BTP "${code}"`); return; }
+
+      const { data: detail } = await supplyApi.getSFPalletDetail(pallet.id);
+      if (!detail.items || detail.items.length === 0) { ElMessage.warning('Pallet này đang trống'); return; }
+
+      let addedCount = 0;
+      for (const palletItem of detail.items) {
+        if (!palletItem.batchId) continue;
+        const batch = batches.value.find(b => b.id === palletItem.batchId);
+        if (!batch || batch.status !== 'COMPLETED' || batch.availableQuantity <= 0) continue;
+
+        const existing = form.value.items.find(i => i.batch_id === batch.id);
+        const unitWeight = palletItem.weight || Number((batch.outputWeight / (batch.packCount || 1)).toFixed(3));
+
+        if (existing) {
+          if (existing.serials?.includes(palletItem.itemSerial)) continue;
+          existing.serials = [...(existing.serials || []), palletItem.itemSerial];
+          existing.expected_quantity = Number((existing.expected_quantity + unitWeight).toFixed(3));
+        } else {
+          form.value.items.push({ batch_id: batch.id, expected_quantity: unitWeight, serials: [palletItem.itemSerial] });
+        }
+        addedCount++;
+      }
+
+      if (addedCount > 0) ElMessage.success(`Đã thêm ${addedCount} SP từ pallet ${pallet.palletCode}`);
+      else ElMessage.warning('Không có SP hợp lệ trong pallet (hết tồn hoặc lô chưa complete)');
+    } catch (e: any) {
+      ElMessage.error(e?.response?.data?.message || 'Lỗi tra cứu pallet');
+    } finally {
+      scanInput.value = '';
+      focusScan();
+    }
+    return;
+  }
+
+  // ── BATCH / ITEM MODE ──
   try {
     const { data: items } = await supplyApi.lookupSerials([code]);
     if (!items || items.length === 0) { ElMessage.error('Không tìm thấy sản phẩm từ mã QR này'); return; }
@@ -515,9 +565,6 @@ const handleScan = async () => {
       let existing = form.value.items.find(i => i.batch_id === batch.id);
       if (existing && !existing.serials) { ElMessage.warning('Lô đang xuất nguyên lô'); return; }
       const unitWeight = Number((batch.outputWeight / (batch.packCount || 1)).toFixed(3));
-      
-      // Check if item was already exported (item status should be ACTIVE to be exportable)
-      // Actually we should trust the warehouseStock lookup more, but here we scan serials.
       
       if (existing) {
         if (existing.serials?.includes(item.serialNumber)) { ElMessage.warning('Bao đã có'); return; }

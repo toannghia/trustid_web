@@ -456,6 +456,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Nhập B2B bán thành phẩm' }
       },
       {
+        path: '/supply/semi-finished/pallets',
+        name: 'SemiFinishedPallets',
+        component: () => import('@/modules/supply/views/SemiFinishedPalletView.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Pallet BTP' }
+      },
+      {
         path: '/supply/semi-finished/report',
         name: 'SemiFinishedReport',
         component: () => import('@/modules/supply/views/B2BInventoryReportView.vue'),

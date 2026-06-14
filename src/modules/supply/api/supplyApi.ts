@@ -260,5 +260,31 @@ export const supplyApi = {
 
     updateBatchCode(batchId: string, batchCode: string) {
         return api.patch(`${baseUrl}/batches/${batchId}/batch-code`, { batch_code: batchCode });
-    }
+    },
+
+    // ====== SF Pallet (Pallet Bán Thành Phẩm) ======
+    listSFPallets(params?: { status?: string; search?: string; page?: number; limit?: number }) {
+        return api.get<any>(`${baseUrl}/sf-pallets`, { params });
+    },
+    getSFPalletDetail(id: string) {
+        return api.get<any>(`${baseUrl}/sf-pallets/${id}`);
+    },
+    batchCreateSFPallets(dto: { quantity: number; maxBatches?: number; prefix?: string }) {
+        return api.post<any>(`${baseUrl}/sf-pallets/batch-create`, dto);
+    },
+    updateSFPallet(id: string, dto: { maxBatches?: number }) {
+        return api.patch(`${baseUrl}/sf-pallets/${id}`, dto);
+    },
+    deleteSFPallet(id: string) {
+        return api.delete(`${baseUrl}/sf-pallets/${id}`);
+    },
+    linkSFPalletItem(palletId: string, dto: { serial: string; force?: boolean }) {
+        return api.post<any>(`${baseUrl}/sf-pallets/${palletId}/link-item`, dto);
+    },
+    unlinkSFPalletItem(palletId: string, dto: { serial: string }) {
+        return api.post<any>(`${baseUrl}/sf-pallets/${palletId}/unlink-item`, dto);
+    },
+    releaseSFPallet(id: string) {
+        return api.post<any>(`${baseUrl}/sf-pallets/${id}/release`);
+    },
 };

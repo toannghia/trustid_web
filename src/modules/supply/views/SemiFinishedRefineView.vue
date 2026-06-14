@@ -308,6 +308,7 @@ let draftHeartbeatTimer: any = null;
 const draftLockToken = ref('');
 const draftBlocked = ref('');
 const applyingDraft = ref(false);
+const draftApiBase = String(import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 
@@ -648,6 +649,36 @@ const releaseDraftLock = async () => {
   const token = draftLockToken.value;
   draftLockToken.value = '';
   await supplyApi.releaseSemiFinishedPackagingDraft(token).catch(() => {});
+};
+
+const hasActiveDraftLock = () => !!draftLockToken.value && !draftBlocked.value;
+
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!hasActiveDraftLock()) return;
+  event.preventDefault();
+  event.returnValue = '';
+};
+
+const releaseDraftLockKeepalive = () => {
+  if (!draftLockToken.value) return;
+  const token = draftLockToken.value;
+  const accessToken = localStorage.getItem('access_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  fetch(`${draftApiBase}/supply/packaging/semi-finished-draft/release`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ lock_token: token }),
+    keepalive: true,
+  }).catch(() => {});
+  draftLockToken.value = '';
+};
+
+const handlePageHide = () => {
+  releaseDraftLockKeepalive();
 };
 
 const loadNextBatchCode = async () => {
@@ -993,10 +1024,16 @@ watch(
 onBeforeUnmount(() => {
   if (draftSaveTimer) clearTimeout(draftSaveTimer);
   if (draftHeartbeatTimer) clearInterval(draftHeartbeatTimer);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  window.removeEventListener('pagehide', handlePageHide);
   releaseDraftLock();
 });
 
-onMounted(load);
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('pagehide', handlePageHide);
+  load();
+});
 </script>
 <style scoped>
 .stat-box {
