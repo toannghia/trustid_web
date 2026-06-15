@@ -17,6 +17,21 @@
       </div>
     </div>
 
+    <div v-if="failedLinks.length > 0" class="mb-3 p-4 border border-red-200 bg-red-50 rounded-xl flex items-center justify-between shadow-sm">
+      <div class="flex items-center gap-3">
+        <el-icon class="text-red-600" size="28"><Warning /></el-icon>
+        <div class="flex flex-col">
+          <span class="font-bold text-red-900 text-sm">Lỗi đồng bộ Pallet ({{ failedLinks.length }} bao chưa kết nối)</span>
+          <span class="text-xs text-red-700 mt-0.5">
+            Lô bán thành phẩm đã tạo thành công, nhưng kết nối mạng bị gián đoạn khiến các bao này chưa được gán vào pallet. Vui lòng bấm thử lại để tiếp tục đồng bộ.
+          </span>
+        </div>
+      </div>
+      <el-button type="danger" :loading="saving" @click="retryFailedLinks" class="!rounded-lg !px-6">
+        Thử lại kết nối Pallet
+      </el-button>
+    </div>
+
     <el-alert
       v-if="draftBlocked"
       type="error"
@@ -210,10 +225,55 @@
           </el-tab-pane>
 
           <el-tab-pane label="Quét mã QR đơn lẻ" name="SCAN">
-             <div class="flex items-center gap-3 mb-4 mt-2">
+            <!-- Tùy chọn gắn Pallet -->
+            <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 mb-3 mt-2 shadow-sm">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <el-icon class="text-blue-600"><Box /></el-icon> Gắn Pallet khi đóng gói
+                </span>
+                <span class="text-[10px] text-gray-400 mt-0.5">Liên kết các bao được quét vào Pallet tương ứng</span>
+              </div>
+              <el-switch
+                v-model="usePalletLink"
+                size="small"
+                active-text="Có"
+                inactive-text="Không"
+                @change="handlePalletLinkToggle"
+              />
+            </div>
+
+            <!-- Thẻ Pallet đang hoạt động (Active Pallet Card) -->
+            <div v-if="usePalletLink && activePallet" class="mb-4 p-4 border border-blue-200 bg-blue-50/50 rounded-xl flex items-center justify-between mt-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
+                  <el-icon size="20"><Box /></el-icon>
+                </div>
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-blue-900 text-sm">Pallet đang đóng: {{ activePallet.palletCode }}</span>
+                    <el-tag size="small" type="primary" effect="dark">Đang mở</el-tag>
+                  </div>
+                  <span class="text-xs text-blue-700/80 mt-0.5 font-semibold">
+                    Đã đóng: {{ (activePallet.currentBatchCount || 0) + Object.keys(serialPalletMap).filter(k => serialPalletMap[k] === activePallet.id).length }} / {{ activePallet.maxBatches || 'Không giới hạn' }} bao
+                  </span>
+                </div>
+              </div>
+              <el-button type="warning" size="small" @click="activePallet = null">Đổi Pallet</el-button>
+            </div>
+            
+            <!-- Hướng dẫn quét Pallet nếu chưa chọn -->
+            <div v-else-if="usePalletLink" class="mb-4 p-4 border border-dashed border-amber-300 bg-amber-50/50 rounded-xl flex items-center gap-3 text-amber-800 mt-2">
+              <el-icon size="24"><Warning /></el-icon>
+              <div class="flex flex-col">
+                <span class="font-bold text-sm">Chưa chọn Pallet</span>
+                <span class="text-xs text-amber-700">Vui lòng quét mã QR của Pallet bán thành phẩm để bắt đầu gắn bao.</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 mb-4 mt-2">
               <el-input 
                 v-model="serialInput" 
-                placeholder="Quét mã QR bao/kiện... (Tự động Enter)" 
+                :placeholder="usePalletLink && !activePallet ? 'Quét mã Pallet để bắt đầu...' : 'Quét mã QR bao/kiện... (Tự động Enter)'" 
                 class="!flex-1"
                 @keyup.enter="addSerial" 
               >
@@ -231,33 +291,125 @@
           </el-input>
         </div>
 
-        <el-table :data="displaySerialRows" size="small" border stripe max-height="400" class="modern-table">
-          <el-table-column type="index" label="#" width="50" align="center" />
-          <el-table-column prop="serial" label="Serial number" width="160" class-name="font-mono font-bold" />
-          <el-table-column prop="qrCode" label="Nội dung mã QR">
-            <template #default="{ row }">
-              <span class="text-gray-400 text-[11px] font-mono">{{ row.qrCode || '---' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="TT" width="80" align="center">
-            <template #default="{ row }">
-              <el-button 
-                v-if="serialMode === 'RANGE'"
-                type="danger" 
-                link 
-                :icon="Delete"
-                @click="handleVoidInTable(row.serial)"
-                title="Loại bỏ mã này"
-              />
-              <el-tag v-else size="small" type="success" effect="plain" class="!px-1 font-bold !text-[9px]">OK</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column v-if="serialMode === 'SCAN'" label="" width="50" align="center">
-            <template #default="{ $index }">
-              <el-button type="danger" link @click="removeSerial($index)"><el-icon><Delete /></el-icon></el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <!-- CHẾ ĐỘ THƯỜNG / RANGE MODE: Hiển thị bảng phẳng -->
+        <template v-if="!usePalletLink || serialMode === 'RANGE'">
+          <el-table :data="displaySerialRows" size="small" border stripe max-height="400" class="modern-table">
+            <el-table-column type="index" label="#" width="50" align="center" />
+            <el-table-column prop="serial" label="Serial number" width="160" class-name="font-mono font-bold" />
+            <el-table-column prop="qrCode" label="Nội dung mã QR">
+              <template #default="{ row }">
+                <span class="text-gray-400 text-[11px] font-mono">{{ row.qrCode || '---' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="TT" width="80" align="center">
+              <template #default="{ row }">
+                <el-button 
+                  v-if="serialMode === 'RANGE'"
+                  type="danger" 
+                  link 
+                  :icon="Delete"
+                  @click="handleVoidInTable(row.serial)"
+                  title="Loại bỏ mã này"
+                />
+                <el-tag v-else size="small" type="success" effect="plain" class="!px-1 font-bold !text-[9px]">OK</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="serialMode === 'SCAN'" label="" width="50" align="center">
+              <template #default="{ $index }">
+                <el-button type="danger" link @click="removeSerial($index)"><el-icon><Delete /></el-icon></el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+
+        <!-- CHẾ ĐỘ PALLET (Chỉ cho SCAN): Chia theo nhóm pallet dạng thẻ trực quan -->
+        <template v-else>
+          <div class="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-1">
+            <!-- Từng nhóm Pallet -->
+            <div 
+              v-for="group in groupedPalletSerials.palletGroups" 
+              :key="group.pallet.id" 
+              class="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white"
+            >
+              <div class="bg-gray-50 border-b px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                  <el-icon class="text-blue-600" size="16"><Box /></el-icon>
+                  <span class="font-bold text-gray-800 text-sm">Pallet: {{ group.pallet.palletCode }}</span>
+                  <el-tag size="small" type="info" effect="plain">
+                    {{ group.serials.length + (group.pallet.currentBatchCount || 0) }} / {{ group.pallet.maxBatches || 'Không giới hạn' }} bao
+                  </el-tag>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-500 font-bold">Quét trong phiên này: {{ group.serials.length }} bao</span>
+                  <el-button type="primary" link size="small" :icon="Refresh" @click="openBulkReplacement(group.pallet.id)">Đổi Pallet</el-button>
+                </div>
+              </div>
+
+              <!-- Danh sách bao trong Pallet -->
+              <div class="p-3">
+                <div v-if="group.serials.length === 0" class="text-xs text-gray-400 italic py-2 text-center">
+                  Chưa có bao nào được quét vào pallet này trong phiên này.
+                </div>
+                <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  <div 
+                    v-for="row in group.serials" 
+                    :key="row.serial"
+                    class="bg-blue-50/20 border border-blue-100 rounded-lg p-2.5 flex items-center justify-between hover:bg-blue-50/50 transition-colors"
+                  >
+                    <div class="flex flex-col min-w-0">
+                      <span class="font-mono font-bold text-xs text-blue-900 truncate">{{ row.serial }}</span>
+                      <span class="text-[10px] text-gray-400 truncate">{{ row.qrCode || 'Không có QR' }}</span>
+                    </div>
+                    <el-button 
+                      type="danger" 
+                      link 
+                      size="small" 
+                      :icon="Delete"
+                      @click="removeSerial(serialRows.findIndex(r => r.serial === row.serial))"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nhóm chưa có pallet (nếu có lỗi/ngoại lệ) -->
+            <div 
+              v-if="groupedPalletSerials.unpalletized.length > 0" 
+              class="border border-red-200 rounded-xl overflow-hidden shadow-sm bg-white"
+            >
+              <div class="bg-red-50/50 border-b border-red-100 px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                  <el-icon class="text-red-600" size="16"><Warning /></el-icon>
+                  <span class="font-bold text-red-800 text-sm">Bao chưa gắn Pallet (Lỗi trạng thái)</span>
+                </div>
+              </div>
+              <div class="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                <div 
+                  v-for="row in groupedPalletSerials.unpalletized" 
+                  :key="row.serial"
+                  class="bg-red-50/10 border border-red-100 rounded-lg p-2.5 flex items-center justify-between"
+                >
+                  <div class="flex flex-col min-w-0">
+                    <span class="font-mono font-bold text-xs text-red-900 truncate">{{ row.serial }}</span>
+                    <span class="text-[10px] text-gray-400 truncate">{{ row.qrCode || 'Không có QR' }}</span>
+                  </div>
+                  <el-button 
+                    type="danger" 
+                    link 
+                    size="small" 
+                    :icon="Delete"
+                    @click="removeSerial(serialRows.findIndex(r => r.serial === row.serial))"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Nếu hoàn toàn chưa quét bao nào -->
+            <div v-if="serialRows.length === 0" class="text-center py-8 text-gray-400 italic text-sm">
+              Chưa có bao nào được quét. Vui lòng quét mã để bắt đầu.
+            </div>
+          </div>
+        </template>
 
         <div class="flex justify-between items-center mt-3 px-1 text-[11px] text-gray-400">
            <div>Hiển thị {{ displaySerialRows.length }} / {{ serialRows.length }} mã</div>
@@ -278,8 +430,86 @@
          </el-button>
       </div>
     </el-form>
-  </div>
 
+    <!-- Dialog cảnh báo đổi pallet khi chưa đầy -->
+    <el-dialog
+      :model-value="!!switchConfirmState"
+      @update:model-value="(val) => { if(!val) switchConfirmState = null; }"
+      title="Cảnh báo: Pallet hiện tại chưa đầy"
+      width="480px"
+      destroy-on-close
+      :close-on-click-modal="false"
+    >
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center gap-3 text-amber-600">
+          <el-icon size="24"><Warning /></el-icon>
+          <span class="font-bold">Bạn đang yêu cầu chuyển sang Pallet mới</span>
+        </div>
+        <p class="text-sm text-gray-600">
+          Pallet hiện tại ({{ activePallet?.palletCode }}) chưa đạt số lượng bao tối đa cấu hình.
+        </p>
+        <el-checkbox v-model="switchChecked">
+          Tôi xác nhận muốn chuyển sang Pallet mới
+        </el-checkbox>
+      </div>
+      <template #footer>
+        <el-button @click="switchConfirmState = null">Hủy</el-button>
+        <el-button type="primary" :disabled="!switchChecked" @click="confirmSwitchPallet">
+          Xác nhận
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Dialog thay đổi Pallet hàng loạt -->
+    <el-dialog
+      :model-value="!!changingPalletId"
+      @update:model-value="(val) => { if(!val) changingPalletId = null; }"
+      title="Đổi Pallet Hàng Loạt"
+      width="480px"
+      destroy-on-close
+      :close-on-click-modal="false"
+    >
+      <div class="flex flex-col gap-4">
+        <p class="text-sm text-gray-600">
+          Nhập mã Pallet mới để chuyển tất cả các bao của Pallet cũ sang Pallet mới này:
+        </p>
+        <el-input
+          v-model="bulkReplacementCode"
+          placeholder="Quét hoặc nhập mã Pallet thay thế"
+          clearable
+          @keyup.enter="executeBulkReplacement"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="changingPalletId = null">Hủy</el-button>
+        <el-button type="primary" :disabled="!bulkReplacementCode" @click="executeBulkReplacement">
+          Xác nhận
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Dialog tiến trình gắn Pallet -->
+    <el-dialog
+      :model-value="!!linkingProgress"
+      title="Đang liên kết Pallet..."
+      width="400px"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      center
+    >
+      <div class="flex flex-col items-center gap-4 py-4">
+        <el-progress
+          type="circle"
+          :percentage="Math.round(((linkingProgress?.current || 0) / (linkingProgress?.total || 1)) * 100)"
+          status="warning"
+        />
+        <span class="text-sm font-semibold text-gray-700">
+          Đang đồng bộ: {{ linkingProgress?.current }} / {{ linkingProgress?.total }} bao
+        </span>
+      </div>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -337,6 +567,44 @@ const bagCount = ref<number>(0);
 const serialInput = ref('');
 const serialRows = ref<Array<{ serial: string; qrCode?: string; status?: string }>>([]);
 
+// --- PALLET LINKING STATES ---
+const usePalletLink = ref(false);
+const activePallet = ref<any | null>(null);
+const serialPalletMap = ref<Record<string, string>>({});
+const palletMap = ref<Record<string, any>>({});
+const switchConfirmState = ref<any | null>(null);
+const switchChecked = ref(false);
+const changingPalletId = ref<string | null>(null);
+const bulkReplacementCode = ref('');
+const failedLinks = ref<string[]>([]);
+const linkingProgress = ref<{ current: number; total: number } | null>(null);
+
+const groupedPalletSerials = computed(() => {
+  const groups: Record<string, { pallet: any; serials: any[] }> = {};
+  const unpalletized: any[] = [];
+  
+  for (const row of serialRows.value) {
+    const palletId = serialPalletMap.value[row.serial];
+    if (palletId) {
+      if (!groups[palletId]) {
+        const palletDetail = palletMap.value[palletId] || (activePallet.value && activePallet.value.id === palletId ? activePallet.value : null);
+        groups[palletId] = {
+          pallet: palletDetail || { id: palletId, palletCode: 'Pallet #' + palletId.slice(-6) },
+          serials: []
+        };
+      }
+      groups[palletId].serials.push(row);
+    } else {
+      unpalletized.push(row);
+    }
+  }
+  
+  return {
+    palletGroups: Object.values(groups),
+    unpalletized
+  };
+});
+
 const extractCodeFromQr = (raw: string): string => {
   const trimmed = raw.trim();
   try {
@@ -351,7 +619,7 @@ const extractCodeFromQr = (raw: string): string => {
 };
 
 // --- RANGE MODE STATES ---
-const serialMode = ref<'SCAN' | 'RANGE'>('RANGE');
+const serialMode = ref<'SCAN' | 'RANGE'>('SCAN');
 const availablePrefixes = ref<string[]>([]);
 const rangeConfig = ref({
   prefix: '',
@@ -545,6 +813,11 @@ const buildDraftPayload = (): SemiFinishedDraftPayload => ({
   manualCode: serialInput.value,
   scanStarted: serialRows.value.length > 0,
   editConfig: false,
+  usePalletLink: usePalletLink.value,
+  activePallet: activePallet.value,
+  serialPalletMap: serialPalletMap.value,
+  palletMap: palletMap.value,
+  failedLinks: [...failedLinks.value],
   updatedAt: new Date().toISOString(),
 });
 
@@ -584,6 +857,11 @@ const applyDraftPayload = (payload: SemiFinishedDraftPayload) => {
     status: row.status || 'AVAILABLE',
   })).filter((row) => row.serial);
   serialInput.value = payload.manualCode || '';
+  usePalletLink.value = payload.usePalletLink || false;
+  activePallet.value = payload.activePallet || null;
+  serialPalletMap.value = payload.serialPalletMap || {};
+  palletMap.value = payload.palletMap || {};
+  failedLinks.value = Array.isArray(payload.failedLinks) ? [...payload.failedLinks] : [];
   setTimeout(() => {
     applyingDraft.value = false;
   }, 0);
@@ -832,6 +1110,13 @@ const handleTabChange = (val: any) => {
   }
 };
 
+const handlePalletLinkToggle = (val: boolean) => {
+  if (!val) {
+    activePallet.value = null;
+    serialPalletMap.value = {};
+  }
+};
+
 const load = async () => {
   fetchPrefixes();
   const [pRes, bRes, extRes] = await Promise.all([
@@ -848,6 +1133,44 @@ const load = async () => {
   startDraftHeartbeat();
 };
 
+const handlePalletScan = async (code: string): Promise<boolean> => {
+  try {
+    const { data: result } = await supplyApi.listSFPallets({ search: code.toUpperCase(), limit: 1 });
+    const pallets = result?.items || [];
+    const pallet = pallets.find((p: any) => p.palletCode === code.toUpperCase());
+    if (!pallet) {
+      ElMessage.error(`Không tìm thấy pallet BTP "${code}"`);
+      return false;
+    }
+    
+    const { data: detail } = await supplyApi.getSFPalletDetail(pallet.id);
+    
+    if (detail.items && detail.items.length > 0) {
+      const firstItem = detail.items[0];
+      const newBatchCode = nextBatchCode.value || '';
+      const selectedProduct = products.value.find((p: any) => p.id === form.value.product_id);
+      const newProductName = selectedProduct?.name || '';
+      
+      if (firstItem.batchCode && newBatchCode && firstItem.batchCode !== newBatchCode) {
+        ElMessage.error(`Pallet "${pallet.palletCode}" đang chứa lô khác ("${firstItem.batchCode}"). Vui lòng chọn pallet khác.`);
+        return false;
+      }
+      if (firstItem.productName && newProductName && firstItem.productName !== newProductName) {
+        ElMessage.error(`Pallet "${pallet.palletCode}" đang chứa sản phẩm khác ("${firstItem.productName}").`);
+        return false;
+      }
+    }
+    
+    palletMap.value[detail.id] = detail;
+    activePallet.value = detail;
+    ElMessage.success(`Đã chọn pallet BTP ${detail.palletCode}`);
+    return true;
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || 'Lỗi kiểm tra pallet.');
+    return false;
+  }
+};
+
 const addSerial = async () => {
   if (!canEditDraft.value) {
     ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
@@ -855,50 +1178,147 @@ const addSerial = async () => {
   }
   const input = extractCodeFromQr(serialInput.value);
   if (!input) return;
-  
+
+  let isBagSerial = false;
+  let resolvedItem: any = null;
+
   try {
-    // Tra cứu mã từ DB
     const res = await supplyApi.lookupSerials([input]);
-    
     if (res.data && res.data.length > 0) {
-      const item = res.data[0];
-      
-      // 1. Kiểm tra trùng lặp trong danh sách hiện tại
-      if (serialRows.value.some(r => r.serial === item.serialNumber)) {
-        ElMessage.warning(`Mã ${item.serialNumber} đã có trong danh sách.`);
-        serialInput.value = '';
-        return;
-      }
-
-      // 2. Kiểm tra trạng thái mã (Chỉ chấp nhận AVAILABLE)
-      if (item.status !== 'AVAILABLE') {
-        const statusText = item.status === 'ACTIVE' ? 'Đã kích hoạt' : (item.status === 'SOLD' ? 'Đã bán' : item.status);
-        ElMessage.error(`Mã ${item.serial} không hợp lệ (Trạng thái: ${statusText}).`);
-        serialInput.value = '';
-        return;
-      }
-
-      // Hợp lệ -> Thêm vào danh sách
-      serialRows.value.unshift({ 
-        serial: item.serialNumber, 
-        qrCode: item.fullQrCode,
-        status: item.status
-      });
-      scheduleSaveDraft();
-
-      // Thông báo khi đủ số lượng
-      if (serialRows.value.length === bagCount.value) {
-        ElMessage.success('Đã quét đủ số lượng bao theo kế hoạch!');
-      } else if (serialRows.value.length > bagCount.value) {
-        ElMessage.warning('Số lượng quét đang vượt quá dự kiến.');
-      }
-    } else {
-      // 3. Không tìm thấy mã
-      ElMessage.error(`Mã vừa quét không tồn tại trong kho mã của bạn.`);
+      resolvedItem = res.data[0];
+      isBagSerial = true;
     }
   } catch (e) {
-    ElMessage.error('Lỗi kiểm tra mã QR. Vui lòng thử lại.');
+    // Ignored
   }
+
+  if (usePalletLink.value) {
+    if (serialMode.value !== 'SCAN') {
+      ElMessage.warning('Chế độ pallet chỉ hỗ trợ khi Quét mã QR đơn lẻ (SCAN).');
+      serialInput.value = '';
+      return;
+    }
+
+    if (!activePallet.value) {
+      if (isBagSerial) {
+        ElMessage.error('Vui lòng quét mã Pallet trước khi quét bao!');
+        serialInput.value = '';
+        return;
+      }
+      await handlePalletScan(input);
+      serialInput.value = '';
+      return;
+    }
+
+    if (!isBagSerial) {
+      try {
+        const { data: result } = await supplyApi.listSFPallets({ search: input.toUpperCase(), limit: 1 });
+        const pallets = result?.items || [];
+        const foundPallet = pallets.find((p: any) => p.palletCode === input.toUpperCase());
+        if (foundPallet) {
+          if (foundPallet.palletCode === activePallet.value.palletCode) {
+            ElMessage.warning(`Pallet "${foundPallet.palletCode}" đang được chọn rồi.`);
+            serialInput.value = '';
+            return;
+          }
+
+          const sessionBagsCount = Object.keys(serialPalletMap.value).filter(
+            (k) => serialPalletMap.value[k] === activePallet.value.id
+          ).length;
+          const currentTotal = (activePallet.value.currentBatchCount || 0) + sessionBagsCount;
+          const maxB = activePallet.value.maxBatches || 999999;
+
+          if (currentTotal < maxB) {
+            switchConfirmState.value = foundPallet;
+            switchChecked.value = false;
+            serialInput.value = '';
+            return;
+          } else {
+            await handlePalletScan(input);
+            serialInput.value = '';
+            return;
+          }
+        }
+      } catch (err) {
+        // Ignored
+      }
+    }
+  }
+
+  if (!resolvedItem) {
+    ElMessage.error(`Mã vừa quét không tồn tại trong kho mã của bạn.`);
+    serialInput.value = '';
+    return;
+  }
+
+  const item = resolvedItem;
+  if (bagCount.value <= 0) {
+    ElMessage.warning('Vui lòng nhập số bao trước khi quét mã.');
+    serialInput.value = '';
+    return;
+  }
+  if (serialRows.value.length >= bagCount.value) {
+    ElMessage.error(`Đã quét đủ ${bagCount.value}/${bagCount.value} bao. Không thể thêm mã vượt số lượng tối đa.`);
+    serialInput.value = '';
+    return;
+  }
+  if (serialRows.value.some((row) => row.serial === item.serialNumber)) {
+    ElMessage.warning(`Mã ${item.serialNumber} đã có trong danh sách.`);
+    serialInput.value = '';
+    return;
+  }
+  if (item.status !== 'AVAILABLE') {
+    const statusText = item.status === 'ACTIVE' ? 'Đã kích hoạt' : (item.status === 'SOLD' ? 'Đã bán' : item.status);
+    ElMessage.error(`Mã ${item.serialNumber} không hợp lệ (Trạng thái: ${statusText}).`);
+    serialInput.value = '';
+    return;
+  }
+
+  if (usePalletLink.value && activePallet.value) {
+    const sessionBagsCount = Object.keys(serialPalletMap.value).filter(
+      (k) => serialPalletMap.value[k] === activePallet.value.id
+    ).length;
+    const currentTotal = (activePallet.value.currentBatchCount || 0) + sessionBagsCount;
+    const maxB = activePallet.value.maxBatches || 999999;
+
+    if (currentTotal >= maxB) {
+      ElMessage.error(`Pallet ${activePallet.value.palletCode} đã đầy (${currentTotal}/${maxB} bao). Vui lòng quét Pallet mới để tiếp tục.`);
+      activePallet.value = null;
+      serialInput.value = '';
+      return;
+    }
+  }
+
+  serialRows.value.unshift({
+    serial: item.serialNumber,
+    qrCode: item.fullQrCode,
+    status: item.status
+  });
+
+  if (usePalletLink.value && activePallet.value) {
+    serialPalletMap.value[item.serialNumber] = activePallet.value.id;
+    
+    const sessionBagsCount = Object.keys(serialPalletMap.value).filter(
+      (k) => serialPalletMap.value[k] === activePallet.value.id
+    ).length;
+    const currentTotal = (activePallet.value.currentBatchCount || 0) + sessionBagsCount;
+    const maxB = activePallet.value.maxBatches || 999999;
+
+    if (currentTotal >= maxB) {
+      ElMessage.success(`Bao ${item.serialNumber} đã quét. Pallet ${activePallet.value.palletCode} hiện đã đầy (${currentTotal}/${maxB} bao). Vui lòng quét Pallet mới.`);
+      activePallet.value = null;
+    } else {
+      ElMessage.success(`Đã thêm bao ${item.serialNumber} vào pallet ${activePallet.value.palletCode} (${currentTotal}/${maxB} bao).`);
+    }
+  } else {
+    if (serialRows.value.length === bagCount.value) {
+      ElMessage.success('Đã quét đủ số lượng bao theo kế hoạch!');
+    } else if (serialRows.value.length > bagCount.value) {
+      ElMessage.warning('Số lượng quét đang vượt quá dự kiến.');
+    }
+  }
+
+  scheduleSaveDraft();
   serialInput.value = '';
 };
 
@@ -907,8 +1327,84 @@ const removeSerial = (idx: number) => {
     ElMessage.error(draftBlocked.value || 'Chưa khóa được phiếu lưu tạm.');
     return;
   }
+  const removed = serialRows.value[idx];
   serialRows.value.splice(idx, 1);
+  if (removed && removed.serial) {
+    delete serialPalletMap.value[removed.serial];
+  }
   scheduleSaveDraft();
+};
+
+const confirmSwitchPallet = async () => {
+  if (!switchChecked.value) {
+    ElMessage.warning('Vui lòng tích chọn xác nhận để tiếp tục.');
+    return;
+  }
+  if (switchConfirmState.value) {
+    const ok = await handlePalletScan(switchConfirmState.value.palletCode);
+    if (ok) {
+      switchConfirmState.value = null;
+    }
+  }
+};
+
+const openBulkReplacement = (palletId: string) => {
+  changingPalletId.value = palletId;
+  bulkReplacementCode.value = '';
+};
+
+const executeBulkReplacement = async () => {
+  const code = bulkReplacementCode.value.trim().toUpperCase();
+  if (!code) return;
+  
+  try {
+    const { data: result } = await supplyApi.listSFPallets({ search: code, limit: 1 });
+    const pallets = result?.items || [];
+    const foundPallet = pallets.find((p: any) => p.palletCode === code);
+    if (!foundPallet) {
+      ElMessage.error(`Không tìm thấy pallet BTP "${code}"`);
+      return;
+    }
+    
+    const { data: detail } = await supplyApi.getSFPalletDetail(foundPallet.id);
+    
+    if (detail.items && detail.items.length > 0) {
+      const firstItem = detail.items[0];
+      const newBatchCode = nextBatchCode.value || '';
+      const selectedProduct = products.value.find((p: any) => p.id === form.value.product_id);
+      const newProductName = selectedProduct?.name || '';
+      
+      if (firstItem.batchCode && newBatchCode && firstItem.batchCode !== newBatchCode) {
+        ElMessage.error(`Pallet "${foundPallet.palletCode}" đang chứa lô khác ("${firstItem.batchCode}"). Vui lòng chọn pallet khác.`);
+        return;
+      }
+      if (firstItem.productName && newProductName && firstItem.productName !== newProductName) {
+        ElMessage.error(`Pallet "${foundPallet.palletCode}" đang chứa sản phẩm khác ("${firstItem.productName}").`);
+        return;
+      }
+    }
+    
+    const oldPalletId = changingPalletId.value;
+    if (oldPalletId) {
+      for (const serial of Object.keys(serialPalletMap.value)) {
+        if (serialPalletMap.value[serial] === oldPalletId) {
+          serialPalletMap.value[serial] = detail.id;
+        }
+      }
+      
+      palletMap.value[detail.id] = detail;
+      
+      if (activePallet.value && activePallet.value.id === oldPalletId) {
+        activePallet.value = detail;
+      }
+      
+      ElMessage.success(`Đã thay thế pallet thành công sang ${detail.palletCode}`);
+      changingPalletId.value = null;
+      scheduleSaveDraft();
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || 'Lỗi thay thế pallet.');
+  }
 };
 
 const submit = async () => {
@@ -972,7 +1468,43 @@ const submit = async () => {
     };
     
     saving.value = true;
+    
+    // Bước 1: Tạo lô đóng gói bán thành phẩm
     await supplyApi.refineSemiFinished(payload as any);
+    
+    // Bước 2: Liên kết pallet tuần tự nếu usePalletLink = true
+    if (usePalletLink.value) {
+      const itemsToLink = Object.entries(serialPalletMap.value).map(([serial, palletId]) => ({
+        serial,
+        palletId
+      }));
+      
+      if (itemsToLink.length > 0) {
+        linkingProgress.value = { current: 0, total: itemsToLink.length };
+        const failed: string[] = [];
+        
+        for (let i = 0; i < itemsToLink.length; i++) {
+          const item = itemsToLink[i];
+          try {
+            await supplyApi.linkSFPalletItem(item.palletId, { serial: item.serial });
+            linkingProgress.value.current = i + 1;
+          } catch (err) {
+            console.error(`Failed to link ${item.serial} to pallet ${item.palletId}`, err);
+            failed.push(item.serial);
+          }
+        }
+        
+        linkingProgress.value = null;
+        
+        if (failed.length > 0) {
+          failedLinks.value = failed;
+          ElMessage.warning(`Lô đã đóng gói thành công, nhưng có ${failed.length}/${itemsToLink.length} bao lỗi kết nối pallet. Vui lòng kiểm tra bảng lỗi và thử lại.`);
+          scheduleSaveDraft();
+          return;
+        }
+      }
+    }
+    
     await supplyApi.clearSemiFinishedPackagingDraft().catch(() => {});
     draftLockToken.value = '';
     ElMessage.success('Thành công: Đã tạo lô bán thành phẩm và nhập kho hoàn tất.');
@@ -983,6 +1515,42 @@ const submit = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const retryFailedLinks = async () => {
+  if (failedLinks.value.length === 0) return;
+  
+  saving.value = true;
+  linkingProgress.value = { current: 0, total: failedLinks.value.length };
+  const stillFailed: string[] = [];
+  
+  for (let i = 0; i < failedLinks.value.length; i++) {
+    const serial = failedLinks.value[i];
+    const palletId = serialPalletMap.value[serial];
+    if (palletId) {
+      try {
+        await supplyApi.linkSFPalletItem(palletId, { serial });
+        linkingProgress.value.current = i + 1;
+      } catch (err) {
+        console.error(`Retry failed for ${serial} to pallet ${palletId}`, err);
+        stillFailed.push(serial);
+      }
+    }
+  }
+  
+  linkingProgress.value = null;
+  failedLinks.value = stillFailed;
+  
+  if (stillFailed.length === 0) {
+    await supplyApi.clearSemiFinishedPackagingDraft().catch(() => {});
+    draftLockToken.value = '';
+    ElMessage.success('Tất cả liên kết pallet đã được đồng bộ thành công!');
+    router.push('/supply/semi-finished');
+  } else {
+    ElMessage.error(`Đồng bộ lại thất bại: Vẫn còn ${stillFailed.length} bao chưa liên kết được.`);
+    scheduleSaveDraft();
+  }
+  saving.value = false;
 };
 
 watch(
@@ -1009,6 +1577,10 @@ watch(
     serialInput,
     customBatchCode,
     nextBatchCode,
+    usePalletLink,
+    activePallet,
+    serialPalletMap,
+    palletMap,
     () => packagingInfo.value.date,
     () => packagingInfo.value.packer,
     () => packagingInfo.value.location,

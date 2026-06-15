@@ -270,7 +270,7 @@ const showLinkDialog = ref(false)
 const linking = ref(false)
 const serialInputRef = ref<any>(null)
 const linkForm = ref({ palletId: '', serial: '' })
-const linkItems = ref<{ serial: string; fullQrCode: string; productName: string; batchCode: string; weight: number }[]>([])
+const linkItems = ref<{ serial: string; fullQrCode: string; productName: string; batchCode: string; weight: number; isSupplementary?: boolean }[]>([])
 const lastStatus = ref<{ type: 'success' | 'error' | '', message: string }>({ type: '', message: '' })
 
 // Force transfer

@@ -90,6 +90,11 @@ export interface SemiFinishedDraftPayload {
     manualCode?: string;
     scanStarted?: boolean;
     editConfig?: boolean;
+    usePalletLink?: boolean;
+    activePallet?: any;
+    serialPalletMap?: Record<string, string>;
+    palletMap?: Record<string, any>;
+    failedLinks?: string[];
     updatedAt?: string;
 }
 
