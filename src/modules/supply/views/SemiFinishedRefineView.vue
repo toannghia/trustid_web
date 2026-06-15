@@ -809,6 +809,11 @@ const buildDraftPayload = (): SemiFinishedDraftPayload => ({
   rangeConfig: {
     ...rangeConfig.value,
     voidSerials: [...voidSerials.value],
+    usePalletLink: usePalletLink.value,
+    activePallet: activePallet.value,
+    serialPalletMap: serialPalletMap.value,
+    palletMap: palletMap.value,
+    failedLinks: [...failedLinks.value],
   },
   manualCode: serialInput.value,
   scanStarted: serialRows.value.length > 0,
@@ -857,11 +862,16 @@ const applyDraftPayload = (payload: SemiFinishedDraftPayload) => {
     status: row.status || 'AVAILABLE',
   })).filter((row) => row.serial);
   serialInput.value = payload.manualCode || '';
-  usePalletLink.value = payload.usePalletLink || false;
-  activePallet.value = payload.activePallet || null;
-  serialPalletMap.value = payload.serialPalletMap || {};
-  palletMap.value = payload.palletMap || {};
-  failedLinks.value = Array.isArray(payload.failedLinks) ? [...payload.failedLinks] : [];
+  
+  // Restore pallet linking state from top-level or rangeConfig nested state (for cross-app compatibility)
+  usePalletLink.value = payload.usePalletLink ?? payload.rangeConfig?.usePalletLink ?? false;
+  activePallet.value = payload.activePallet ?? payload.rangeConfig?.activePallet ?? null;
+  serialPalletMap.value = payload.serialPalletMap ?? payload.rangeConfig?.serialPalletMap ?? {};
+  palletMap.value = payload.palletMap ?? payload.rangeConfig?.palletMap ?? {};
+  failedLinks.value = Array.isArray(payload.failedLinks)
+    ? [...payload.failedLinks]
+    : (Array.isArray(payload.rangeConfig?.failedLinks) ? [...payload.rangeConfig.failedLinks] : []);
+
   setTimeout(() => {
     applyingDraft.value = false;
   }, 0);
