@@ -1,6 +1,6 @@
 <template>
   <div class="receipt-print min-h-screen bg-gray-100 flex flex-col items-center py-8">
-    <div class="w-full max-w-2xl px-4 flex justify-between items-center mb-6 print:hidden">
+    <div class="w-full max-w-3xl px-4 flex justify-between items-center mb-6 print:hidden">
       <el-button @click="$router.push('/dealer/sales')">
         <el-icon class="mr-1"><Back /></el-icon> Quay lại
       </el-button>
@@ -10,6 +10,9 @@
           <el-radio-button label="80mm">Máy in bill 80mm</el-radio-button>
           <el-radio-button label="a4">Máy in A4</el-radio-button>
         </el-radio-group>
+        <el-button type="info" size="large" @click="openConfig">
+          <el-icon class="mr-1"><Setting /></el-icon> Cấu hình hóa đơn
+        </el-button>
         <el-button type="primary" size="large" @click="handlePrint">
           <el-icon class="mr-1"><Printer /></el-icon> In Hóa Đơn
         </el-button>
@@ -21,9 +24,9 @@
       <div v-if="sale" class="w-full text-sm">
         
         <div class="text-center mb-4 border-b pb-4 border-dashed border-gray-400">
-          <h2 class="text-xl font-bold uppercase mb-1">Cửa hàng Đại lý</h2>
-          <div class="text-xs">Số 1 Đại Lộ, Thành phố</div>
-          <div class="text-xs">SĐT: 1900 xxxx</div>
+          <h2 class="text-xl font-bold uppercase mb-1">{{ storeInfo.name }}</h2>
+          <div class="text-xs">{{ storeInfo.address }}</div>
+          <div class="text-xs">SĐT: {{ storeInfo.phone }}</div>
         </div>
 
         <div class="text-center mb-4">
@@ -83,9 +86,9 @@
         
         <div class="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
           <div>
-            <h2 class="text-3xl font-extrabold uppercase text-gray-800 tracking-wider">ĐẠI LÝ PHÂN PHỐI</h2>
-            <div class="mt-1 text-gray-600">Địa chỉ: Số 1 Đường Mới, Quận 1, TP HCM</div>
-            <div class="text-gray-600">Hotline: 1900 xxxx</div>
+            <h2 class="text-3xl font-extrabold uppercase text-gray-800 tracking-wider">{{ storeInfo.name }}</h2>
+            <div class="mt-1 text-gray-600">Địa chỉ: {{ storeInfo.address }}</div>
+            <div class="text-gray-600">Hotline: {{ storeInfo.phone }}</div>
           </div>
           <div class="text-right">
             <h1 class="text-4xl font-bold uppercase text-blue-800 mb-2">HÓA ĐƠN</h1>
@@ -148,13 +151,34 @@
 
       </div>
     </div>
+
+    <!-- Dialog Cấu hình Thông tin Đầu hóa đơn -->
+    <el-dialog v-model="showConfigDialog" title="Cấu hình thông tin đầu hóa đơn" width="500px" class="print:hidden">
+      <el-form label-position="top">
+        <el-form-item label="Tên cửa hàng / đại lý">
+          <el-input v-model="configStoreInfo.name" placeholder="Nhập tên hiển thị đầu hóa đơn..." />
+        </el-form-item>
+        <el-form-item label="Địa chỉ">
+          <el-input v-model="configStoreInfo.address" type="textarea" :rows="2" placeholder="Nhập địa chỉ..." />
+        </el-form-item>
+        <el-form-item label="Số điện thoại / Hotline">
+          <el-input v-model="configStoreInfo.phone" placeholder="Nhập số điện thoại..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <el-button @click="showConfigDialog = false">Hủy</el-button>
+          <el-button type="primary" @click="saveConfig">Lưu cấu hình</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { Back, Printer } from '@element-plus/icons-vue';
+import { Back, Printer, Setting } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import api from '@/common/utils/api';
 
@@ -165,6 +189,15 @@ const loading = ref(false);
 const sale = ref<any>(null);
 const printFormat = ref('80mm');
 
+const storeInfo = ref({
+  name: 'Cửa hàng Đại lý',
+  address: 'Số 1 Đại Lộ, Thành phố',
+  phone: '1900 xxxx'
+});
+
+const showConfigDialog = ref(false);
+const configStoreInfo = ref({ name: '', address: '', phone: '' });
+
 const formatCurrency = (val: number | string) => {
   if (!val) return '0';
   return Number(val).toLocaleString('vi-VN');
@@ -174,6 +207,42 @@ const formatDateTime = (dateStr: string) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleString('vi-VN');
+};
+
+const loadStoreInfo = async () => {
+  const saved = localStorage.getItem('dealer_receipt_store_info');
+  if (saved) {
+    try {
+      storeInfo.value = JSON.parse(saved);
+      return;
+    } catch {
+      // Ignored
+    }
+  }
+
+  // Fetch default from API
+  try {
+    const { data } = await api.get('/dealer-dashboard/store-info');
+    storeInfo.value = {
+      name: data.name || 'Cửa hàng Đại lý',
+      address: data.address || 'Số 1 Đại Lộ, Thành phố',
+      phone: data.phone || '1900 xxxx'
+    };
+  } catch (err) {
+    console.error('Error fetching store info:', err);
+  }
+};
+
+const openConfig = () => {
+  configStoreInfo.value = { ...storeInfo.value };
+  showConfigDialog.value = true;
+};
+
+const saveConfig = () => {
+  storeInfo.value = { ...configStoreInfo.value };
+  localStorage.setItem('dealer_receipt_store_info', JSON.stringify(storeInfo.value));
+  showConfigDialog.value = false;
+  ElMessage.success('Đã lưu cấu hình đầu hóa đơn');
 };
 
 const loadSaleDetail = async () => {
@@ -194,6 +263,7 @@ const handlePrint = () => {
 };
 
 onMounted(() => {
+  loadStoreInfo();
   loadSaleDetail();
 });
 </script>
