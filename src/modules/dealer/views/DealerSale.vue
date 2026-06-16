@@ -49,9 +49,10 @@
             <el-table :data="cart" style="width: 100%" border size="small" empty-text="Chưa có sản phẩm nào">
               <el-table-column type="index" label="STT" width="50" align="center" />
               
-              <el-table-column label="Mã S/N" width="160">
+              <el-table-column label="Mã QR (Serial)" width="280">
                 <template #default="{ row }">
-                  <span class="font-mono text-gray-600">{{ row.serialNumber }}</span>
+                  <span class="font-mono text-gray-700 font-semibold">{{ row.qrCode || row.serialNumber }}</span>
+                  <span class="font-mono text-gray-400 text-xs ml-1.5" v-if="row.qrCode && row.qrCode !== row.serialNumber">({{ row.serialNumber }})</span>
                 </template>
               </el-table-column>
               
@@ -74,6 +75,8 @@
                     size="small" 
                     :min="0" 
                     :controls="false"
+                    :formatter="value => value ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''"
+                    :parser="value => value ? value.replace(/\./g, '') : ''"
                     class="w-full"
                   />
                 </template>
@@ -194,6 +197,12 @@
               </el-select>
             </div>
 
+            <div class="pt-2">
+              <el-checkbox v-model="autoPrint" size="large">
+                Thanh toán và in hoá đơn
+              </el-checkbox>
+            </div>
+
             <el-button 
               type="success" 
               size="large" 
@@ -214,9 +223,12 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ShoppingCart, Delete, FullScreen, Search, Close, Money, CreditCard, ShoppingCartFull, List } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
+
+const router = useRouter();
 
 const scanInput = ref('');
 const scanInputRef = ref<any>(null);
@@ -235,6 +247,7 @@ const newCustomer = ref({ name: '', phone: '', address: '' });
 const savingCustomer = ref(false);
 
 const paymentMethod = ref('cash');
+const autoPrint = ref(true);
 
 const totalAmount = computed(() => {
   return cart.value.reduce((sum, item) => sum + ((Number(item.price) || 0) * item.quantity), 0);
@@ -315,23 +328,45 @@ const handleScan = async () => {
   const serial = scanInput.value.trim();
   if (!serial) return;
 
-  // Check duplicate
-  if (cart.value.some(i => i.serialNumber === serial)) {
-    scanError.value = `Sản phẩm ${serial} đã có trong đơn hàng!`;
-    scanInput.value = '';
-    return;
-  }
-
   scanning.value = true;
   scanError.value = '';
 
   try {
-    // Gọi lookup từ bảng giá đại lý
-    const { data } = await api.get(`/dealer-prices/lookup/${serial}`);
+    // 1. Cắt link QR code nếu người dùng quét URL
+    let cleanInput = serial;
+    if (serial.startsWith('http://') || serial.startsWith('https://')) {
+      try {
+        const url = new URL(serial);
+        const codeVal = url.searchParams.get('Code') || url.searchParams.get('code') || url.searchParams.get('id');
+        if (codeVal) {
+          cleanInput = codeVal.trim();
+        } else {
+          const idx = serial.lastIndexOf('=');
+          if (idx >= 0) {
+            cleanInput = serial.substring(idx + 1).trim();
+          }
+        }
+      } catch {
+        const idx = serial.lastIndexOf('=');
+        if (idx >= 0) {
+          cleanInput = serial.substring(idx + 1).trim();
+        }
+      }
+    }
+
+    // 2. Gọi lookup từ bảng giá đại lý
+    const { data } = await api.get(`/dealer-prices/lookup/${encodeURIComponent(cleanInput)}`);
     
+    // 3. Kiểm tra trùng lặp dựa trên serial thực tế đã được giải quyết
+    if (cart.value.some(i => i.serialNumber === data.serialNumber)) {
+      scanError.value = `Sản phẩm ${data.qrCode || data.serialNumber} (${data.serialNumber}) đã có trong đơn hàng!`;
+      return;
+    }
+
     // Thêm vào giỏ
     cart.value.unshift({
       serialNumber: data.serialNumber,
+      qrCode: data.qrCode,
       productId: data.productId,
       productName: data.productName,
       price: data.sellingPrice || 0, // Auto-fill giá bán từ bảng giá
@@ -397,14 +432,20 @@ const checkout = async () => {
       paymentMethod: paymentMethod.value
     };
 
-    await api.post('/dealer-dashboard/sale', payload);
+    const { data } = await api.post('/dealer-dashboard/sale', payload);
     
     ElMessage.success('Thanh toán thành công!');
+    
+    const saleId = data?.id;
     
     // Reset state after success
     clearCart();
     if (customerType.value === 'loyalty') clearCustomer();
     paymentMethod.value = 'cash';
+
+    if (autoPrint.value && saleId) {
+      router.push(`/dealer/receipt/${saleId}`);
+    }
     
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || 'Lỗi khi thanh toán');

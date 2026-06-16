@@ -3,8 +3,8 @@
     <div class="flex items-center gap-4 mb-6">
       <el-button circle icon="Back" @click="router.back()" />
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Tạo lệnh xuất kho</h1>
-        <p class="text-sm text-gray-500">Nhập thông tin kho, đại lý nhận và danh sách mã sản phẩm cần xuất</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ isEdit ? 'Cập nhật lệnh xuất kho' : 'Tạo lệnh xuất kho' }}</h1>
+        <p class="text-sm text-gray-500">{{ isEdit ? 'Cập nhật thông tin kho, đại lý nhận và danh sách sản phẩm cần xuất' : 'Nhập thông tin kho, đại lý nhận và danh sách mã sản phẩm cần xuất' }}</p>
       </div>
     </div>
 
@@ -78,7 +78,7 @@
       <div class="md:col-span-1">
         <el-card shadow="never" class="h-full rounded-2xl border border-blue-100 bg-gradient-to-b from-blue-50 to-white flex flex-col justify-center">
           <div class="text-center mb-4">
-            <h3 class="font-bold text-gray-800 text-lg mb-1">Xác nhận tạo Lệnh</h3>
+            <h3 class="font-bold text-gray-800 text-lg mb-1">{{ isEdit ? 'Xác nhận Cập nhật' : 'Xác nhận tạo Lệnh' }}</h3>
             <p class="text-xs text-gray-500">Kiểm tra kỹ lưới SP bên dưới</p>
           </div>
           
@@ -90,7 +90,7 @@
             :loading="saving"
             icon="Check"
           >
-            Lưu Lệnh Xuất
+            {{ isEdit ? 'Cập nhật Lệnh Xuất' : 'Lưu Lệnh Xuất' }}
           </el-button>
 
           <el-button class="w-full !h-10 border-dashed border-gray-300 text-gray-600 hover:text-blue-600 hover:border-blue-300" icon="Upload" @click="ElMessage.info('Tính năng đang phát triển!')">
@@ -170,7 +170,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { exportOrderApi } from '../api/exportOrderApi';
 import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
@@ -182,6 +182,8 @@ import dayjs from 'dayjs';
 import DealerCreateDialog from '../components/DealerCreateDialog.vue';
 
 const router = useRouter();
+const route = useRoute();
+const isEdit = computed(() => !!route.params.id);
 const authStore = useAuthStore();
 
 const showCreateDealerDialog = ref(false);
@@ -225,17 +227,34 @@ const totalQuantity = computed(() => {
 
 const loadMasterData = async () => {
   try {
-    const [dealerRes, productRes, warehouseRes, codeRes] = await Promise.all([
+    const [dealerRes, productRes, warehouseRes] = await Promise.all([
       dealerApi.getList(),
       productApi.getList({}),
       transportApi.getWarehouses(), // Fixed API endpoint
-      exportOrderApi.getNextCode().catch(() => ({ data: { code: '' } })) // Lấy mã dự kiến
     ]);
     dealers.value = dealerRes.data;
     products.value = productRes.data;
     warehouses.value = warehouseRes.data;
-    if (codeRes.data?.code) {
-      form.orderCode = codeRes.data.code;
+
+    if (isEdit.value) {
+      const orderId = route.params.id as string;
+      const { data } = await exportOrderApi.getDetail(orderId);
+      form.orderCode = data.orderCode;
+      form.dealerId = data.dealerId;
+      form.sourceWarehouseId = data.sourceWarehouseId;
+      form.expectedDeliveryDate = data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : new Date();
+      form.priority = data.priority;
+      form.notes = data.notes;
+      form.items = data.items.map((item: any) => ({
+        productId: item.productId,
+        expectedQuantity: item.expectedQuantity,
+        notes: item.notes
+      }));
+    } else {
+      const codeRes = await exportOrderApi.getNextCode().catch(() => ({ data: { code: '' } })); // Lấy mã dự kiến
+      if (codeRes.data?.code) {
+        form.orderCode = codeRes.data.code;
+      }
     }
   } catch (err: any) {
     ElMessage.error('Lỗi tải dữ liệu danh mục: ' + (err.message || 'Server Error'));
@@ -262,11 +281,16 @@ const submitOrder = async () => {
       ...form,
       items: validItems
     };
-    await exportOrderApi.create(payload);
-    ElMessage.success('Tạo lệnh xuất kho thành công');
+    if (isEdit.value) {
+      await exportOrderApi.update(route.params.id as string, payload);
+      ElMessage.success('Cập nhật lệnh xuất kho thành công');
+    } else {
+      await exportOrderApi.create(payload);
+      ElMessage.success('Tạo lệnh xuất kho thành công');
+    }
     router.push('/supply/export-order');
   } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo lệnh');
+    ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu lệnh');
   } finally {
     saving.value = false;
   }

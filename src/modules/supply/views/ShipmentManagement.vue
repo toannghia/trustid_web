@@ -24,6 +24,70 @@ const canAction = computed(() => {
     return ['ADMIN', 'TENANT_ADMIN', 'DRIVER', 'WAREHOUSE_MANAGER', 'ACCOUNTANT'].includes(role);
 });
 
+const timelineEvents = computed(() => {
+    if (!currentDetail.value) return [];
+    const events: any[] = [];
+
+    // 1. Synthesize Creation (Khởi tạo phiếu)
+    if (currentDetail.value.createdAt) {
+        events.push({
+            time: new Date(currentDetail.value.createdAt),
+            title: 'Khởi tạo phiếu',
+            description: `Tạo bởi: ${currentDetail.value.createdByRole || 'Hệ thống'}`,
+            type: 'info'
+        });
+    }
+
+    // 2. Synthesize Start Time (Bắt đầu vận chuyển)
+    if (currentDetail.value.startTime) {
+        events.push({
+            time: new Date(currentDetail.value.startTime),
+            title: 'Bắt đầu vận chuyển',
+            description: currentDetail.value.vehiclePlate ? `Xe: ${currentDetail.value.vehiclePlate}` : 'Đã giao cho tài xế',
+            type: 'primary'
+        });
+    }
+
+    // 3. Add Handshake Logs
+    if (currentDetail.value.logs && currentDetail.value.logs.length > 0) {
+        currentDetail.value.logs.forEach((log: any) => {
+            let actionLabel = log.action;
+            if (log.action === 'DRIVER_RECEIVE') actionLabel = 'Tài xế xác nhận nhận hàng';
+            else if (log.action === 'DRIVER_DELIVER') actionLabel = 'Tài xế xác nhận giao hàng';
+            else if (log.action === 'DEALER_CONFIRM') actionLabel = 'Đại lý xác nhận nhận hàng';
+            else if (log.action === 'RECEIVER_CONFIRM') actionLabel = 'Người nhận xác nhận';
+
+            events.push({
+                time: new Date(log.actionTime),
+                title: actionLabel,
+                description: `Vị trí GPS: ${log.lat || '---'}, ${log.long || '---'}`,
+                type: log.action === 'DEALER_CONFIRM' || log.action === 'RECEIVER_CONFIRM' ? 'success' : 'primary'
+            });
+        });
+    }
+
+    // 4. Synthesize End Time (Hoàn thành giao hàng)
+    if (currentDetail.value.endTime) {
+        events.push({
+            time: new Date(currentDetail.value.endTime),
+            title: 'Hoàn thành giao hàng',
+            description: 'Người nhận đã xác nhận nhận đủ hàng',
+            type: 'success'
+        });
+    }
+
+    // Deduplicate same-step events if timestamps are identical, sort chronologically
+    const seen = new Set<string>();
+    return events
+        .filter(event => {
+            const key = `${event.title}_${event.time.getTime()}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .sort((a, b) => a.time.getTime() - b.time.getTime());
+});
+
 onMounted(() => {
     loadShipments();
 });
@@ -133,9 +197,10 @@ const receiverConfirm = async () => {
 
     <!-- TABLE -->
     <el-table :data="shipments" v-loading="loading" border stripe style="width: 100%" class="rounded-xl overflow-hidden shadow-sm">
+        <el-table-column type="index" label="STT" width="60" align="center" />
         <el-table-column prop="trackingCode" label="Vận đơn" width="160">
             <template #default="{row}">
-                <div class="font-mono font-bold text-blue-600">{{ row.trackingCode }}</div>
+                <div class="font-mono font-bold text-blue-600 cursor-pointer hover:underline" @click="viewDetail(row)">{{ row.trackingCode }}</div>
                 <div class="text-[10px] text-gray-400 mt-0.5">{{ row.id.substring(0, 8) }}...</div>
             </template>
         </el-table-column>
@@ -184,18 +249,14 @@ const receiverConfirm = async () => {
                         <span :class="row.endTime ? 'text-green-600 font-medium' : 'text-gray-400'">
                             {{ row.endTime ? new Date(row.endTime).toLocaleDateString('vi-VN') : 'Chưa HT' }}
                         </span>
-                        <el-tag v-if="row.endTime && (row.expectedDeliveryTime || row.createdAt)" 
-                                :type="new Date(row.endTime).setHours(0,0,0,0) > new Date(row.expectedDeliveryTime || row.createdAt).setHours(0,0,0,0) ? 'danger' : 'success'" 
-                                size="small" effect="plain" class="ml-auto transform scale-75 origin-right">
-                            {{ new Date(row.endTime).setHours(0,0,0,0) > new Date(row.expectedDeliveryTime || row.createdAt).setHours(0,0,0,0) ? 'Trễ' : 'Đúng hạn' }}
-                        </el-tag>
                     </div>
                 </div>
             </template>
         </el-table-column>
-        <el-table-column label="Hàng hóa" width="120">
+        <el-table-column label="Hàng hóa" width="160">
              <template #default="{row}">
-                 <div class="text-xs font-bold">{{ row.expectedItems?.length || row.total_items || 0 }} SP</div>
+                 <div class="text-xs text-gray-700 font-medium">Số loại SP: <span class="font-bold text-gray-900">{{ row.expectedItems ? row.expectedItems.length : 0 }}</span></div>
+                 <div class="text-xs text-gray-500 mt-1">Tổng số SP: <span class="font-bold text-blue-600">{{ row.expectedItems ? row.expectedItems.reduce((acc: number, cur: any) => acc + (cur.quantity || 0), 0) : 0 }}</span></div>
              </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="180" fixed="right" align="center">
@@ -293,13 +354,35 @@ const receiverConfirm = async () => {
                 </div>
             </div>
 
-            <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-800">
-                <el-icon><Box /></el-icon>
-                Danh mục Hàng hóa trong kiện
-            </h4>
-            <!-- Items from ShipmentDetail (scan-based shipments) -->
-            <template v-if="currentDetail.items?.length">
-                <el-table :data="currentDetail.items" size="small" border class="mb-6 rounded-lg overflow-hidden">
+            <!-- Expected Items Table (Always show if present) -->
+            <div v-if="currentDetail.expectedItems?.length" class="mb-6">
+                <h4 class="font-bold flex items-center gap-2 mb-3 text-gray-800">
+                    <el-icon><Box /></el-icon>
+                    Danh mục Hàng hóa
+                </h4>
+                <el-table :data="currentDetail.expectedItems" size="small" border class="rounded-lg overflow-hidden">
+                    <el-table-column type="index" label="STT" width="60" align="center" />
+                    <el-table-column label="Sản phẩm" prop="productName">
+                        <template #default="{row}">
+                            <div class="font-semibold">{{ row.productName || '---' }}</div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Số lượng" prop="quantity" width="120" align="center">
+                        <template #default="{row}">
+                            <span class="font-bold text-blue-600">{{ row.quantity }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+
+            <!-- Scanned Serial Items Table (Only show if there are actual scanned serials) -->
+            <div v-if="currentDetail.items?.length && currentDetail.items.some((i: any) => i.serialNumber)" class="mb-6">
+                <h4 class="font-bold flex items-center gap-2 mb-3 text-gray-800">
+                    <el-icon><FullScreen /></el-icon>
+                    Chi tiết Mã quét / Serial
+                </h4>
+                <el-table :data="currentDetail.items" size="small" border class="rounded-lg overflow-hidden">
+                    <el-table-column type="index" label="STT" width="60" align="center" />
                     <el-table-column label="Sản phẩm / Serial" prop="serialNumber">
                         <template #default="{row}">
                             <div class="font-mono text-xs">{{ row.serialNumber }}</div>
@@ -318,44 +401,30 @@ const receiverConfirm = async () => {
                         <template #default="{row}">{{ row.scannedAt ? new Date(row.scannedAt).toLocaleTimeString() : '-' }}</template>
                     </el-table-column>
                 </el-table>
-            </template>
+            </div>
 
-            <!-- Items from expectedItems (auto-created PGH shipments) -->
-            <template v-else-if="currentDetail.expectedItems?.length">
-                <el-table :data="currentDetail.expectedItems" size="small" border class="mb-6 rounded-lg overflow-hidden">
-                    <el-table-column type="index" label="STT" width="60" />
-                    <el-table-column label="Sản phẩm" prop="productName">
-                        <template #default="{row}">
-                            <div class="font-semibold">{{ row.productName || '---' }}</div>
-                        </template>
-                    </el-table-column>
-                    <el-table-column label="Số lượng" prop="quantity" width="120" align="center">
-                        <template #default="{row}">
-                            <span class="font-bold text-blue-600">{{ row.quantity }}</span>
-                        </template>
-                    </el-table-column>
-                </el-table>
-            </template>
-
-            <el-empty v-else description="Không có hàng hóa" />
+            <div v-if="!currentDetail.expectedItems?.length && !(currentDetail.items?.length && currentDetail.items.some((i: any) => i.serialNumber))" class="mb-6">
+                <el-empty description="Không có hàng hóa" />
+            </div>
 
             <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-800 border-t pt-4">
                 <el-icon><Memo /></el-icon>
                 Lịch sử hành trình
             </h4>
-            <el-timeline class="ml-2">
+            <el-timeline v-if="timelineEvents.length" class="ml-2">
                 <el-timeline-item
-                    v-for="(log, idx) in currentDetail.logs"
+                    v-for="(event, idx) in timelineEvents"
                     :key="idx"
-                    :timestamp="new Date(log.actionTime).toLocaleString()"
-                    :type="log.action === 'DEALER_CONFIRM' ? 'success' : log.action === 'DRIVER_DELIVER' ? 'info' : 'primary'"
+                    :timestamp="event.time.toLocaleString('vi-VN')"
+                    :type="event.type"
                 >
-                    <div class="text-sm font-bold">{{ log.action }}</div>
-                    <div class="text-[10px] text-gray-400 mt-1 uppercase">
-                        Vị trí GPS: {{ log.lat }}, {{ log.long }}
+                    <div class="text-sm font-bold text-gray-800">{{ event.title }}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        {{ event.description }}
                     </div>
                 </el-timeline-item>
             </el-timeline>
+            <div v-else class="text-xs text-gray-400 italic ml-2">Chưa có thông tin lịch trình</div>
             
             <div class="mt-8 flex justify-end gap-3 border-t pt-6" v-if="canAction">
                 <el-button 

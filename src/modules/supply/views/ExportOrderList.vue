@@ -21,6 +21,7 @@
     <!-- Table -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <el-table v-loading="loading" :data="orders" style="width: 100%">
+        <el-table-column type="index" label="STT" width="60" align="center" />
         <el-table-column prop="orderCode" label="Mã Lệnh Xuất" width="180">
           <template #default="{ row }">
             <a href="#" @click.prevent="openDetail(row.id)" class="font-bold text-blue-600 block hover:underline">{{ row.orderCode }}</a>
@@ -45,6 +46,18 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="Chi tiết sản phẩm" min-width="220">
+          <template #default="{ row }">
+            <div v-for="item in row.items" :key="item.id" class="mb-2 last:mb-0 border-b border-gray-50 last:border-0 pb-1 last:pb-0 text-left">
+              <div class="font-semibold text-gray-700 text-xs">{{ item.product?.name || 'Sản phẩm không xác định' }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                Yêu cầu: <span class="font-bold text-gray-900">{{ item.expectedQuantity }}</span> 
+                <span class="mx-1.5 text-gray-300">|</span> 
+                Đã lấy: <span class="font-bold text-blue-600">{{ item.scannedQuantity || 0 }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="Tiến độ" width="140">
           <template #default="{ row }">
             <el-progress 
@@ -61,18 +74,57 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Thao tác" width="120" align="center">
+        <el-table-column label="Thao tác" width="160" align="center">
           <template #default="{ row }">
-            <el-dropdown trigger="click">
-              <el-button type="info" text icon="MoreFilled" />
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item v-if="row.status === 'DRAFT'" @click="confirmOrder(row.id)">Xác nhận phiếu</el-dropdown-item>
-                  <el-dropdown-item v-if="row.status === 'DRAFT'" @click="cancelOrder(row.id)">Hủy phiếu</el-dropdown-item>
-                  <el-dropdown-item v-if="['CONFIRMED', 'PICKING'].includes(row.status)" @click="goToScan(row.id)">Thực hiện Xuất Kho</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <div class="flex items-center justify-center gap-2">
+              <!-- Chỉnh sửa lệnh: Chỉ DRAFT -->
+              <el-tooltip content="Chỉnh sửa lệnh" placement="top" v-if="row.status === 'DRAFT'">
+                <el-button 
+                  type="warning" 
+                  plain 
+                  circle 
+                  size="small" 
+                  :icon="Edit" 
+                  @click="router.push(`/supply/export-order/edit/${row.id}`)" 
+                />
+              </el-tooltip>
+
+              <!-- Xác nhận lệnh: Chỉ DRAFT -->
+              <el-tooltip content="Xác nhận phiếu" placement="top" v-if="row.status === 'DRAFT'">
+                <el-button 
+                  type="success" 
+                  plain 
+                  circle 
+                  size="small" 
+                  :icon="Check" 
+                  @click="confirmOrder(row.id)" 
+                />
+              </el-tooltip>
+
+              <!-- Hủy lệnh: Chỉ DRAFT -->
+              <el-tooltip content="Hủy phiếu" placement="top" v-if="row.status === 'DRAFT'">
+                <el-button 
+                  type="danger" 
+                  plain 
+                  circle 
+                  size="small" 
+                  :icon="Close" 
+                  @click="cancelOrder(row.id)" 
+                />
+              </el-tooltip>
+
+              <!-- Thực hiện xuất kho: Chỉ CONFIRMED hoặc PICKING -->
+              <el-tooltip content="Thực hiện Xuất Kho" placement="top" v-if="['CONFIRMED', 'PICKING'].includes(row.status)">
+                <el-button 
+                  type="primary" 
+                  plain 
+                  circle 
+                  size="small" 
+                  :icon="Right" 
+                  @click="goToScan(row.id)" 
+                />
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -121,7 +173,7 @@ import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { MoreFilled, Plus } from '@element-plus/icons-vue';
+import { Plus, Edit, Check, Close, Right } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 const router = useRouter();

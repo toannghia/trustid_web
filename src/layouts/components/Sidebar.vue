@@ -173,7 +173,8 @@ const menuGroups: MenuGroup[] = [
       { title: 'Nhận hàng', path: '/dealer/receive', roles: ['DEALER'], icon: Box },
       { title: 'Tồn kho', path: '/dealer/stock', roles: ['DEALER'], icon: Collection },
       { title: 'Khách hàng', path: '/dealer/customers', roles: ['DEALER'], icon: User },
-      { title: 'Bán lẻ', path: '/dealer/sale', roles: ['DEALER'], icon: ShoppingCart }
+      { title: 'Bán lẻ', path: '/dealer/sale', roles: ['DEALER'], icon: ShoppingCart },
+      { title: 'Lịch sử hóa đơn', path: '/dealer/sales', roles: ['DEALER'], icon: List }
     ]
   },
   {

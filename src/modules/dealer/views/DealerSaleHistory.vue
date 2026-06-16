@@ -82,6 +82,10 @@
             <div class="font-medium">{{ selectedSale.customerName || 'Khách lẻ' }}</div>
           </div>
           <div>
+            <div class="text-sm text-gray-500">Số điện thoại</div>
+            <div class="font-medium font-mono">{{ selectedSale.customerPhone || '---' }}</div>
+          </div>
+          <div>
             <div class="text-sm text-gray-500">Phương thức TT</div>
             <div class="font-medium uppercase">{{ selectedSale.paymentMethod || 'CASH' }}</div>
           </div>
@@ -93,7 +97,14 @@
           <div class="text-sm text-gray-500 mb-2">Danh sách Sản phẩm</div>
           <el-table :data="selectedSale.items" size="small" border>
             <el-table-column prop="productName" label="Tên SP" />
-            <el-table-column prop="serialNumber" label="S/N" width="140" class-name="font-mono text-xs" />
+            <el-table-column label="Mã QR (Serial)" width="260">
+              <template #default="{row}">
+                <div class="font-mono text-gray-700 font-semibold leading-tight">{{ row.qrCode || row.serialNumber }}</div>
+                <div class="font-mono text-gray-400 text-xs leading-none mt-1" v-if="row.qrCode && row.qrCode !== row.serialNumber">
+                  ({{ row.serialNumber }})
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="price" label="Đơn giá" width="120" align="right">
               <template #default="{row}">{{ formatCurrency(row.price) }}</template>
             </el-table-column>

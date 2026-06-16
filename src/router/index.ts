@@ -486,6 +486,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'], title: 'Tạo lệnh xuất kho' }
       },
       {
+        path: '/supply/export-order/edit/:id',
+        name: 'ExportOrderEdit',
+        component: () => import('@/modules/supply/views/ExportOrderCreate.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'], title: 'Cập nhật lệnh xuất kho' }
+      },
+      {
         path: '/supply/export-fulfill',
         name: 'ExportOrderFulfill',
         component: () => import('@/modules/supply/views/ExportOrderFulfill.vue'),

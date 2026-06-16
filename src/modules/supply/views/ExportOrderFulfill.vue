@@ -12,6 +12,7 @@
                     </h3>
                 </template>
                 <el-table :data="pendingOrders" v-loading="loading">
+                     <el-table-column type="index" label="STT" width="60" align="center" />
                      <el-table-column label="Số lệnh" prop="orderCode" width="160">
                          <template #default="{row}">
                              <div class="font-bold text-blue-600 cursor-pointer hover:underline" @click="openReadonlyDetail(row)">
@@ -20,8 +21,34 @@
                              <div class="text-[10px] text-gray-400">{{ new Date(row.createdAt).toLocaleString('vi-VN') }}</div>
                          </template>
                      </el-table-column>
-                     <el-table-column label="Đại lý">
+                     <el-table-column label="Đại lý" min-width="120">
                          <template #default="{row}">{{ getDealerName(row.dealerId) }}</template>
+                     </el-table-column>
+                     <el-table-column label="Kho xuất" min-width="120">
+                          <template #default="{row}">{{ getWarehouseName(row.sourceWarehouseId) }}</template>
+                     </el-table-column>
+                     <el-table-column label="Số lượng hàng" width="150">
+                          <template #default="{row}">
+                              <div class="text-xs text-gray-700">Số loại SP: <span class="font-bold">{{ row.items ? row.items.length : 0 }}</span></div>
+                              <div class="text-xs text-gray-500 mt-1">Tổng yêu cầu: <span class="font-bold text-blue-600">{{ row.items ? row.items.reduce((acc: number, cur: any) => acc + (cur.expectedQuantity || 0), 0) : 0 }}</span></div>
+                          </template>
+                     </el-table-column>
+                     <el-table-column label="Mức ưu tiên" width="110" align="center">
+                          <template #default="{row}">
+                              <el-tag
+                                  :type="row.priority === 'HIGH' ? 'danger' : row.priority === 'MEDIUM' ? 'warning' : 'info'"
+                                  size="small"
+                              >
+                                  {{ row.priority }}
+                              </el-tag>
+                          </template>
+                     </el-table-column>
+                     <el-table-column label="Trạng thái" width="120" align="center">
+                          <template #default="{row}">
+                              <el-tag :type="getStatusTag(row.status).type" effect="dark" size="small">
+                                  {{ getStatusTag(row.status).label }}
+                              </el-tag>
+                          </template>
                      </el-table-column>
                      <el-table-column width="120" align="center">
                          <template #default="{row}">
@@ -40,6 +67,7 @@
                     </h3>
                 </template>
                 <el-table :data="exportedOrders" v-loading="loading">
+                     <el-table-column type="index" label="STT" width="60" align="center" />
                      <el-table-column label="Số Phiếu Xuất (PXK)" width="200">
                          <template #default="{row}">
                              <div class="font-bold text-green-600 cursor-pointer hover:underline" @click="openReadonlyDetail(row)">
@@ -52,16 +80,46 @@
                              <div class="text-gray-500 text-sm">{{ row.orderCode }}</div>
                          </template>
                      </el-table-column>
-                     <el-table-column label="Đại lý">
+                     <el-table-column label="Đại lý" min-width="120">
                          <template #default="{row}">{{ getDealerName(row.dealerId) }}</template>
+                     </el-table-column>
+                     <el-table-column label="Kho xuất" min-width="120">
+                          <template #default="{row}">{{ getWarehouseName(row.sourceWarehouseId) }}</template>
+                     </el-table-column>
+                     <el-table-column label="Số lượng hàng" width="150">
+                          <template #default="{row}">
+                              <div class="text-xs text-gray-700">Số loại SP: <span class="font-bold">{{ row.items ? row.items.length : 0 }}</span></div>
+                              <div class="text-xs text-gray-500 mt-1">Tổng yêu cầu: <span class="font-bold text-blue-600">{{ row.items ? row.items.reduce((acc: number, cur: any) => acc + (cur.expectedQuantity || 0), 0) : 0 }}</span></div>
+                          </template>
                      </el-table-column>
                      <el-table-column label="Ngày xuất">
                         <template #default="{row}">{{ new Date(row.updatedAt).toLocaleDateString('vi-VN') }}</template>
                      </el-table-column>
-                     <el-table-column label="Giao hàng" width="200" align="center">
+                     <el-table-column label="Vận chuyển" width="180">
+                         <template #default="{row}">
+                             <template v-if="shipmentsMap[row.id]">
+                                 <div v-if="shipmentsMap[row.id].vehiclePlate" class="text-xs text-gray-700 font-semibold flex items-center gap-1">
+                                     <el-icon><Van /></el-icon>
+                                     {{ shipmentsMap[row.id].vehiclePlate }}
+                                 </div>
+                                 <div v-if="shipmentsMap[row.id].externalDriverName || shipmentsMap[row.id].sender?.fullName" class="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                     <el-icon><User /></el-icon>
+                                     {{ shipmentsMap[row.id].externalDriverName || shipmentsMap[row.id].sender?.fullName }}
+                                 </div>
+                             </template>
+                             <span v-else class="text-xs text-gray-400">---</span>
+                         </template>
+                      </el-table-column>
+                     <el-table-column label="Giao hàng" width="160" align="center">
                         <template #default="{row}">
                             <template v-if="shipmentsMap[row.id]">
-                                <el-tag type="success" effect="dark" size="small">
+                                <el-tag
+                                    type="success"
+                                    effect="dark"
+                                    size="small"
+                                    class="cursor-pointer hover:opacity-85"
+                                    @click="showShipmentDetail(shipmentsMap[row.id].id)"
+                                >
                                     {{ shipmentsMap[row.id].trackingCode }}
                                 </el-tag>
                                 <div class="text-xs text-gray-400 mt-1">{{ ({'WAITING_DRIVER':'Chờ tài xế nhận','READY_FOR_PICKUP':'Sẵn sàng giao','IN_TRANSIT':'Đang giao','PENDING_DEALER_CONFIRM':'Chờ đại lý xác nhận','DELIVERED':'Đã giao'} as Record<string, string>)[shipmentsMap[row.id].status] || shipmentsMap[row.id].status }}</div>
@@ -426,6 +484,66 @@
                 </el-button>
             </template>
         </el-dialog>
+
+        <!-- SHIPMENT DETAIL DIALOG -->
+        <el-dialog v-model="shipmentDetailVisible" title="Chi tiết Phiếu Giao Hàng (PGH)" width="680px" destroy-on-close>
+            <div v-if="selectedShipment" v-loading="shipmentDetailLoading" class="space-y-4">
+                <el-descriptions border :column="2" size="small">
+                    <el-descriptions-item label="Mã vận đơn">
+                        <span class="font-bold text-blue-700">{{ selectedShipment.trackingCode }}</span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Trạng thái">
+                        <el-tag :type="getShipmentStatusTag(selectedShipment.status).type" effect="dark" size="small">
+                            {{ getShipmentStatusTag(selectedShipment.status).label }}
+                        </el-tag>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Xe vận chuyển">
+                        {{ selectedShipment.vehiclePlate || '---' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Lái xe">
+                        <template v-if="selectedShipment.externalDriverName">
+                            {{ selectedShipment.externalDriverName }}
+                            <span v-if="selectedShipment.externalDriverPhone" class="text-gray-400 text-xs"> ({{ selectedShipment.externalDriverPhone }})</span>
+                            <el-tag size="small" type="warning" class="ml-1">Thuê ngoài</el-tag>
+                        </template>
+                        <template v-else>
+                            {{ selectedShipment.sender?.fullName || '---' }}
+                        </template>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Kho xuất">
+                        {{ selectedShipment.sourceWarehouse?.name || '---' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Đích đến">
+                        {{ selectedShipment.dealer?.name || '---' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Ngày tạo">
+                        {{ selectedShipment.createdAt ? new Date(selectedShipment.createdAt).toLocaleString('vi-VN') : '---' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="Hoàn thành lúc">
+                        {{ selectedShipment.endTime ? new Date(selectedShipment.endTime).toLocaleString('vi-VN') : 'Chưa hoàn thành' }}
+                    </el-descriptions-item>
+                </el-descriptions>
+
+                <div v-if="selectedShipment.expectedItems && selectedShipment.expectedItems.length > 0">
+                    <div class="font-bold text-sm mb-2 mt-4 flex items-center gap-1">
+                        <el-icon><Box /></el-icon>
+                        Danh mục hàng hóa dự kiến:
+                    </div>
+                    <el-table :data="selectedShipment.expectedItems" size="small" border>
+                        <el-table-column type="index" label="STT" width="60" align="center" />
+                        <el-table-column label="Tên sản phẩm" prop="productName" />
+                        <el-table-column label="Số lượng" prop="quantity" width="120" align="center">
+                            <template #default="{row}">
+                                <span class="font-bold text-blue-600">{{ row.quantity }}</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+            <template #footer>
+                <el-button @click="shipmentDetailVisible = false">Đóng</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -436,7 +554,7 @@ import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
 import api from '@/common/utils/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Box, Van, Check, Search, Loading, Warning, Camera, Close, ArrowLeft, Printer } from '@element-plus/icons-vue';
+import { Box, Van, Check, Search, Loading, Warning, Camera, Close, ArrowLeft, Printer, User } from '@element-plus/icons-vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/core/store/auth';
 import QRCode from 'qrcode';
@@ -469,6 +587,10 @@ const manualDeliveryOrder = ref<any>(null);
 const manualVehicleId = ref('');
 const shipmentsMap = ref<Record<string, any>>({});
 
+const shipmentDetailVisible = ref(false);
+const shipmentDetailLoading = ref(false);
+const selectedShipment = ref<any>(null);
+
 const useExternalDriver = ref(false);
 const extDriverName = ref('');
 const extDriverPhone = ref('');
@@ -482,6 +604,43 @@ const warehouseMap = ref<Record<string, string>>({}); // UUID -> Name
 
 
 const getPXKCode = (lxh: string) => lxh ? lxh.replace('LXH', 'PXK') : 'PXK-XXX';
+
+const showShipmentDetail = async (shipmentId: string) => {
+    shipmentDetailVisible.value = true;
+    shipmentDetailLoading.value = true;
+    try {
+        const res = await transportApi.getShipmentDetail(shipmentId);
+        selectedShipment.value = res.data;
+    } catch (e) {
+        ElMessage.error('Lỗi tải chi tiết phiếu giao hàng');
+    } finally {
+        shipmentDetailLoading.value = false;
+    }
+};
+
+const getShipmentStatusTag = (status: string) => {
+    switch (status) {
+        case 'CREATED': return { type: 'info', label: 'Chờ quét hàng' };
+        case 'WAITING_DRIVER': return { type: 'warning', label: 'Chờ tài xế nhận' };
+        case 'READY_FOR_PICKUP': return { type: 'warning', label: 'Sẵn sàng giao' };
+        case 'IN_TRANSIT': return { type: 'primary', label: 'Đang vận chuyển' };
+        case 'PENDING_DEALER_CONFIRM': return { type: 'info', label: 'Chờ đại lý xác nhận' };
+        case 'DELIVERED': return { type: 'success', label: 'Đã hoàn thành' };
+        case 'CANCELLED': return { type: 'danger', label: 'Đã hủy' };
+        default: return { type: '', label: status };
+    }
+};
+
+const getStatusTag = (status: string) => {
+  switch (status) {
+    case 'DRAFT': return { type: 'info', label: 'Bản nháp' };
+    case 'CONFIRMED': return { type: 'primary', label: 'Đã xác nhận' };
+    case 'PICKING': return { type: 'warning', label: 'Đang lấy' };
+    case 'EXPORTED': return { type: 'success', label: 'Đã xuất kho' };
+    case 'CANCELLED': return { type: 'danger', label: 'Đã hủy' };
+    default: return { type: 'info', label: status };
+  }
+};
 
 const loadMasterData = async () => {
     try {

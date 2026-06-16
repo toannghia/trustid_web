@@ -9,6 +9,9 @@ export const exportOrderApi = {
     create(data: any) {
         return api.post<any>(baseUrl, data);
     },
+    update(id: string, data: any) {
+        return api.put<any>(`${baseUrl}/${id}`, data);
+    },
     getOrders(filters?: any) {
         return api.get<any[]>(baseUrl, { params: filters });
     },
