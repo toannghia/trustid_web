@@ -186,6 +186,15 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
+    label: 'BLOCKCHAIN',
+    icon: Connection,
+    roles: ['ADMIN', 'TENANT_ADMIN'],
+    items: [
+      { title: 'Tổng quan', path: '/blockchain/dashboard', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Connection },
+      { title: 'Danh sách Batch', path: '/blockchain/batches', roles: ['ADMIN', 'TENANT_ADMIN'], icon: List },
+    ]
+  },
+  {
     label: 'THIẾT LẬP HỆ THỐNG',
     icon: Setting,
     roles: ['ADMIN', 'TENANT_ADMIN'],

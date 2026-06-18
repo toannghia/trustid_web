@@ -557,6 +557,19 @@ const routes: Array<RouteRecordRaw> = [
         name: 'admin-db-tools',
         component: () => import('@/modules/core/views/AdminDbTools.vue'),
         meta: { roles: ['ADMIN'], title: 'Công cụ Database' }
+      },
+      // BLOCKCHAIN STAMP
+      {
+        path: '/blockchain/dashboard',
+        name: 'blockchain-dashboard',
+        component: () => import('@/modules/blockchain/views/BlockchainDashboard.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Blockchain Tổng quan' }
+      },
+      {
+        path: '/blockchain/batches',
+        name: 'blockchain-batches',
+        component: () => import('@/modules/blockchain/views/BlockchainBatchList.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Danh sách Batch' }
       }
     ]
   },
