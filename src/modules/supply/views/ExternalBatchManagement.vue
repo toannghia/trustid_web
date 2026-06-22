@@ -25,7 +25,7 @@ const warehouses = ref<any[]>([]);
 const tenants = ref<any[]>([]);
 const searchQuery = ref('');
 const productFilter = ref('');
-const hideEmptyStock = ref(false);
+const hideEmptyStock = ref(true);
 
 const weightUnits = [
   { label: 'Tấn', value: 'ton', rate: 1000 },
@@ -318,7 +318,7 @@ const filteredBatches = computed(() => {
   }
 
   if (hideEmptyStock.value) {
-    result = result.filter(b => (Number(b.totalQuantity) || 0) > 0);
+    result = result.filter(b => (Number(b.totalQuantity) || 0) >= 0.01);
   }
 
   return result;
@@ -326,8 +326,8 @@ const filteredBatches = computed(() => {
 
 const stats = computed(() => {
   const all = batches.value;
-  const zeroStock = all.filter(b => (Number(b.totalQuantity) || 0) <= 0).length;
-  const hasStock = all.filter(b => (Number(b.totalQuantity) || 0) > 0).length;
+  const zeroStock = all.filter(b => (Number(b.totalQuantity) || 0) < 0.01).length;
+  const hasStock = all.filter(b => (Number(b.totalQuantity) || 0) >= 0.01).length;
   return {
     totalCount: filteredBatches.value.length,
     totalWeight: filteredBatches.value.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0),
