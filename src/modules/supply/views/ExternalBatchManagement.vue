@@ -25,6 +25,7 @@ const warehouses = ref<any[]>([]);
 const tenants = ref<any[]>([]);
 const searchQuery = ref('');
 const productFilter = ref('');
+const hideEmptyStock = ref(false);
 
 const weightUnits = [
   { label: 'Tấn', value: 'ton', rate: 1000 },
@@ -315,13 +316,24 @@ const filteredBatches = computed(() => {
       b.product?.name?.toLowerCase().includes(q)
     );
   }
+
+  if (hideEmptyStock.value) {
+    result = result.filter(b => (Number(b.totalQuantity) || 0) > 0);
+  }
+
   return result;
 });
 
 const stats = computed(() => {
+  const all = batches.value;
+  const zeroStock = all.filter(b => (Number(b.totalQuantity) || 0) <= 0).length;
+  const hasStock = all.filter(b => (Number(b.totalQuantity) || 0) > 0).length;
   return {
     totalCount: filteredBatches.value.length,
-    totalWeight: filteredBatches.value.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0)
+    totalWeight: filteredBatches.value.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0),
+    zeroStock,
+    hasStock,
+    allCount: all.length
   };
 });
 
@@ -719,7 +731,7 @@ onMounted(fetchData);
           </div>
           <div>
             <div class="text-sm text-blue-600 font-medium">Tổng số lô</div>
-            <div class="text-2xl font-bold text-blue-900">{{ stats.totalCount }}</div>
+            <div class="text-2xl font-bold text-blue-900">{{ stats.allCount }}</div>
           </div>
         </div>
       </el-card>
@@ -729,8 +741,30 @@ onMounted(fetchData);
             <el-icon :size="24"><Operation /></el-icon>
           </div>
           <div>
-            <div class="text-sm text-green-600 font-medium">Tổng khối lượng</div>
+            <div class="text-sm text-green-600 font-medium">Tổng tồn kho</div>
             <div class="text-2xl font-bold text-green-900">{{ stats.totalWeight.toLocaleString() }} kg</div>
+          </div>
+        </div>
+      </el-card>
+      <el-card shadow="never" class="!bg-emerald-50 border-none cursor-pointer" @click="hideEmptyStock = false">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-emerald-500 rounded-lg text-white">
+            <el-icon :size="24"><Coordinate /></el-icon>
+          </div>
+          <div>
+            <div class="text-sm text-emerald-600 font-medium">Còn tồn kho</div>
+            <div class="text-2xl font-bold text-emerald-900">{{ stats.hasStock }}</div>
+          </div>
+        </div>
+      </el-card>
+      <el-card shadow="never" class="!bg-red-50 border-none cursor-pointer" @click="hideEmptyStock = true">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-red-400 rounded-lg text-white">
+            <el-icon :size="24"><Close /></el-icon>
+          </div>
+          <div>
+            <div class="text-sm text-red-500 font-medium">Đã hết tồn kho</div>
+            <div class="text-2xl font-bold text-red-700">{{ stats.zeroStock }}</div>
           </div>
         </div>
       </el-card>
@@ -753,7 +787,16 @@ onMounted(fetchData);
           </el-select>
         </div>
       </div>
-      <el-button :icon="Refresh" @click="fetchData">Làm mới</el-button>
+      <el-button-group>
+        <el-button :icon="Refresh" @click="fetchData">Làm mới</el-button>
+        <el-button 
+          :type="hideEmptyStock ? 'warning' : 'default'" 
+          @click="hideEmptyStock = !hideEmptyStock"
+        >
+          <el-icon class="mr-1"><View /></el-icon>
+          {{ hideEmptyStock ? 'Đang ẩn lô hết tồn' : 'Ẩn lô hết tồn' }}
+        </el-button>
+      </el-button-group>
     </div>
 
     <!-- Table -->
@@ -860,6 +903,105 @@ onMounted(fetchData);
                         fit="cover"
                       />
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ★ Lịch sử đóng gói -->
+              <div v-if="row.childBatches?.length || row.productionOrders?.length" class="mt-5 border-t border-gray-200 pt-4">
+                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <el-icon class="text-orange-500"><Tickets /></el-icon> Lịch sử đóng gói / Sản xuất
+                  <el-tag size="small" type="warning" class="ml-1">{{ (row.childBatches?.length || 0) + (row.productionOrders?.length || 0) }} phiếu</el-tag>
+                </h4>
+
+                <!-- Lô bán thành phẩm -->
+                <div v-if="row.childBatches?.length" class="mb-3">
+                  <div class="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1">
+                    <el-icon><Box /></el-icon> Lô bán thành phẩm ({{ row.childBatches.length }})
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-xs border-collapse">
+                      <thead>
+                        <tr class="bg-blue-50 text-blue-700">
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Mã lô</th>
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Sản phẩm</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">KL nhập (kg)</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">KL xuất (kg)</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">Số bao</th>
+                          <th class="px-3 py-1.5 text-center font-semibold border-b border-blue-100">Trạng thái</th>
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Nơi SX</th>
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Ngày đóng gói</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="child in row.childBatches" :key="child.id" class="hover:bg-blue-50/50 transition-colors">
+                          <td class="px-3 py-1.5 border-b border-gray-100">
+                            <span class="font-mono font-bold text-blue-600">{{ child.batchCode }}</span>
+                          </td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-700">{{ child.productName || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-orange-600">{{ child.inputWeight?.toLocaleString() || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-green-600">{{ child.outputWeight?.toLocaleString() || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-bold text-gray-800">{{ child.packCount || 0 }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-center">
+                            <el-tag size="small" :type="child.status === 'COMPLETED' ? 'success' : 'primary'" effect="light">
+                              {{ child.status === 'COMPLETED' ? 'Hoàn thành' : child.status }}
+                            </el-tag>
+                          </td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-600">{{ child.productionAddress || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-500">{{ child.packagingDate ? formatMetadataValue('date', child.packagingDate) : formatMetadataValue('date', child.createdAt) }}</td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr class="bg-gray-50 font-semibold text-gray-700">
+                          <td class="px-3 py-1.5" colspan="2">Tổng cộng</td>
+                          <td class="px-3 py-1.5 text-right text-orange-600">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.inputWeight) || 0), 0).toLocaleString() }}</td>
+                          <td class="px-3 py-1.5 text-right text-green-600">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.outputWeight) || 0), 0).toLocaleString() }}</td>
+                          <td class="px-3 py-1.5 text-right font-bold">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.packCount) || 0), 0) }}</td>
+                          <td colspan="3"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Phiếu sản xuất -->
+                <div v-if="row.productionOrders?.length">
+                  <div class="text-xs font-semibold text-purple-600 mb-2 flex items-center gap-1">
+                    <el-icon><List /></el-icon> Phiếu sản xuất ({{ row.productionOrders.length }})
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-xs border-collapse">
+                      <thead>
+                        <tr class="bg-purple-50 text-purple-700">
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Mã phiếu</th>
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Sản phẩm</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">KL kế hoạch</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">KL thực tế</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">SL kế hoạch</th>
+                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">SL thực tế</th>
+                          <th class="px-3 py-1.5 text-center font-semibold border-b border-purple-100">Trạng thái</th>
+                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Ngày tạo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="order in row.productionOrders" :key="order.id" class="hover:bg-purple-50/50 transition-colors">
+                          <td class="px-3 py-1.5 border-b border-gray-100">
+                            <span class="font-mono font-bold text-purple-600">{{ order.orderCode }}</span>
+                          </td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-700">{{ order.productName || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right text-gray-600">{{ order.plannedWeightKg?.toLocaleString() || '-' }} kg</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-green-600">{{ order.actualWeightKg?.toLocaleString() || '-' }} kg</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right text-gray-600">{{ order.plannedUnits || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-bold text-gray-800">{{ order.actualUnits || '-' }}</td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-center">
+                            <el-tag size="small" :type="order.status === 'COMPLETED' ? 'success' : order.status === 'IN_PROGRESS' ? 'warning' : 'info'" effect="light">
+                              {{ order.status }}
+                            </el-tag>
+                          </td>
+                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-500">{{ formatMetadataValue('date', order.createdAt) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -1082,7 +1224,7 @@ onMounted(fetchData);
                       circle 
                       plain 
                       class="absolute top-2.5 right-2.5 z-10"
-                      @click="removeFarmingLog(lIndex)" 
+                      @click="removeFarmingLog(Number(lIndex))" 
                     />
                     <div class="grid grid-cols-2 gap-x-6 gap-y-3">
                       <el-form-item label="Ngày thực hiện" required class="!mb-0">
@@ -1115,7 +1257,7 @@ onMounted(fetchData);
                           
                           <div 
                             class="w-20 h-20 border border-dashed border-gray-300 rounded flex flex-col items-center justify-center hover:border-blue-500 cursor-pointer bg-white"
-                            @click="openLogMediaManager(lIndex)"
+                            @click="openLogMediaManager(Number(lIndex))"
                           >
                             <el-icon class="text-lg text-gray-400"><Plus /></el-icon>
                             <span class="text-[10px] text-gray-400 mt-1">Chọn ảnh</span>
