@@ -43,6 +43,7 @@
       v-model="showCreateModal"
       :title="isEditing ? 'Cập nhật Quy trình mẫu' : 'Thiết lập Quy trình mẫu'"
       width="900px"
+      :close-on-click-modal="false"
       @closed="resetForm"
     >
       <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
@@ -61,7 +62,7 @@
           <el-button 
             type="danger" 
             link 
-            class="absolute top-2 right-2"
+            class="absolute top-2 right-2 z-10"
             @click="removeStage(sIndex)"
           >
             <el-icon><Delete /></el-icon> Xóa giai đoạn
@@ -78,7 +79,7 @@
                     type="danger" 
                     link 
                     size="small"
-                    class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                     @click="removeTaskFromStage(sIndex, tIndex)"
                   >
                     <el-icon><Delete /></el-icon>
@@ -91,7 +92,7 @@
                         </el-form-item>
                     </el-col>
                     <el-col :span="10">
-                            <el-form-item label="Loại công việc" class="mb-0">
+                            <el-form-item label="Loại công việc" class="mb-0" required>
                                 <el-select v-model="task.job_type" placeholder="Chọn loại công việc" allow-create filterable default-first-option>
                                     <el-option
                                         v-for="type in JOB_TYPES"
@@ -125,7 +126,7 @@
                             </el-form-item>
                         </el-col>
                         <el-col :span="14" class="mt-2">
-                            <el-form-item label="Tên công việc (Chi tiết)" class="mb-0">
+                            <el-form-item label="Tên công việc (Chi tiết)" class="mb-0" required>
                                 <el-input v-model="task.title" placeholder="VD: Bón lót lần 1..." />
                             </el-form-item>
                         </el-col>
@@ -292,12 +293,37 @@ const openEditModal = (row: ProcessTemplate) => {
 
 const submitForm = async () => {
   if (!formRef.value) return;
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      if (stageGroups.value.length === 0) {
-          ElMessage.warning('Vui lòng thêm ít nhất 1 giai đoạn');
-          return;
-      }
+  await formRef.value.validate(async (valid, fields) => {
+    if (!valid) {
+      ElMessage.warning('Vui lòng nhập đầy đủ các thông tin bắt buộc (Tên quy trình...)');
+      return;
+    }
+
+    if (stageGroups.value.length === 0) {
+        ElMessage.warning('Vui lòng thêm ít nhất 1 giai đoạn');
+        return;
+    }
+
+    // Kiểm tra tên giai đoạn và các công việc bên trong
+    for (let i = 0; i < stageGroups.value.length; i++) {
+        const stage = stageGroups.value[i];
+        if (!stage.stageName || !stage.stageName.trim()) {
+            ElMessage.warning(`Vui lòng nhập Tên giai đoạn cho Giai đoạn thứ ${i + 1}`);
+            return;
+        }
+
+        for (let j = 0; j < stage.tasks.length; j++) {
+            const task = stage.tasks[j];
+            if (!task.job_type) {
+                ElMessage.warning(`Vui lòng chọn Loại công việc cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
+                return;
+            }
+            if (!task.title || !task.title.trim()) {
+                ElMessage.warning(`Vui lòng nhập Tên công việc (Chi tiết) cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
+                return;
+            }
+        }
+    }
 
       // Flatten UI structure to API format
       const flatTasks = stageGroups.value.flatMap(group => {
@@ -339,7 +365,6 @@ const submitForm = async () => {
       } finally {
         submitting.value = false;
       }
-    }
   });
 };
 
