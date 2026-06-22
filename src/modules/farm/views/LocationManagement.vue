@@ -86,13 +86,16 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Thao tác" width="120" align="center" fixed="right">
+        <el-table-column label="Thao tác" width="160" align="center" fixed="right">
             <template #default="{ row }">
                 <el-button type="primary" link size="small" @click="openEditModal(row)">
                     Sửa
                 </el-button>
                 <el-button type="info" link size="small" @click="$router.push(`/farm/locations/${row.id}`)">
                     Chi tiết
+                </el-button>
+                <el-button type="danger" link size="small" @click="handleDelete(row)">
+                    Xóa
                 </el-button>
             </template>
         </el-table-column>
@@ -251,13 +254,57 @@
       mode="draw"
       @boundary-drawn="handle3DBoundaryDrawn"
     />
+
+    <!-- Delete Confirmation Modal -->
+    <el-dialog
+      v-model="showDeleteModal"
+      title="Xác nhận xóa Thửa đất"
+      width="90%"
+      style="max-width: 480px"
+      :close-on-click-modal="false"
+      @closed="closeDeleteModal"
+    >
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn xóa thửa đất này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Thửa <strong>{{ locationToDelete?.name }}</strong> (Mã: {{ locationToDelete?.code || 'Chưa gán' }}) sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Việc xóa thửa đất sẽ làm ngừng toàn bộ các chu kỳ cây trồng đang hoạt động liên quan đến thửa này.
+        </div>
+
+        <el-checkbox v-model="confirmDeleteCheckbox" class="mt-2">
+          <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa thửa đất này</span>
+        </el-checkbox>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showDeleteModal = false">Hủy bỏ</el-button>
+          <el-button
+            type="danger"
+            :disabled="!confirmDeleteCheckbox"
+            :loading="deleting"
+            @click="executeDelete"
+          >
+            Xác nhận xóa
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, nextTick, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Plus, Search, Loading } from '@element-plus/icons-vue';
+import { Plus, Search, Loading, WarningFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi, type Location, type MasterGrowingArea } from '../api/farmApi';
 import type { FormInstance, FormRules } from 'element-plus';
@@ -280,6 +327,11 @@ const submitting = ref(false);
 const formRef = ref<FormInstance>();
 const authStore = useAuthStore();
 const isFarmerRole = computed(() => authStore.user?.role === 'FARMER');
+
+const showDeleteModal = ref(false);
+const locationToDelete = ref<Location | null>(null);
+const confirmDeleteCheckbox = ref(false);
+const deleting = ref(false);
 
 const masterGrowingAreas = ref<MasterGrowingArea[]>([]);
 const farmers = ref<any[]>([]);
@@ -662,6 +714,7 @@ const form = reactive({
 const rules = reactive<FormRules>({
   name: [{ required: true, message: 'Vui lòng nhập tên', trigger: 'blur' }],
   masterGrowingAreaId: [{ required: true, message: 'Vui lòng chọn Mã vùng trồng lớn', trigger: 'change' }],
+  farmerId: [{ required: !isFarmerRole.value, message: 'Vui lòng chọn Nông hộ', trigger: 'change' }],
   lat: [{ required: true, message: 'Nhập Vĩ độ', trigger: 'blur' }],
   long: [{ required: true, message: 'Nhập Kinh độ', trigger: 'blur' }]
 });
@@ -908,10 +961,50 @@ const submitForm = async () => {
   if (!formRef.value) return;
   await formRef.value.validate(async (valid) => {
     if (valid) {
+      // 1. Cảnh báo nếu đội trưởng trống và yêu cầu xác nhận
+      if (!form.leaderId) {
+        try {
+          await ElMessageBox.confirm(
+            'Thửa đất này chưa chọn Đội trưởng phụ trách. Bạn có chắc chắn muốn lưu mà không gán Đội trưởng phụ trách không? (Có thể cập nhật lại sau)',
+            'Cảnh báo chưa chọn Đội trưởng',
+            {
+              confirmButtonText: 'Đồng ý lưu',
+              cancelButtonText: 'Hủy',
+              type: 'warning',
+            }
+          );
+        } catch {
+          return;
+        }
+      }
+
+      // 2. Cảnh báo nếu đang sửa và thay đổi Đội trưởng phụ trách
+      if (isEditing.value && currentId.value) {
+        const originalLocation = locations.value.find(l => l.id === currentId.value);
+        const originalLeaderId = originalLocation?.leaderId || '';
+        const currentLeaderId = form.leaderId || '';
+        if (originalLeaderId !== currentLeaderId) {
+          try {
+            await ElMessageBox.confirm(
+              'Đội trưởng phụ trách của thửa này đã thay đổi. Bạn có chắc chắn muốn cập nhật sự thay đổi này không?',
+              'Xác nhận thay đổi Đội trưởng',
+              {
+                confirmButtonText: 'Xác nhận thay đổi',
+                cancelButtonText: 'Hủy',
+                type: 'warning',
+              }
+            );
+          } catch {
+            return;
+          }
+        }
+      }
+
       submitting.value = true;
       try {
         const payload: any = {
             ...form,
+            leaderId: form.leaderId || null,
             code: form.code || undefined,
             updateReason: form.updateReason || undefined
         };
@@ -957,6 +1050,34 @@ const resetForm = () => {
   form.masterGrowingAreaId = '';
   form.farmerId = '';
   form.leaderId = '';
+};
+
+const handleDelete = (row: Location) => {
+  locationToDelete.value = row;
+  confirmDeleteCheckbox.value = false;
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  locationToDelete.value = null;
+  confirmDeleteCheckbox.value = false;
+};
+
+const executeDelete = async () => {
+  if (!locationToDelete.value) return;
+  deleting.value = true;
+  try {
+    await farmApi.deleteLocation(locationToDelete.value.id);
+    ElMessage.success('Xóa thửa đất thành công');
+    showDeleteModal.value = false;
+    loadData();
+  } catch (err: any) {
+    console.error(err);
+    const msg = err.response?.data?.message || err.message || 'Không thể xóa thửa';
+    ElMessage.error(Array.isArray(msg) ? msg.join(', ') : msg);
+  } finally {
+    deleting.value = false;
+  }
 };
 
 const route = useRoute();

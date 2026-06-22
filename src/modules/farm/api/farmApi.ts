@@ -121,6 +121,9 @@ export const farmApi = {
     updateLocation(id: string, data: Partial<{ name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string; masterGrowingAreaId?: string; farmerId?: string; leaderId?: string; }>) {
         return api.patch<Location>(`${baseUrl}/locations/${id}`, data);
     },
+    deleteLocation(id: string) {
+        return api.delete(`${baseUrl}/locations/${id}`);
+    },
     getLeaderMap() {
         return api.get<Location[]>(`${baseUrl}/locations/leader/map`);
     },
