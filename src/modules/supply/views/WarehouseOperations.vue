@@ -17,9 +17,20 @@
                       <el-icon class="mr-2"><Promotion /></el-icon> Tạo lệnh xuất hàng
                     </h3>
                     <el-form label-position="top">
-                        <el-form-item label="Kho nhận / Người nhận">
-                            <el-select v-model="exportForm.receiver_id" placeholder="Chọn kho nhận..." filterable class="w-full">
-                                <el-option v-for="u in users" :key="u.id" :label="u.fullName" :value="u.id" />
+                        <el-form-item label="Kho nhận">
+                            <el-select 
+                                v-model="exportForm.destination_warehouse_id" 
+                                placeholder="Chọn kho nhận..." 
+                                filterable 
+                                class="w-full"
+                                @change="onDestinationWarehouseChange"
+                            >
+                                <el-option 
+                                    v-for="w in warehouses.filter(x => x.id !== currentWarehouseId)" 
+                                    :key="w.id" 
+                                    :label="w.name + (w.manager ? ' (' + w.manager.fullName + ')' : '')" 
+                                    :value="w.id" 
+                                />
                             </el-select>
                         </el-form-item>
                         
@@ -165,6 +176,7 @@ const filteredStock = computed(() => {
 // EXPORT STATE
 const exportForm = ref({
     receiver_id: '',
+    destination_warehouse_id: '',
     vehicle_id: '',
     vehicle_plate: '',
     driver_id: '',
@@ -188,7 +200,7 @@ const loadInitialData = async () => {
         ]);
         warehouses.value = wRes.data;
         vehicles.value = vRes.data;
-        users.value = uRes.data.items || uRes.data;
+        users.value = uRes.data.data || [];
         
         if (warehouses.value.length) {
             currentWarehouseId.value = warehouses.value[0].id;
@@ -240,6 +252,13 @@ const onVehicleSelect = (id: string) => {
     }
 };
 
+const onDestinationWarehouseChange = (id: string) => {
+    const w = warehouses.value.find(x => x.id === id);
+    if (w) {
+        exportForm.value.receiver_id = w.managerId || (users.value.length > 0 ? users.value[0].id : '');
+    }
+};
+
 const submitExport = async () => {
     if (!currentWarehouseId.value) return;
     
@@ -264,6 +283,7 @@ const submitExport = async () => {
         await onWarehouseChange();
         selectedItems.value = [];
         exportForm.value.receiver_id = '';
+        exportForm.value.destination_warehouse_id = '';
         exportForm.value.vehicle_id = '';
     } catch (e) {
         if (e !== 'cancel') ElMessage.error('Lỗi khi thực hiện xuất kho');
