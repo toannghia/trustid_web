@@ -88,6 +88,7 @@
             <template v-else>
               <el-tag type="success" class="mr-2"><el-icon><Check /></el-icon> Đã nhận</el-tag>
               <el-button 
+                v-if="!row.hasInbound"
                 type="warning" 
                 size="small" 
                 plain 
@@ -95,7 +96,7 @@
                 :loading="repairingId === row.id"
                 title="Sửa lỗi tồn kho nếu chưa hiện hàng"
               >
-                <el-icon class="mr-1"><RefreshRight /></el-icon> Sửa tồn kho
+                <el-icon><RefreshRight /></el-icon>
               </el-button>
             </template>
           </template>
@@ -495,8 +496,10 @@ const repairInbound = async (row: any) => {
     
     if (data.alreadyProcessed) {
       ElMessage.info('Kho đã có dữ liệu nhập cho phiếu này. Không cần sửa.');
+      row.hasInbound = true;
     } else if (data.count > 0) {
       ElMessage.success(`Đã nhập bổ sung ${data.count} sản phẩm vào tồn kho`);
+      row.hasInbound = true;
     } else {
       ElMessage.warning(data.message || 'Không tìm thấy sản phẩm cần nhập');
     }
