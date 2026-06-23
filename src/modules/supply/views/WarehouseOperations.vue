@@ -79,7 +79,7 @@
                         </el-table-column>
                         <el-table-column label="Trạng thái" width="100">
                             <template #default="{row}">
-                              <el-tag :type="row.status === 'AVAILABLE' ? 'success' : 'warning'" size="small">{{ row.status }}</el-tag>
+                              <el-tag :type="row.status === 'AVAILABLE' ? 'success' : 'warning'" size="small">{{ row.status === 'AVAILABLE' ? 'Có sẵn' : row.status === 'RESERVED' ? 'Đã đặt trước' : row.status === 'DAMAGED' ? 'Hư hỏng' : row.status }}</el-tag>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -101,7 +101,7 @@
                     <div v-for="s in incomingShipments" :key="s.id" class="p-4 border rounded bg-white shadow-sm hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-3">
                             <span class="font-bold text-lg text-blue-600 tracking-wider">{{ s.trackingCode }}</span>
-                            <el-tag size="small">{{ s.status }}</el-tag>
+                            <el-tag size="small">{{ s.status === 'IN_TRANSIT' ? 'Đang vận chuyển' : s.status === 'READY_FOR_PICKUP' ? 'Chờ lấy hàng' : s.status }}</el-tag>
                         </div>
                         <div class="text-sm text-gray-600 mb-4 space-y-1">
                             <div class="flex items-center"><el-icon class="mr-2"><Van /></el-icon> Xe: {{ s.vehiclePlate }}</div>
@@ -124,7 +124,7 @@
                     <el-table-column label="Loại" prop="type" width="100">
                         <template #default="{row}">
                             <el-tag :type="row.type === 'INBOUND' ? 'success' : row.type === 'OUTBOUND' ? 'danger' : 'info'" size="small">
-                                {{ row.type }}
+                                {{ row.type === 'INBOUND' ? 'Nhập kho' : row.type === 'OUTBOUND' ? 'Xuất kho' : row.type === 'ADJUSTMENT' ? 'Điều chỉnh' : row.type }}
                             </el-tag>
                         </template>
                     </el-table-column>

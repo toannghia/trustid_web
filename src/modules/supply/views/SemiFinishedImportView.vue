@@ -207,7 +207,7 @@
         </el-table-column>
         <el-table-column label="Trạng thái" width="140" align="center">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.status === 'COMPLETED' ? 'success' : 'warning'">{{ row.status }}</el-tag>
+            <el-tag size="small" :type="row.status === 'COMPLETED' ? 'success' : 'warning'">{{ row.status === 'COMPLETED' ? 'Hoàn thành' : row.status === 'PENDING' ? 'Chờ xử lý' : row.status === 'PROCESSING' ? 'Đang xử lý' : row.status }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Ghi chú" min-width="150" show-overflow-tooltip>

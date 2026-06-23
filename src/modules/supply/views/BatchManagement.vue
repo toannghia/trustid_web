@@ -38,7 +38,7 @@
         </el-table-column>
         <el-table-column label="Trạng thái" width="120" align="center">
             <template #default="{row}">
-                <el-tag :type="getStatusType(row.status)" class="mr-2">{{ row.status }}</el-tag>
+                <el-tag :type="getStatusType(row.status)" class="mr-2">{{ getBatchStatusLabel(row.status) }}</el-tag>
                 <el-button 
                     v-if="row.status === 'PACKING'" 
                     type="primary" 
@@ -68,7 +68,7 @@
                             </div>
                         </el-descriptions-item>
                         <el-descriptions-item label="Trạng thái">
-                            <el-tag>{{ selectedBatch.status }}</el-tag>
+                            <el-tag>{{ getBatchStatusLabel(selectedBatch.status) }}</el-tag>
                         </el-descriptions-item>
                         <el-descriptions-item label="Quy cách đóng">{{ selectedBatch.farmDataSnapshot?.unitWeight || 1 }} kg/sp</el-descriptions-item>
                         <el-descriptions-item label="Tổng SL">{{ selectedBatch.totalQuantity }} kg</el-descriptions-item>
@@ -85,7 +85,7 @@
                         <el-table-column prop="parentCode" label="Thùng (Container)" width="150" />
                         <el-table-column prop="status" label="Trạng thái" width="100">
                             <template #default="{row}">
-                                <el-tag size="small" type="success">{{ row.status }}</el-tag>
+                                <el-tag size="small" type="success">{{ row.status === 'ACTIVE' ? 'Đã kích hoạt' : row.status === 'INACTIVE' ? 'Chưa kích hoạt' : row.status }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="Thời gian" width="160">
@@ -171,6 +171,16 @@ import { supplyApi } from '../api/supplyApi';
 import { ElMessage } from 'element-plus';
 import { Loading, CircleCheckFilled, TopRight } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+
+const getBatchStatusLabel = (status: string) => {
+  switch (status) {
+    case 'PACKING': return 'Đang đóng gói';
+    case 'CLOSED': return 'Đã đóng';
+    case 'SHIPPED': return 'Đã xuất';
+    case 'COMPLETED': return 'Hoàn thành';
+    default: return status;
+  }
+};
 
 const batches = ref<any[]>([]);
 const filteredBatches = computed(() => {

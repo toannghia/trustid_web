@@ -81,7 +81,7 @@
         <el-table-column prop="status" label="Trạng thái" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="getStatusType(row.status)" effect="light">
-              {{ row.status }}
+              {{ row.status === 'EXPORTED' ? 'Đã xuất' : row.status === 'ACTIVE' ? 'Đang hoạt động' : row.status === 'COMPLETED' ? 'Hoàn thành' : row.status }}
             </el-tag>
           </template>
         </el-table-column>
@@ -166,7 +166,7 @@
                     >
                       🏷️ Tem bù
                     </el-tag>
-                    <el-tag v-else size="small" :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status }}</el-tag>
+                    <el-tag v-else size="small" :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang hoạt động' : row.status === 'INACTIVE' ? 'Ngừng hoạt động' : row.status }}</el-tag>
                   </template>
                 </el-table-column>
               </el-table>

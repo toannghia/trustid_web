@@ -38,7 +38,11 @@
                     <span class="font-bold text-blue-600">{{ scope.row.quantity || 1 }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="status" label="Trạng thái" width="150" />
+                <el-table-column label="Trạng thái" width="150">
+                  <template #default="scope">
+                    <el-tag size="small" :type="getItemStatusType(scope.row.status)">{{ getItemStatusLabel(scope.row.status) }}</el-tag>
+                  </template>
+                </el-table-column>
               </el-table>
               <div v-if="!row.items || row.items.length === 0" class="text-sm text-gray-500 mt-2">
                 Không có dữ liệu sản phẩm cho phiếu này.
@@ -110,7 +114,7 @@
                     </div>
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Loại hình</span>
-                        <el-tag size="small">{{ currentDetail.type }}</el-tag>
+                        <el-tag size="small">{{ getShipmentTypeLabel(currentDetail.type) }}</el-tag>
                     </div>
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Xe vận chuyển</span>
@@ -211,7 +215,7 @@
                     </el-table-column>
                     <el-table-column label="P/P Quét" width="100" align="center">
                         <template #default="{row}">
-                            <el-tag size="mini" :type="row.scanMethod === 'BOX' ? 'warning' : 'success'">{{ row.scanMethod }}</el-tag>
+                            <el-tag size="mini" :type="row.scanMethod === 'BOX' || row.scanMethod === 'BAG' ? 'warning' : 'success'">{{ getScanMethodLabel(row.scanMethod) }}</el-tag>
                         </template>
                     </el-table-column>
                     <el-table-column label="Thời gian" prop="scannedAt" width="150">
@@ -372,11 +376,13 @@ const getStatusType = (status: string) => {
     case 'CREATED': return 'info';
     case 'SCANNING': return 'warning';
     case 'READY': return 'primary';
+    case 'READY_FOR_PICKUP': return 'primary';
     case 'WAITING_DRIVER': return 'warning';
     case 'IN_TRANSIT': return 'warning';
     case 'PENDING_DEALER_CONFIRM': return 'info';
     case 'DELIVERED': return 'success';
     case 'AT_DEALER': return 'success';
+    case 'CANCELLED': return 'danger';
     default: return 'info';
   }
 };
@@ -384,14 +390,64 @@ const getStatusType = (status: string) => {
 const getStatusLabel = (status: string) => {
   switch (status) {
     case 'CREATED': return 'Mới tạo';
-    case 'SCANNING': return 'Đang quét';
-    case 'READY': return 'Sẵn sàng';
+    case 'SCANNING': return 'Đang quét hàng';
+    case 'READY': return 'Sẵn sàng giao';
+    case 'READY_FOR_PICKUP': return 'Chờ lấy hàng';
     case 'WAITING_DRIVER': return 'Chờ tài xế nhận';
     case 'IN_TRANSIT': return 'Đang vận chuyển';
     case 'PENDING_DEALER_CONFIRM': return 'Chờ xác nhận nhận';
     case 'DELIVERED': return 'Tài xế đã giao';
     case 'AT_DEALER': return 'Đã nhận vào kho';
+    case 'CANCELLED': return 'Đã hủy';
     default: return status;
+  }
+};
+
+const getItemStatusLabel = (status: string) => {
+  switch (status) {
+    case 'INACTIVE': return 'Chưa kích hoạt';
+    case 'ACTIVE': return 'Đã kích hoạt';
+    case 'AT_DEALER': return 'Đã nhận';
+    case 'SOLD': return 'Đã bán';
+    case 'LOST': return 'Thất lạc';
+    case 'IN_TRANSIT': return 'Đang vận chuyển';
+    case 'SCANNED': return 'Đã quét';
+    case 'AVAILABLE': return 'Có sẵn';
+    default: return status;
+  }
+};
+
+const getItemStatusType = (status: string) => {
+  switch (status) {
+    case 'INACTIVE': return 'info';
+    case 'ACTIVE': return 'success';
+    case 'AT_DEALER': return 'success';
+    case 'SOLD': return 'warning';
+    case 'LOST': return 'danger';
+    case 'IN_TRANSIT': return 'warning';
+    case 'SCANNED': return 'primary';
+    case 'AVAILABLE': return 'success';
+    default: return 'info';
+  }
+};
+
+const getShipmentTypeLabel = (type: string) => {
+  switch (type) {
+    case 'OUTBOUND': return 'Xuất kho';
+    case 'INBOUND': return 'Nhập kho';
+    case 'TRANSFER': return 'Luân chuyển';
+    case 'DEALER_DELIVERY': return 'Giao đại lý';
+    case 'RETURN': return 'Trả hàng';
+    default: return type;
+  }
+};
+
+const getScanMethodLabel = (method: string) => {
+  switch (method) {
+    case 'INDIVIDUAL': return 'Quét lẻ';
+    case 'BOX': return 'Quét thùng';
+    case 'BAG': return 'Quét bao';
+    default: return method;
   }
 };
 

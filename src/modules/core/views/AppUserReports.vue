@@ -108,7 +108,7 @@ onMounted(() => {
                      <template #default="{ row }">
                          <div class="flex items-center gap-1" :class="row.status === 'SUCCESS' ? 'text-green-600' : 'text-red-500'">
                              <el-icon><component :is="row.status === 'SUCCESS' ? CircleCheckFilled : WarnTriangleFilled" /></el-icon>
-                             <span class="font-medium text-xs">{{ row.status }}</span>
+                             <span class="font-medium text-xs">{{ row.status === 'SUCCESS' ? 'Thành công' : row.status === 'FAILED' ? 'Thất bại' : row.status === 'PENDING' ? 'Đang gửi' : row.status }}</span>
                          </div>
                      </template>
                  </el-table-column>

@@ -82,6 +82,16 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('vi-VN');
 };
 
+const getStatusLabel = (status: string) => {
+  const found = statusOptions.find(o => o.value === status);
+  return found ? found.label : status;
+};
+
+const getCommandLabel = (cmd: string) => {
+  const found = commandOptions.find(o => o.value === cmd);
+  return found && found.value ? found.label : cmd;
+};
+
 onMounted(() => {
   fetchRequests();
 });
@@ -128,13 +138,13 @@ watch([statusFilter, commandFilter], handleFilter);
       </el-table-column>
       <el-table-column prop="command_type" label="Loại lệnh" width="130">
         <template #default="{ row }">
-          <el-tag size="small" type="info">{{ row.command_type }}</el-tag>
+          <el-tag size="small" type="info">{{ getCommandLabel(row.command_type) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="tenant_tax_code" label="MST" width="110" />
       <el-table-column prop="status" label="Trạng thái" width="160">
         <template #default="{ row }">
-          <el-tag size="small" :type="getStatusType(row.status)">{{ row.status }}</el-tag>
+          <el-tag size="small" :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="error" label="Lỗi" min-width="200">

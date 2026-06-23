@@ -41,7 +41,7 @@
                 </el-table-column>
                 <el-table-column prop="status" label="Trạng thái" width="120">
                 <template #default="{ row }">
-                    <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status }}</el-tag>
+                    <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang canh tác' : row.status === 'COMPLETED' ? 'Đã thu hoạch' : row.status === 'PLANNED' ? 'Kế hoạch' : row.status }}</el-tag>
                 </template>
                 </el-table-column>
                 <el-table-column label="Thao tác" width="200" align="center" fixed="right">

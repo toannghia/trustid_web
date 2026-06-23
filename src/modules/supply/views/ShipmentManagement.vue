@@ -4,6 +4,7 @@ import { Refresh, Search, Van, OfficeBuilding, FullScreen, Plus, User, Box, Memo
 import { transportApi } from '../api/transportApi';
 import { shipmentV2Api } from '../api/shipmentV2Api';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { shipmentTypeLabel, scanMethodLabel } from '@/common/utils/status-labels';
 import { useAuthStore } from '@/modules/core/store/auth';
 import ShipmentScanDialog from '../components/ShipmentScanDialog.vue';
 
@@ -288,7 +289,7 @@ const receiverConfirm = async () => {
                     </div>
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Loại hình</span>
-                        <el-tag size="small">{{ currentDetail.type }}</el-tag>
+                        <el-tag size="small">{{ shipmentTypeLabel(currentDetail.type) }}</el-tag>
                     </div>
                     <div class="flex justify-between border-b pb-2">
                         <span class="text-gray-500 text-sm">Xe vận chuyển</span>
@@ -394,7 +395,7 @@ const receiverConfirm = async () => {
                     </el-table-column>
                     <el-table-column label="P/P Quét" width="100" align="center">
                         <template #default="{row}">
-                            <el-tag size="mini" :type="row.scanMethod === 'BOX' ? 'warning' : 'success'">{{ row.scanMethod }}</el-tag>
+                            <el-tag size="mini" :type="row.scanMethod === 'BOX' || row.scanMethod === 'BAG' ? 'warning' : 'success'">{{ scanMethodLabel(row.scanMethod) }}</el-tag>
                         </template>
                     </el-table-column>
                     <el-table-column label="Thời gian" prop="scannedAt" width="150">

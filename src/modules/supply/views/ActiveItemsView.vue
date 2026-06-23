@@ -35,7 +35,7 @@
         </el-table-column>
         <el-table-column label="Trạng thái" width="100" align="center">
             <template #default="{row}">
-                <el-tag type="success">{{ row.status }}</el-tag>
+                <el-tag type="success">{{ row.status === 'ACTIVE' ? 'Đã kích hoạt' : row.status === 'INACTIVE' ? 'Chưa kích hoạt' : row.status === 'AT_DEALER' ? 'Tại đại lý' : row.status === 'SOLD' ? 'Đã bán' : row.status }}</el-tag>
             </template>
         </el-table-column>
     </el-table>

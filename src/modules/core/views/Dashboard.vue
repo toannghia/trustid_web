@@ -461,7 +461,7 @@ onMounted(async () => {
                     <el-table-column prop="status" label="Trạng thái">
                         <template #default="scope">
                             <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">
-                                {{ scope.row.status }}
+                                {{ scope.row.status === 'ACTIVE' ? 'Hoạt động' : scope.row.status === 'BLOCKED' ? 'Đã khóa' : scope.row.status === 'INACTIVE' ? 'Ngừng hoạt động' : scope.row.status }}
                             </el-tag>
                         </template>
                     </el-table-column>

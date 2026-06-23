@@ -116,7 +116,7 @@ onMounted(fetchPools);
         <el-table-column prop="status" label="Trạng thái" width="130">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.status)" effect="dark" size="small">
-              {{ scope.row.status }}
+              {{ scope.row.status === 'AVAILABLE' ? 'Sẵn sàng' : scope.row.status === 'PENDING' ? 'Đang xử lý' : scope.row.status === 'EXPORTED' ? 'Đã xuất file' : scope.row.status }}
             </el-tag>
           </template>
         </el-table-column>

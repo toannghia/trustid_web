@@ -292,7 +292,7 @@ onMounted(() => {
           <template #default="scope">
             <el-tag v-if="scope.row.status === 'ACTIVE'" type="success" size="small">Hoạt động</el-tag>
             <el-tag v-else-if="scope.row.status === 'LOCKED' || scope.row.status === 'BLOCKED'" type="danger" size="small">Đã khóa</el-tag>
-            <el-tag v-else type="info" size="small">{{ scope.row.status }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ scope.row.status === 'INACTIVE' ? 'Ngừng hoạt động' : scope.row.status === 'PENDING' ? 'Chờ duyệt' : scope.row.status === 'SUSPENDED' ? 'Tạm khóa' : scope.row.status === 'DELETION_REQUESTED' ? 'Yêu cầu xóa' : scope.row.status }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="120" align="center">

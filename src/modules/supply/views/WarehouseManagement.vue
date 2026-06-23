@@ -15,7 +15,7 @@
         <el-table-column prop="name" label="Tên kho" min-width="180" />
         <el-table-column prop="type" label="Phân loại" width="130">
             <template #default="{ row }">
-                <el-tag size="small" :type="row.type === 'PRODUCTION' ? 'warning' : 'success'">{{ row.type }}</el-tag>
+                <el-tag size="small" :type="row.type === 'PRODUCTION' ? 'warning' : 'success'">{{ row.type === 'PRODUCTION' ? 'Sản xuất' : row.type === 'STORAGE' ? 'Lưu kho' : row.type === 'FINISHED' ? 'Thành phẩm' : row.type === 'DISTRIBUTION' ? 'Phân phối' : row.type }}</el-tag>
             </template>
         </el-table-column>
         <el-table-column prop="isDefault" label="Mặc định" width="100" align="center">
@@ -42,7 +42,7 @@
         </el-table-column>
         <el-table-column prop="status" label="Trạng thái" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang hoạt động' : 'Ngừng hoạt động' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="100" align="center" fixed="right">

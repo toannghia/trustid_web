@@ -338,14 +338,14 @@ onMounted(() => {
           <el-table-column label="Loại" width="100">
             <template #default="{ row }">
               <el-tag :type="row.queryType === 'RUNBOOK' ? 'success' : 'warning'" size="small">
-                {{ row.queryType }}
+                {{ row.queryType === 'RUNBOOK' ? 'Kịch bản' : row.queryType === 'RAW_SQL' ? 'SQL trực tiếp' : row.queryType }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="Trạng thái" width="100">
             <template #default="{ row }">
               <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'" size="small">
-                {{ row.status }}
+                {{ row.status === 'SUCCESS' ? 'Thành công' : row.status === 'FAILED' ? 'Thất bại' : row.status }}
               </el-tag>
             </template>
           </el-table-column>

@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column prop="status" label="Trạng thái" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'AVAILABLE' ? 'success' : 'warning'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 'AVAILABLE' ? 'success' : 'warning'">{{ row.status === 'AVAILABLE' ? 'Sẵn sàng' : row.status === 'IN_USE' ? 'Đang sử dụng' : row.status === 'MAINTENANCE' ? 'Bảo trì' : row.status }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="100" align="center" fixed="right">

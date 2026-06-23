@@ -159,10 +159,10 @@ onMounted(() => {
                 
                 <el-table-column label="Trạng thái" width="150">
                     <template #default="{ row }">
-                        <el-tag v-if="row.status === 'ACTIVE'" type="success" effect="dark" size="small" class="rounded-full px-3">Active</el-tag>
-                        <el-tag v-else-if="row.status === 'BLOCKED'" type="danger" effect="dark" size="small" class="rounded-full px-3">Blocked</el-tag>
+                        <el-tag v-if="row.status === 'ACTIVE'" type="success" effect="dark" size="small" class="rounded-full px-3">Hoạt động</el-tag>
+                        <el-tag v-else-if="row.status === 'BLOCKED'" type="danger" effect="dark" size="small" class="rounded-full px-3">Đã khóa</el-tag>
                         <el-tag v-else-if="row.status === 'DELETION_REQUESTED'" type="warning" effect="dark" size="small" class="rounded-full px-3">Yêu cầu xóa</el-tag>
-                        <el-tag v-else type="info" effect="plain" size="small" class="rounded-full px-3">{{ row.status }}</el-tag>
+                        <el-tag v-else type="info" effect="plain" size="small" class="rounded-full px-3">{{ row.status === 'INACTIVE' ? 'Ngừng hoạt động' : row.status }}</el-tag>
                     </template>
                 </el-table-column>
                 
@@ -216,7 +216,7 @@ onMounted(() => {
                     <div class="text-left space-y-3 text-sm border-t pt-4">
                         <div class="flex justify-between">
                             <span class="text-gray-500">Trạng thái:</span>
-                            <span :class="selectedUser.status === 'ACTIVE' ? 'text-green-600' : 'text-red-600'">{{ selectedUser.status }}</span>
+                            <span :class="selectedUser.status === 'ACTIVE' ? 'text-green-600' : 'text-red-600'">{{ selectedUser.status === 'ACTIVE' ? 'Hoạt động' : selectedUser.status === 'BLOCKED' ? 'Đã khóa' : selectedUser.status === 'DELETION_REQUESTED' ? 'Yêu cầu xóa' : selectedUser.status }}</span>
                         </div>
                          <div class="flex justify-between">
                             <span class="text-gray-500">Ngày tham gia:</span>

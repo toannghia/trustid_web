@@ -412,7 +412,7 @@ onMounted(() => {
              <el-table-column v-if="isAdmin" prop="tenant.name" label="Doanh nghiệp" min-width="150" />
             <el-table-column prop="status" label="Trạng thái" width="120" align="center">
               <template #default="scope">
-                <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'info'">{{ scope.row.status }}</el-tag>
+                <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'info'">{{ scope.row.status === 'ACTIVE' ? 'Đang sử dụng' : scope.row.status === 'INACTIVE' ? 'Ngừng sử dụng' : scope.row.status === 'EXHAUSTED' ? 'Đã hết' : scope.row.status }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="created_at" label="Ngày tạo" width="180">
@@ -502,7 +502,7 @@ onMounted(() => {
                 <el-table-column prop="serial" label="Serial" width="150" />
                 <el-table-column prop="status" label="Trạng thái" width="120" align="center">
                     <template #default="{ row }">
-                         <el-tag :type="row.status === 'ACTIVE' ? 'success' : row.status === 'USED' ? 'warning' : 'info'">{{ row.status }}</el-tag>
+                         <el-tag :type="row.status === 'ACTIVE' ? 'success' : row.status === 'USED' ? 'warning' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang sử dụng' : row.status === 'USED' ? 'Đã sử dụng' : row.status === 'AVAILABLE' ? 'Có sẵn' : row.status }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column prop="pool.name" label="Thuộc Lô" min-width="150" />

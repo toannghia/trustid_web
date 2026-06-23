@@ -81,7 +81,7 @@
         <el-table-column prop="status" label="TT" width="130" align="center">
           <template #default="{ row }">
             <div class="flex flex-col gap-1 items-center">
-              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status }}</el-tag>
+              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'" size="small">{{ row.status === 'ACTIVE' ? 'Đang hoạt động' : 'Ngừng hoạt động' }}</el-tag>
               <el-tag v-if="row.isOverlapped" type="warning" size="small" effect="dark" title="Thửa này đang bị vẽ lấn ranh với thửa khác">⚠️ Lấn ranh</el-tag>
             </div>
           </template>

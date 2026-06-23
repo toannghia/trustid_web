@@ -75,7 +75,7 @@
              </div>
               <div class="text-xs text-gray-600 space-y-1">
                  <div v-for="st in stats.batches?.status" :key="st.name" class="flex justify-between">
-                     <span>{{ st.name }}</span> <span class="font-bold">{{ st.count }}</span>
+                     <span>{{ st.name === 'PACKING' ? 'Đang đóng gói' : st.name === 'CLOSED' ? 'Đã đóng' : st.name === 'SHIPPED' ? 'Đã xuất' : st.name === 'COMPLETED' ? 'Hoàn thành' : st.name }}</span> <span class="font-bold">{{ st.count }}</span>
                  </div>
                   <div v-if="!stats.batches?.status?.length" class="italic text-gray-400">Chưa có dữ liệu phân loại</div>
              </div>
@@ -138,7 +138,7 @@
                 </el-table-column>
                 <el-table-column label="Trạng thái" width="100">
                     <template #default="{row}">
-                        <el-tag size="small">{{ row.status }}</el-tag>
+                        <el-tag size="small">{{ row.status === 'ACTIVE' ? 'Đang canh tác' : row.status === 'HARVESTED' ? 'Đã thu hoạch' : row.status === 'COMPLETED' ? 'Hoàn thành' : row.status }}</el-tag>
                     </template>
                 </el-table-column>
             </el-table>
