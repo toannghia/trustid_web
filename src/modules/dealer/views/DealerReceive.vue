@@ -88,7 +88,6 @@
             <template v-else>
               <el-tag type="success" class="mr-2"><el-icon><Check /></el-icon> Đã nhận</el-tag>
               <el-button 
-                v-if="!row.hasInbound"
                 type="warning" 
                 size="small" 
                 plain 
