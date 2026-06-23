@@ -71,7 +71,7 @@
             <el-tag :type="getStatusType(row.status)" effect="dark">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Thao tác" width="180" align="center" fixed="right">
+        <el-table-column label="Thao tác" width="220" align="center" fixed="right">
           <template #default="{ row }">
             <el-button 
               type="success" 
@@ -81,7 +81,19 @@
             >
               <el-icon class="mr-1"><Check /></el-icon> Xác nhận nhận
             </el-button>
-            <el-tag v-else type="success"><el-icon><Check /></el-icon> Đã nhận</el-tag>
+            <template v-else>
+              <el-tag type="success" class="mr-2"><el-icon><Check /></el-icon> Đã nhận</el-tag>
+              <el-button 
+                type="warning" 
+                size="small" 
+                plain 
+                @click="repairInbound(row)" 
+                :loading="repairingId === row.id"
+                title="Sửa lỗi tồn kho nếu chưa hiện hàng"
+              >
+                <el-icon class="mr-1"><RefreshRight /></el-icon> Sửa tồn kho
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -237,7 +249,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { Refresh, Check, Box, FullScreen, Memo, Calendar, Clock } from '@element-plus/icons-vue';
+import { Refresh, Check, Box, FullScreen, Memo, Calendar, Clock, RefreshRight } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
 
@@ -405,6 +417,39 @@ const confirmReceive = async (row: any) => {
     }
   } finally {
     confirmingId.value = null;
+  }
+};
+
+const repairingId = ref<string | null>(null);
+
+const repairInbound = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Phiếu ${row.trackingCode} đã nhận nhưng tồn kho có thể bị thiếu. Bạn có muốn sửa lỗi tồn kho không?`,
+      'Sửa lỗi tồn kho',
+      {
+        confirmButtonText: 'Đồng ý sửa',
+        cancelButtonText: 'Hủy',
+        type: 'info',
+      }
+    );
+
+    repairingId.value = row.id;
+    const { data } = await api.post(`/shipments-v2/${row.id}/repair-inbound`);
+    
+    if (data.alreadyProcessed) {
+      ElMessage.info('Kho đã có dữ liệu nhập cho phiếu này. Không cần sửa.');
+    } else if (data.count > 0) {
+      ElMessage.success(`Đã nhập bổ sung ${data.count} sản phẩm vào tồn kho`);
+    } else {
+      ElMessage.warning(data.message || 'Không tìm thấy sản phẩm cần nhập');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.message || 'Lỗi khi sửa tồn kho');
+    }
+  } finally {
+    repairingId.value = null;
   }
 };
 

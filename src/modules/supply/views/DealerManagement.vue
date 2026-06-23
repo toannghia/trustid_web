@@ -176,6 +176,7 @@ onMounted(fetchDealers);
                             </template>
                             <div>
                                 <div class="font-bold mb-1 text-sm">{{ row.dealerTenant.name }}</div>
+                                <div class="text-xs text-gray-600 mb-1" v-if="row.dealerTenant.username">Username: <span class="font-bold text-blue-600">{{ row.dealerTenant.username }}</span></div>
                                 <div class="text-xs text-gray-600 mb-1" v-if="row.dealerTenant.taxCode">MST: {{ row.dealerTenant.taxCode }}</div>
                                 <div class="text-[10px] text-gray-400 font-mono break-all mt-2 pt-2 border-t border-gray-100">ID: {{ row.dealerTenantId }}</div>
                             </div>
