@@ -713,6 +713,9 @@ onMounted(fetchData);
         <p class="text-gray-500 text-sm">Quản lý các lô nguyên liệu nhập từ nguồn ngoài hoặc chuyển giao giữa các chi nhánh</p>
       </div>
       <div class="flex gap-3">
+        <el-button @click="router.push('/supply/surplus')" class="!bg-amber-50 !text-amber-700 !border-amber-300 hover:!bg-amber-100">
+          📦 Kho dư
+        </el-button>
         <el-button type="warning" icon="Connection" @click="showReceiveDialog = true">
           Nhận lô chuyển giao (QR)
         </el-button>

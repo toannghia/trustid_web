@@ -108,6 +108,7 @@ const menuGroups: MenuGroup[] = [
     roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
     items: [
       { title: 'Lệnh Sản Xuất', path: '/supply/production-orders', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Tickets },
+      { title: 'Kho dư', path: '/supply/surplus', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
       { title: 'Quản lý Pallet', path: '/supply/pallets', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Box },
       //{ title: 'Lệnh Đóng gói', path: '/supply/packaging', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Postcard },
       { title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },

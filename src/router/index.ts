@@ -396,6 +396,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Liên kết Pallet' }
       },
       {
+        path: '/supply/surplus',
+        name: 'SurplusManagement',
+        component: () => import('@/modules/supply/views/SurplusManagement.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], title: 'Kho dư bán thành phẩm' }
+      },
+      {
         path: '/supply/inventory',
         name: 'InventoryDashboard',
         component: () => import('@/modules/supply/views/InventoryDashboard.vue'),

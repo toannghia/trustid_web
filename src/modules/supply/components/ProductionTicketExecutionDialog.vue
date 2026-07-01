@@ -60,6 +60,33 @@
 
           <el-divider />
 
+          <!-- Surplus weight section -->
+          <div v-if="calculatedSurplus > 0" class="space-y-2 bg-amber-50 border border-amber-200 rounded p-3">
+            <h5 class="text-xs font-semibold uppercase text-amber-700">📦 Khối lượng dư thừa</h5>
+            <div class="flex justify-between text-xs text-gray-600">
+              <span>KL dư (tự tính):</span>
+              <strong>{{ calculatedSurplus.toFixed(1) }} kg</strong>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-gray-500 font-medium">KL dư thực tế (kg)</label>
+              <el-input-number
+                v-model="executionForm.actual_surplus_kg"
+                :min="0"
+                :max="calculatedSurplus"
+                :precision="1"
+                :step="0.5"
+                class="w-full"
+                controls-position="right"
+              />
+            </div>
+            <div v-if="surplusLoss > 0" class="flex justify-between text-xs text-orange-600 font-semibold">
+              <span>Hao hụt sơ chế:</span>
+              <strong>{{ surplusLoss.toFixed(1) }} kg ({{ surplusLossPct }}%)</strong>
+            </div>
+          </div>
+
+          <el-divider />
+
           <div class="space-y-3 pt-2">
             <el-button
               type="success"
@@ -211,7 +238,8 @@ const rejectPromptVisible = ref(false);
 const rejectionReason = ref('');
 
 const executionForm = reactive({
-  actual_weight_kg: 0
+  actual_weight_kg: 0,
+  actual_surplus_kg: 0,
 });
 
 // Computed tolerance limits from production order
@@ -234,6 +262,20 @@ const isWeightOutOfRange = computed(() => {
   return w < minWeight.value || w > maxWeight.value;
 });
 
+const calculatedSurplus = computed(() => {
+  if (!ticket.value) return 0;
+  return Math.max(0, ticket.value.plannedWeightKg - executionForm.actual_weight_kg);
+});
+
+const surplusLoss = computed(() => {
+  return Math.max(0, calculatedSurplus.value - executionForm.actual_surplus_kg);
+});
+
+const surplusLossPct = computed(() => {
+  if (!ticket.value || ticket.value.plannedWeightKg === 0) return '0.0';
+  return ((surplusLoss.value / ticket.value.plannedWeightKg) * 100).toFixed(1);
+});
+
 const open = async (targetTicketId: string) => {
   visible.value = true;
   await loadTicketDetails(targetTicketId);
@@ -245,6 +287,7 @@ const loadTicketDetails = async (id: string) => {
     const { data } = await productionOrderApi.getTicketDetail(id);
     ticket.value = data;
     executionForm.actual_weight_kg = data.plannedWeightKg;
+    executionForm.actual_surplus_kg = 0;
     
     // Autofocus console input when IN_PROGRESS
     if (data.status === 'IN_PROGRESS') {
@@ -322,6 +365,7 @@ const completeProduction = async () => {
   try {
     const payload = {
       actual_weight_kg: executionForm.actual_weight_kg,
+      actual_surplus_kg: calculatedSurplus.value > 0 ? executionForm.actual_surplus_kg : undefined,
       serials: ticket.value.ticketType !== 'PALLET' ? scannedSerials.value : undefined,
       child_serials: ticket.value.ticketType === 'PALLET' ? scannedSerials.value : undefined
     };
