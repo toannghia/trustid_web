@@ -96,72 +96,90 @@
       </template>
     </el-dialog>
 
-    <!-- KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
-        <div class="text-gray-500 font-medium">Tổng Doanh nghiệp/HTX</div>
-        <div class="text-3xl font-bold mt-2 text-gray-800">{{ stats.totalEnterprises }}</div>
+    <!-- KPIs compact -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="bg-white px-5 py-3 rounded-lg shadow-sm border-l-4 border-blue-500 flex items-center justify-between">
+        <div class="text-gray-500 text-sm font-medium">Doanh nghiệp/HTX</div>
+        <div class="text-2xl font-bold text-gray-800">{{ stats.totalEnterprises }}</div>
       </div>
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-orange-500">
-        <div class="text-gray-500 font-medium">Sản phẩm Đăng ký</div>
-        <div class="text-3xl font-bold mt-2 text-gray-800">{{ stats.totalProducts }}</div>
+      <div class="bg-white px-5 py-3 rounded-lg shadow-sm border-l-4 border-orange-500 flex items-center justify-between">
+        <div class="text-gray-500 text-sm font-medium">Sản phẩm Đăng ký</div>
+        <div class="text-2xl font-bold text-gray-800">{{ stats.totalProducts }}</div>
       </div>
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-green-500">
-        <div class="text-gray-500 font-medium">Người dùng Hệ thống</div>
-        <div class="text-3xl font-bold mt-2 text-gray-800">{{ stats.totalUsers }}</div>
+      <div class="bg-white px-5 py-3 rounded-lg shadow-sm border-l-4 border-green-500 flex items-center justify-between">
+        <div class="text-gray-500 text-sm font-medium">Người dùng</div>
+        <div class="text-2xl font-bold text-gray-800">{{ stats.totalUsers }}</div>
       </div>
     </div>
 
-    <!-- Map Section -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-gray-700 flex items-center gap-2 text-lg">
+    <!-- Map (1/2) + Weekly Scan & Top Provinces stacked (1/2) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Map -->
+      <div class="bg-white rounded-lg shadow-sm p-4 flex flex-col">
+        <h3 class="font-bold text-gray-700 flex items-center gap-2 text-sm mb-3">
           <el-icon><MapLocation /></el-icon>
-          Bản đồ Vùng trồng theo địa bàn
+          Bản đồ Vùng trồng
         </h3>
+        <FarmMapboxView
+          :locations="farms"
+          :scans="[]"
+          :auto-fit-bounds="true"
+          :center-coordinate="mapCenter"
+          :selected-province="selectedProvince"
+          @change-province="selectedProvince = $event; handleProvinceChange()"
+          height="100%"
+          class="flex-1 min-h-[480px]"
+        />
+        <div class="mt-2 text-xs text-gray-500">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Vùng trồng: {{ farms.length }}</span>
+        </div>
       </div>
-      <FarmMapboxView
-        :locations="farms"
-        :scans="[]"
-        :auto-fit-bounds="true"
-        :center-coordinate="mapCenter"
-        height="500px"
-      />
-      <div class="mt-2 text-xs text-gray-500 flex gap-4">
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> Vùng trồng: {{ farms.length }}</span>
+
+      <!-- Weekly Scan + Top Scan Provinces stacked -->
+      <div class="flex flex-col gap-6">
+        <WeeklyScanChart :province="selectedProvince" />
+        <TopScanProvincesChart :province="selectedProvince" />
       </div>
     </div>
 
-    <!-- Map & Lists -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      
-      <!-- Top 10 Products -->
-      <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="font-bold mb-4 text-gray-700 flex items-center gap-2">Sản phẩm tiêu biểu (Top 10)</h3>
-        <el-table :data="products" style="width: 100%" stripe>
+    <!-- Blockchain + Diary -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <BlockchainReportCard />
+      <ProductionDiaryReport :province="selectedProvince" />
+    </div>
+
+    <!-- QR Issuance + Seasonal Harvest -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <QrIssuanceChart :province="selectedProvince" />
+      <SeasonalHarvestChart :province="selectedProvince" />
+    </div>
+
+    <!-- Products & Enterprises -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-lg shadow-sm p-5">
+        <h3 class="font-bold mb-3 text-gray-700 text-sm">Sản phẩm tiêu biểu (Top 10)</h3>
+        <el-table :data="products" style="width: 100%" stripe size="small">
           <el-table-column prop="name" label="Tên SP" />
           <el-table-column prop="tenant.name" label="Doanh nghiệp">
              <template #default="scope">{{ scope.row.tenant?.name || '---' }}</template>
           </el-table-column>
-          <el-table-column prop="status" label="Trạng thái">
+          <el-table-column prop="status" label="Trạng thái" width="110">
             <template #default="{ row }">
-              <el-tag :type="getGovStatusType(row.attributes?.govStatus)">
+              <el-tag :type="getGovStatusType(row.attributes?.govStatus)" size="small">
                 {{ row.attributes?.govStatus || 'NORMAL' }}
               </el-tag>
             </template>
           </el-table-column>
         </el-table>
       </div>
-
-      <!-- Enterprises -->
-      <div class="bg-white rounded-lg shadow-sm p-6">
-        <h3 class="font-bold mb-4 text-gray-700 flex items-center gap-2">Doanh nghiệp hoạt động</h3>
-        <el-table :data="enterprises" style="width: 100%" stripe>
+      <div class="bg-white rounded-lg shadow-sm p-5">
+        <h3 class="font-bold mb-3 text-gray-700 text-sm">Doanh nghiệp hoạt động</h3>
+        <el-table :data="enterprises" style="width: 100%" stripe size="small">
           <el-table-column prop="name" label="Doanh nghiệp" />
           <el-table-column prop="email" label="Email" />
           <el-table-column prop="status" label="Trạng thái" width="100">
              <template #default="{ row }">
-              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'">{{ row.status || 'ACTIVE' }}</el-tag>
+              <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">{{ row.status || 'ACTIVE' }}</el-tag>
              </template>
           </el-table-column>
         </el-table>
@@ -175,6 +193,12 @@ import { ref, onMounted } from 'vue';
 import api from '@/common/utils/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FarmMapboxView from '@/modules/core/components/FarmMapboxView.vue';
+import BlockchainReportCard from '@/modules/gov/components/BlockchainReportCard.vue';
+import ProductionDiaryReport from '@/modules/gov/components/ProductionDiaryReport.vue';
+import WeeklyScanChart from '@/modules/gov/components/WeeklyScanChart.vue';
+import SeasonalHarvestChart from '@/modules/gov/components/SeasonalHarvestChart.vue';
+import QrIssuanceChart from '@/modules/gov/components/QrIssuanceChart.vue';
+import TopScanProvincesChart from '@/modules/gov/components/TopScanProvincesChart.vue';
 import { MapLocation, Warning } from '@element-plus/icons-vue';
 import { vietnamUnits } from '@/common/data/vietnam-units';
 import { provinceCoordinates } from '@/common/data/province-coordinates';

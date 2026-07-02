@@ -5,6 +5,28 @@
       <el-icon class="is-loading"><Loading /></el-icon>
       <span>Đang tải bản đồ...</span>
     </div>
+    <!-- Map Style Switcher -->
+    <div v-if="showStyleSwitcher" class="map-style-switcher">
+      <el-select
+        v-model="currentStyle"
+        size="small"
+        @change="handleStyleChange"
+        class="style-select"
+        placeholder="Bản đồ nền"
+      >
+        <el-option
+          v-for="s in mapStyles"
+          :key="s.value"
+          :label="s.label"
+          :value="s.value"
+        >
+          <span class="flex items-center gap-2">
+            <span>{{ s.icon }}</span>
+            <span>{{ s.label }}</span>
+          </span>
+        </el-option>
+      </el-select>
+    </div>
     <div class="map-legend">
       <span class="legend-item">
         <span class="legend-polygon"></span> Vùng trồng (polygon)
@@ -45,13 +67,29 @@ const props = withDefaults(defineProps<{
   height?: string;
   autoFitBounds?: boolean;
   centerCoordinate?: { lat: number; lng: number } | null;
+  mapStyle?: string;
+  showStyleSwitcher?: boolean;
+  selectedProvince?: string;
 }>(), {
   autoFitBounds: true,
-  centerCoordinate: null
+  centerCoordinate: null,
+  mapStyle: 'mapbox://styles/mapbox/satellite-streets-v12',
+  showStyleSwitcher: true,
+  selectedProvince: ''
 });
+
+const mapStyles = [
+  { value: 'mapbox://styles/mapbox/satellite-streets-v12', label: 'Vệ tinh', icon: '🛰️' },
+  { value: 'mapbox://styles/mapbox/streets-v12', label: 'Đường phố', icon: '🗺️' },
+  { value: 'mapbox://styles/mapbox/outdoors-v12', label: 'Địa hình', icon: '⛰️' },
+  { value: 'mapbox://styles/mapbox/light-v11', label: 'Nền sáng', icon: '☀️' },
+];
+
+const currentStyle = ref(props.mapStyle);
 
 const emit = defineEmits<{
   (e: 'select', location: MapLocation): void;
+  (e: 'change-province', province: string): void;
 }>();
 
 const mapContainer = ref<HTMLElement | null>(null);
@@ -59,8 +97,34 @@ const loading = ref(true);
 let map: mapboxgl.Map | null = null;
 let popup: mapboxgl.Popup | null = null;
 let mapListenersAdded = false;
+let provincesGeoJson: any = null;
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+const loadProvincesGeoJson = async () => {
+  if (provincesGeoJson) return provincesGeoJson;
+  try {
+    const res = await fetch('/data/vietnam_provinces.geojson');
+    provincesGeoJson = await res.json();
+    return provincesGeoJson;
+  } catch (err) {
+    console.error('Failed to load vietnam provinces GeoJSON:', err);
+    return null;
+  }
+};
+
+const getFeatureBounds = (coordinates: any): mapboxgl.LngLatBounds => {
+  const bounds = new mapboxgl.LngLatBounds();
+  const processCoords = (coords: any) => {
+    if (typeof coords[0] === 'number') {
+      bounds.extend(coords as [number, number]);
+    } else {
+      coords.forEach(processCoords);
+    }
+  };
+  processCoords(coordinates);
+  return bounds;
+};
 
 const extractCoords = (loc: MapLocation): [number, number] | null => {
   try {
@@ -109,19 +173,64 @@ const buildPopupHTML = (loc: MapLocation): string => {
   return lines.join('');
 };
 
+const setMapLanguageToVietnamese = () => {
+  if (!map) return;
+  try {
+    const style = map.getStyle();
+    if (!style || !style.layers) return;
+
+    style.layers.forEach((layer: any) => {
+      if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+        try {
+          map!.setLayoutProperty(layer.id, 'text-field', [
+            'coalesce',
+            ['get', 'name_vi'],
+            ['get', 'name_local'],
+            ['get', 'name']
+          ]);
+        } catch (e) { /* ignore */ }
+      }
+    });
+  } catch (err) {
+    console.error('Error setting map language to Vietnamese:', err);
+  }
+};
+
+const handleStyleChange = (newStyle: string) => {
+  if (!map) return;
+  currentStyle.value = newStyle;
+  map.setStyle(newStyle);
+  // After style change, re-render layers once new style loads
+  map.once('style.load', () => {
+    mapListenersAdded = false;
+    setMapLanguageToVietnamese();
+    renderLocations();
+  });
+};
+
 const initMap = async () => {
   if (!mapContainer.value || !MAPBOX_TOKEN) {
     loading.value = false;
     return;
   }
 
+  await loadProvincesGeoJson();
+
   mapboxgl.accessToken = MAPBOX_TOKEN;
+
+  const VIETNAM_BOUNDS: mapboxgl.LngLatBoundsLike = [
+    [100.0, 6.0],
+    [118.0, 24.0]
+  ];
 
   map = new mapboxgl.Map({
     container: mapContainer.value,
-    style: 'mapbox://styles/mapbox/satellite-streets-v12',
+    style: currentStyle.value,
     center: [108.2772, 14.0583], // Vietnam center
-    zoom: 5,
+    zoom: 5.0,
+    minZoom: 4.8,
+    maxZoom: 16,
+    maxBounds: VIETNAM_BOUNDS,
     attributionControl: true,
   });
 
@@ -130,6 +239,7 @@ const initMap = async () => {
 
   map.on('load', () => {
     loading.value = false;
+    setMapLanguageToVietnamese();
     renderLocations();
   });
 };
@@ -138,10 +248,10 @@ const renderLocations = () => {
   if (!map || !map.isStyleLoaded()) return;
 
   // Clean up existing sources/layers
-  ['farm-polygons-fill', 'farm-polygons-outline', 'farm-points', 'farm-scans'].forEach(id => {
+  ['vietnam-provinces-fill', 'vietnam-provinces-outline', 'farm-polygons-fill', 'farm-polygons-outline', 'farm-points', 'farm-scans'].forEach(id => {
     if (map!.getLayer(id)) map!.removeLayer(id);
   });
-  ['farm-polygons-source', 'farm-points-source', 'farm-scans-source'].forEach(id => {
+  ['vietnam-provinces-source', 'farm-polygons-source', 'farm-points-source', 'farm-scans-source'].forEach(id => {
     if (map!.getSource(id)) map!.removeSource(id);
   });
 
@@ -195,6 +305,54 @@ const renderLocations = () => {
         });
         bounds.extend([scan.lng, scan.lat]);
         hasValidData = true;
+      }
+    });
+  }
+
+  // Add Vietnam Provinces layer
+  if (provincesGeoJson) {
+    map!.addSource('vietnam-provinces-source', {
+      type: 'geojson',
+      data: provincesGeoJson,
+    });
+
+    map!.addLayer({
+      id: 'vietnam-provinces-fill',
+      type: 'fill',
+      source: 'vietnam-provinces-source',
+      paint: {
+        'fill-color': [
+          'case',
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          '#f39c12',
+          '#3498db'
+        ],
+        'fill-opacity': [
+          'case',
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          0.3,
+          0.08
+        ]
+      }
+    });
+
+    map!.addLayer({
+      id: 'vietnam-provinces-outline',
+      type: 'line',
+      source: 'vietnam-provinces-source',
+      paint: {
+        'line-color': [
+          'case',
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          '#d35400',
+          '#ffffff'
+        ],
+        'line-width': [
+          'case',
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          2.5,
+          1.0
+        ]
       }
     });
   }
@@ -270,6 +428,23 @@ const renderLocations = () => {
   }
 
   if (!mapListenersAdded) {
+    // Click and hover on province boundaries
+    map!.on('click', 'vietnam-provinces-fill', (e) => {
+      if (!e.features?.length) return;
+      const feature = e.features[0];
+      const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
+      if (name) {
+        emit('change-province', name);
+      }
+    });
+
+    map!.on('mouseenter', 'vietnam-provinces-fill', () => {
+      if (map) map.getCanvas().style.cursor = 'pointer';
+    });
+    map!.on('mouseleave', 'vietnam-provinces-fill', () => {
+      if (map) map.getCanvas().style.cursor = '';
+    });
+
     // Click on polygon
       map!.on('click', 'farm-polygons-fill', (e) => {
         if (!e.features?.length) return;
@@ -401,6 +576,54 @@ watch(() => [props.locations, props.scans, props.centerCoordinate], () => {
   }
 }, { deep: true });
 
+watch(() => props.selectedProvince, (newProvince) => {
+  if (!map || !map.isStyleLoaded()) return;
+
+  if (map.getLayer('vietnam-provinces-fill')) {
+    map.setPaintProperty('vietnam-provinces-fill', 'fill-color', [
+      'case',
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      '#f39c12',
+      '#3498db'
+    ]);
+    map.setPaintProperty('vietnam-provinces-fill', 'fill-opacity', [
+      'case',
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      0.3,
+      0.08
+    ]);
+  }
+  if (map.getLayer('vietnam-provinces-outline')) {
+    map.setPaintProperty('vietnam-provinces-outline', 'line-color', [
+      'case',
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      '#d35400',
+      '#ffffff'
+    ]);
+    map.setPaintProperty('vietnam-provinces-outline', 'line-width', [
+      'case',
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      2.5,
+      1.0
+    ]);
+  }
+
+  if (newProvince && provincesGeoJson) {
+    const feature = provincesGeoJson.features.find((f: any) => {
+      const name = f.properties?.adm1_name1 || f.properties?.adm1_name || '';
+      return name.toLowerCase() === newProvince.toLowerCase();
+    });
+    if (feature && feature.geometry) {
+      const bounds = getFeatureBounds(feature.geometry.coordinates);
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 40, maxZoom: 10, duration: 1500 });
+      }
+    }
+  } else {
+    map.flyTo({ center: [108.2772, 14.0583], zoom: 5, duration: 1500 });
+  }
+});
+
 onMounted(() => {
   nextTick(() => initMap());
 });
@@ -418,13 +641,17 @@ onUnmounted(() => {
 .farm-mapbox-container {
   position: relative;
   width: 100%;
+  height: v-bind("props.height || '450px'");
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .map-container {
   width: 100%;
-  height: v-bind("props.height || '450px'");
+  flex: 1;
+  min-height: 0;
 }
 
 .map-loading {
@@ -441,6 +668,24 @@ onUnmounted(() => {
   color: #fff;
   font-size: 14px;
   z-index: 10;
+}
+
+.map-style-switcher {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+}
+
+.map-style-switcher .style-select {
+  width: 150px;
+}
+
+.map-style-switcher :deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  border-radius: 6px;
 }
 
 .map-legend {
