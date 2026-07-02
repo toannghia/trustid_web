@@ -42,13 +42,13 @@ export interface TransportVehicle {
 
 export const transportApi = {
     // WAREHOUSES
-    getWarehouses: () => api.get<Warehouse[]>('/supply/warehouses'),
+    getWarehouses: (params?: any) => api.get<any>('/supply/warehouses', { params }),
     createWarehouse: (data: any) => api.post<Warehouse>('/supply/warehouses', data),
     updateWarehouse: (id: string, data: any) => api.patch<Warehouse>(`/supply/warehouses/${id}`, data),
     deleteWarehouse: (id: string) => api.delete(`/supply/warehouses/${id}`),
 
     // VEHICLES
-    getVehicles: () => api.get<TransportVehicle[]>('/supply/vehicles'),
+    getVehicles: (params?: any) => api.get<any>('/supply/vehicles', { params }),
     createVehicle: (data: any) => api.post<TransportVehicle>('/supply/vehicles', data),
     updateVehicle: (id: string, data: any) => api.patch<TransportVehicle>(`/supply/vehicles/${id}`, data),
     deleteVehicle: (id: string) => api.delete(`/supply/vehicles/${id}`),

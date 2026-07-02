@@ -12,6 +12,7 @@ const loading = ref(false);
 const stamps = ref<any[]>([]);
 const stampTotal = ref(0);
 const stampPage = ref(1);
+const stampLimit = ref(20);
 const stampFilter = ref('ALL');
 const searchQuery = ref('');
 const verifyResult = ref<any>(null);
@@ -22,7 +23,7 @@ const groupDetailVisible = ref(false);
 const loadStamps = async (page = 1) => {
   loading.value = true;
   try {
-    const params: any = { page, limit: 20 };
+    const params: any = { page, limit: stampLimit.value };
     if (stampFilter.value !== 'ALL') params.status = stampFilter.value;
     if (searchQuery.value) params.search = searchQuery.value;
     const { data } = await blockchainApi.getStamps(params);
@@ -32,6 +33,19 @@ const loadStamps = async (page = 1) => {
   } finally {
     loading.value = false;
   }
+};
+
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    loadStamps(1);
+  }, 300);
+};
+
+const handleSizeChange = (val: number) => {
+  stampLimit.value = val;
+  loadStamps(1);
 };
 
 onMounted(() => loadStamps());
@@ -138,7 +152,7 @@ const statusLabel = (s: string) => {
 const formatDate = (d: string) => d ? new Date(d).toLocaleString('vi-VN') : '—';
 const shortHash = (h: string) => h ? `${h.slice(0, 8)}...${h.slice(-6)}` : '—';
 
-const getRowIndex = (index: number) => (stampPage.value - 1) * 20 + index + 1;
+const getRowIndex = (index: number) => (stampPage.value - 1) * stampLimit.value + index + 1;
 </script>
 
 <template>
@@ -171,7 +185,7 @@ const getRowIndex = (index: number) => (stampPage.value - 1) * 20 + index + 1;
         <el-option label="Thất bại" value="FAILED" />
       </el-select>
       <el-input v-model="searchQuery" placeholder="Tìm mã lô..." clearable style="width:260px"
-        @clear="loadStamps(1)" @keyup.enter="loadStamps(1)" />
+        @input="debouncedSearch" @clear="loadStamps(1)" @keyup.enter="loadStamps(1)" />
       <span class="total-count">Tổng: {{ stampTotal }} batch</span>
     </div>
 
@@ -245,11 +259,12 @@ const getRowIndex = (index: number) => (stampPage.value - 1) * 20 + index + 1;
     <!-- PAGINATION -->
     <div class="pagination-wrap">
       <el-pagination
-        layout="total, sizes, prev, pager, next"
+        v-model:current-page="stampPage"
+        v-model:page-size="stampLimit"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
         :total="stampTotal"
-        :page-size="20"
-        :page-sizes="[10, 20, 50]"
-        :current-page="stampPage"
+        @size-change="handleSizeChange"
         @current-change="loadStamps"
       />
     </div>

@@ -71,10 +71,29 @@ const getImageUrl = (path: string) => {
     return `${baseUrl}${path}`;
 };
 
+const page = ref(1);
+const limit = ref(10);
+const totalProducts = ref(0);
+
 const fetchProducts = async () => {
     try {
-        const { data } = await productApi.getList({}); 
+        const params: any = {
+            page: page.value,
+            limit: limit.value
+        };
+        if (searchTerm.value) {
+            params.search = searchTerm.value;
+        }
+        if (filter.tenant_id) {
+            params.tenantId = filter.tenant_id;
+        }
+        if (filter.category_id) {
+            params.categoryId = filter.category_id;
+        }
+
+        const { data } = await productApi.getList(params); 
         products.value = data.data || data.items || data || [];
+        totalProducts.value = data.meta?.total || products.value.length;
         
         if (route.query.id) {
             const match = products.value.find((p: any) => p.id === route.query.id);
@@ -95,63 +114,36 @@ const fetchCategories = async () => {
     } catch(e) {}
 };
 
-// Recursive helper to get all category IDs including children
-const getAllCategoryIds = (catId: string, categoryList: any[]): string[] => {
-    const ids = [catId];
-    
-    const findNode = (nodes: any[], id: string): any => {
-        for (const node of nodes) {
-            if (node.id === id) return node;
-            if (node.children) {
-                const found = findNode(node.children, id);
-                if (found) return found;
-            }
-        }
-        return null;
-    };
-    
-    const targetNode = findNode(categoryList, catId);
-    if (!targetNode) return ids;
-
-    const traverse = (node: any) => {
-        ids.push(node.id);
-        if (node.children) {
-            node.children.forEach(traverse);
-        }
-    };
-    
-    if (targetNode.children) {
-        targetNode.children.forEach(traverse);
-    }
-    
-    return [...new Set(ids)];
+const handlePageChange = (val: number) => {
+    page.value = val;
+    fetchProducts();
 };
 
-const filteredProducts = computed(() => {
-    let result = products.value;
+const handleSizeChange = (val: number) => {
+    limit.value = val;
+    page.value = 1;
+    fetchProducts();
+};
 
-    if (searchTerm.value) {
-        const lower = searchTerm.value.toLowerCase();
-        result = result.filter((p: any) => 
-            p.name?.toLowerCase().includes(lower) || 
-            p.gtinCode?.toLowerCase().includes(lower)
-        );
-    }
+const handleFilterChange = () => {
+    page.value = 1;
+    fetchProducts();
+};
 
-    if (filter.tenant_id) {
-        result = result.filter((p: any) => p.tenant?.id === filter.tenant_id || p.tenantId === filter.tenant_id);
-    }
-
-    if (filter.category_id) {
-        const relevantIds = getAllCategoryIds(filter.category_id, categories.value);
-        result = result.filter((p: any) => {
-             const pCatId = p.category?.id || p.categoryId;
-             return relevantIds.includes(pCatId);
-        });
-    }
-
-    return result;
+import { watch } from 'vue';
+let searchTimeout: any = null;
+watch(searchTerm, () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        handleFilterChange();
+    }, 300);
 });
+
+watch(filter, () => {
+    handleFilterChange();
+}, { deep: true });
+
+const filteredProducts = computed(() => products.value);
 
 // Detail Modal
 const showDetailModal = ref(false);
@@ -191,15 +183,15 @@ const handleRetryNda = async (row: any) => {
 };
 
 onMounted(() => {
+    if (route.query.search) {
+        searchTerm.value = String(route.query.search);
+    }
     fetchProducts();
     fetchCategories();
     if (isSystemAdmin.value) {
          tenantApi.getAll({}).then(res => {
              tenants.value = res.data.data || res.data || [];
          }).catch(() => {});
-    }
-    if (route.query.search) {
-        searchTerm.value = String(route.query.search);
     }
 });
 
@@ -233,7 +225,11 @@ onMounted(() => {
         </div>
 
         <el-table :data="filteredProducts" class="w-full" stripe border>
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+            <template #default="scope">
+                {{ (page - 1) * limit + scope.$index + 1 }}
+            </template>
+        </el-table-column>
         <el-table-column label="Ảnh" width="80" align="center">
             <template #default="scope">
                 <el-image 
@@ -329,6 +325,19 @@ onMounted(() => {
             </template>
         </el-table-column>
       </el-table>
+
+      <div class="p-4 flex justify-end">
+           <el-pagination
+               v-model:current-page="page"
+               v-model:page-size="limit"
+               :total="totalProducts"
+               :page-sizes="[10, 50, 100, 500]"
+               layout="total, sizes, prev, pager, next, jumper"
+               background
+               @size-change="handleSizeChange"
+               @current-change="handlePageChange"
+           />
+       </div>
 
     <!-- Refactored Modal -->
     <ProductFormModal

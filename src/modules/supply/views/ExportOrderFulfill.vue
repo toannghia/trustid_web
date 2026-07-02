@@ -8,11 +8,15 @@
                 <template #header>
                     <h3 class="font-bold text-gray-700 flex items-center gap-2">
                         <el-icon class="text-orange-500"><Loading v-if="loading" /><Van v-else /></el-icon>
-                        Lệnh chờ xuất kho ({{ pendingOrders.length }})
+                        Lệnh chờ xuất kho ({{ pendingTotal }})
                     </h3>
                 </template>
                 <el-table :data="pendingOrders" v-loading="loading">
-                     <el-table-column type="index" label="STT" width="60" align="center" />
+                     <el-table-column label="STT" width="60" align="center">
+                          <template #default="{ $index }">
+                              {{ (pendingCurrentPage - 1) * pendingPageSize + $index + 1 }}
+                          </template>
+                     </el-table-column>
                      <el-table-column label="Số lệnh" prop="orderCode" width="160">
                          <template #default="{row}">
                              <div class="font-bold text-blue-600 cursor-pointer hover:underline" @click="openReadonlyDetail(row)">
@@ -56,6 +60,18 @@
                          </template>
                      </el-table-column>
                 </el-table>
+                <div class="flex justify-end p-4 bg-white border-t border-gray-100">
+                    <el-pagination
+                        v-model:current-page="pendingCurrentPage"
+                        v-model:page-size="pendingPageSize"
+                        :total="pendingTotal"
+                        :page-sizes="[10, 50, 100, 500]"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        background
+                        @size-change="handlePendingSizeChange"
+                        @current-change="handlePendingPageChange"
+                    />
+                </div>
             </el-card>
 
             <!-- KHỐI LỆNH ĐÃ XUẤT KHO -->
@@ -63,11 +79,15 @@
                 <template #header>
                     <h3 class="font-bold text-gray-700 flex items-center gap-2">
                         <el-icon class="text-green-500"><Check /></el-icon>
-                        Lệnh đã xuất kho ({{ exportedOrders.length }})
+                        Lệnh đã xuất kho ({{ exportedTotal }})
                     </h3>
                 </template>
                 <el-table :data="exportedOrders" v-loading="loading">
-                     <el-table-column type="index" label="STT" width="60" align="center" />
+                     <el-table-column label="STT" width="60" align="center">
+                          <template #default="{ $index }">
+                              {{ (exportedCurrentPage - 1) * exportedPageSize + $index + 1 }}
+                          </template>
+                     </el-table-column>
                      <el-table-column label="Số Phiếu Xuất (PXK)" width="200">
                          <template #default="{row}">
                              <div class="font-bold text-green-600 cursor-pointer hover:underline" @click="openReadonlyDetail(row)">
@@ -130,6 +150,18 @@
                         </template>
                      </el-table-column>
                 </el-table>
+                <div class="flex justify-end p-4 bg-white border-t border-gray-100">
+                    <el-pagination
+                        v-model:current-page="exportedCurrentPage"
+                        v-model:page-size="exportedPageSize"
+                        :total="exportedTotal"
+                        :page-sizes="[10, 50, 100, 500]"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        background
+                        @size-change="handleExportedSizeChange"
+                        @current-change="handleExportedPageChange"
+                    />
+                </div>
             </el-card>
         </div>
 
@@ -568,6 +600,14 @@ const loading = ref(false);
 const pendingOrders = ref<any[]>([]);
 const exportedOrders = ref<any[]>([]);
 
+const pendingCurrentPage = ref(1);
+const pendingPageSize = ref(10);
+const pendingTotal = ref(0);
+
+const exportedCurrentPage = ref(1);
+const exportedPageSize = ref(10);
+const exportedTotal = ref(0);
+
 const selectedOrder = ref<any>(null);
 const scanInput = ref('');
 const scanInputRef = ref<any>(null);
@@ -690,32 +730,87 @@ const getProductName = (productId: string) => {
     return it?.product?.name || '---';
 };
 
-const loadOrders = async () => {
+const loadPendingOrders = async () => {
     loading.value = true;
     try {
-        const [{ data: confirmed }, { data: picking }, { data: exported }] = await Promise.all([
-            exportOrderApi.getOrders({ status: 'CONFIRMED' }),
-            exportOrderApi.getOrders({ status: 'PICKING' }),
-            exportOrderApi.getOrders({ status: 'EXPORTED' })
-        ]);
-        
-        pendingOrders.value = [...((confirmed as any).items||confirmed), ...((picking as any).items||picking)];
-        exportedOrders.value = (exported as any).items || exported;
-
-        // Load existing shipments to check which orders already have PGH
-        try {
-            const { data: shipments } = await transportApi.getShipments({ type: 'DEALER_EXPORT' });
-            const map: Record<string, any> = {};
-            (Array.isArray(shipments) ? shipments : []).forEach((s: any) => {
-                if (s.exportOrderId) map[s.exportOrderId] = s;
-            });
-            shipmentsMap.value = map;
-        } catch (e) {}
+        const { data } = await exportOrderApi.getOrders({
+            status: 'CONFIRMED,PICKING',
+            page: pendingCurrentPage.value,
+            limit: pendingPageSize.value
+        });
+        if (data && Array.isArray(data)) {
+            pendingOrders.value = data;
+            pendingTotal.value = data.length;
+        } else {
+            pendingOrders.value = data.items || [];
+            pendingTotal.value = data.pagination?.total || 0;
+        }
     } catch (e) {
-        ElMessage.error('Lỗi tải danh sách lệnh');
+        ElMessage.error('Lỗi tải danh sách lệnh chờ xuất');
     } finally {
         loading.value = false;
     }
+};
+
+const loadExportedOrders = async () => {
+    loading.value = true;
+    try {
+        const { data } = await exportOrderApi.getOrders({
+            status: 'EXPORTED',
+            page: exportedCurrentPage.value,
+            limit: exportedPageSize.value
+        });
+        if (data && Array.isArray(data)) {
+            exportedOrders.value = data;
+            exportedTotal.value = data.length;
+        } else {
+            exportedOrders.value = data.items || [];
+            exportedTotal.value = data.pagination?.total || 0;
+        }
+    } catch (e) {
+        ElMessage.error('Lỗi tải danh sách lệnh đã xuất');
+    } finally {
+        loading.value = false;
+    }
+};
+
+const handlePendingSizeChange = (val: number) => {
+    pendingPageSize.value = val;
+    pendingCurrentPage.value = 1;
+    loadPendingOrders();
+};
+
+const handlePendingPageChange = (val: number) => {
+    pendingCurrentPage.value = val;
+    loadPendingOrders();
+};
+
+const handleExportedSizeChange = (val: number) => {
+    exportedPageSize.value = val;
+    exportedCurrentPage.value = 1;
+    loadExportedOrders();
+};
+
+const handleExportedPageChange = (val: number) => {
+    exportedCurrentPage.value = val;
+    loadExportedOrders();
+};
+
+const loadOrders = async () => {
+    await Promise.all([
+        loadPendingOrders(),
+        loadExportedOrders()
+    ]);
+
+    // Load existing shipments to check which orders already have PGH
+    try {
+        const { data: shipments } = await transportApi.getShipments({ type: 'DEALER_EXPORT' });
+        const map: Record<string, any> = {};
+        (Array.isArray(shipments) ? shipments : []).forEach((s: any) => {
+            if (s.exportOrderId) map[s.exportOrderId] = s;
+        });
+        shipmentsMap.value = map;
+    } catch (e) {}
 };
 
 const openReadonlyDetail = async (row: any) => {

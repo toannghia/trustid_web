@@ -41,6 +41,10 @@ const poolFilter = reactive({
     tenantId: ''
 });
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalPools = ref(0);
+
 // --- POOLS STATE ---
 const generateForm = reactive({
   name: getDefaultBatchName(), // Set default name
@@ -149,13 +153,23 @@ const handleGenerate = async () => {
 const fetchPools = async () => {
   loading.value = true;
   try {
-    const params: any = { ...poolFilter };
+    const params: any = {
+      ...poolFilter,
+      page: currentPage.value,
+      limit: pageSize.value
+    };
     Object.keys(params).forEach(key => {
         if (!params[key]) delete params[key];
     });
 
     const { data } = await codeApi.getPools(params);
-    pools.value = data.data || data.items || (Array.isArray(data) ? data : []);
+    if (data && typeof data === 'object' && 'data' in data) {
+      pools.value = data.data || [];
+      totalPools.value = data.total || 0;
+    } else {
+      pools.value = data.data || data.items || (Array.isArray(data) ? data : []);
+      totalPools.value = pools.value.length;
+    }
   } catch (e) {
     console.error(e);
   } finally {
@@ -164,6 +178,7 @@ const fetchPools = async () => {
 };
 
 const handlePoolFilter = () => {
+    currentPage.value = 1;
     fetchPools();
 };
 
@@ -171,7 +186,35 @@ const handleResetPoolFilter = () => {
     poolFilter.search = '';
     poolFilter.status = '';
     poolFilter.tenantId = '';
+    currentPage.value = 1;
     fetchPools();
+};
+
+// Reset to page 1 on filter changes
+watch([() => poolFilter.status, () => poolFilter.tenantId], () => {
+  currentPage.value = 1;
+  fetchPools();
+});
+
+let poolSearchTimeout: any = null;
+watch(() => poolFilter.search, () => {
+  if (poolSearchTimeout) clearTimeout(poolSearchTimeout);
+  poolSearchTimeout = setTimeout(() => {
+    currentPage.value = 1;
+    fetchPools();
+  }, 300);
+});
+
+// Pagination handlers
+const handlePoolSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  fetchPools();
+};
+
+const handlePoolCurrentChange = (val: number) => {
+  currentPage.value = val;
+  fetchPools();
 };
 
 const fetchTenants = async () => {
@@ -381,6 +424,11 @@ onMounted(() => {
             </div>
 
           <el-table :data="pools" v-loading="loading" stripe border style="width: 100%">
+            <el-table-column label="STT" width="60" align="center">
+              <template #default="{ $index }">
+                {{ (currentPage - 1) * pageSize + $index + 1 }}
+              </template>
+            </el-table-column>
             <el-table-column prop="name" label="Tên lô mã" min-width="180">
                  <template #default="{ row }">
                     <span class="font-medium text-blue-600 cursor-pointer hover:underline" @click="viewPoolDetails(row)">{{ row.name }}</span>
@@ -433,6 +481,19 @@ onMounted(() => {
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- Pagination -->
+          <div class="flex justify-end mt-4">
+            <el-pagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :page-sizes="[10, 50, 100, 500]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="totalPools"
+              @size-change="handlePoolSizeChange"
+              @current-change="handlePoolCurrentChange"
+            />
+          </div>
         </el-tab-pane>
   
         <!-- TAB 2: DANH SÁCH MÃ CHI TIẾT -->
@@ -498,6 +559,11 @@ onMounted(() => {
 
             <!-- Table -->
             <el-table :data="items" v-loading="itemsLoading" height="600" border stripe>
+                <el-table-column label="STT" width="60" align="center">
+                  <template #default="{ $index }">
+                    {{ (itemFilter.page - 1) * itemFilter.limit + $index + 1 }}
+                  </template>
+                </el-table-column>
                 <el-table-column prop="codeString" label="Mã QR (Hex)" width="220" font-family="monospace" />
                 <el-table-column prop="serial" label="Serial" width="150" />
                 <el-table-column prop="status" label="Trạng thái" width="120" align="center">

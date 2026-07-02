@@ -8,9 +8,27 @@
       </el-button>
     </div>
 
+    <!-- Search and count -->
+    <div class="flex items-center gap-4 mb-4">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="Tìm kiếm biển số xe..."
+        clearable
+        style="width: 240px"
+        @input="debouncedSearch"
+      />
+      <span class="text-gray-500 text-sm">
+        Tổng số: <strong>{{ totalVehicles }}</strong> xe
+      </span>
+    </div>
+
     <el-card shadow="hover">
       <el-table :data="vehicles" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column label="Ảnh" width="80">
              <template #default="{ row }">
                  <el-image 
@@ -59,6 +77,18 @@
             </template>
         </el-table-column>
       </el-table>
+
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalVehicles"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
 
     <!-- Create/Edit Modal -->
@@ -157,6 +187,11 @@ const showCreateModal = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalVehicles = ref(0);
+const searchKeyword = ref('');
+
 const getImageUrl = (path: string | undefined) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
@@ -201,13 +236,45 @@ const rules = reactive<FormRules>({
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await transportApi.getVehicles();
-    vehicles.value = data;
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value,
+    };
+    if (searchKeyword.value) {
+      params.search = searchKeyword.value;
+    }
+    const { data } = await transportApi.getVehicles(params);
+    vehicles.value = data.data || [];
+    totalVehicles.value = data.total || 0;
   } catch (err) {
     ElMessage.error('Không thể tải danh sách xe');
   } finally {
     loading.value = false;
   }
+};
+
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
+};
+
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  loadData();
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  loadData();
+};
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+  loadData();
 };
 
 const openEditModal = (row: TransportVehicle) => {

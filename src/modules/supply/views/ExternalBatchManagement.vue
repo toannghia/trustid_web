@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi, CreateExternalBatchDto, ExportBatchDto, AssignCodesToBatchDto } from '../api/supplyApi';
 import { productApi } from '@/modules/core/api/product';
@@ -26,6 +26,17 @@ const tenants = ref<any[]>([]);
 const searchQuery = ref('');
 const productFilter = ref('');
 const hideEmptyStock = ref(true);
+
+// Pagination State
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalBatches = ref(0);
+const statsData = ref({
+  allCount: 0,
+  hasStock: 0,
+  zeroStock: 0,
+  totalWeight: 0
+});
 
 const weightUnits = [
   { label: 'Tấn', value: 'ton', rate: 1000 },
@@ -302,38 +313,15 @@ const handleAssignCodes = async () => {
 };
 
 // Computed
-const filteredBatches = computed(() => {
-  let result = batches.value;
-  
-  if (productFilter.value) {
-    result = result.filter(b => b.productId === productFilter.value);
-  }
-  
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase();
-    result = result.filter(b => 
-      b.batchCode.toLowerCase().includes(q) || 
-      b.product?.name?.toLowerCase().includes(q)
-    );
-  }
-
-  if (hideEmptyStock.value) {
-    result = result.filter(b => (Number(b.totalQuantity) || 0) >= 0.01);
-  }
-
-  return result;
-});
+const filteredBatches = computed(() => batches.value);
 
 const stats = computed(() => {
-  const all = batches.value;
-  const zeroStock = all.filter(b => (Number(b.totalQuantity) || 0) < 0.01).length;
-  const hasStock = all.filter(b => (Number(b.totalQuantity) || 0) >= 0.01).length;
   return {
-    totalCount: filteredBatches.value.length,
-    totalWeight: filteredBatches.value.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0),
-    zeroStock,
-    hasStock,
-    allCount: all.length
+    totalCount: totalBatches.value,
+    totalWeight: statsData.value.totalWeight,
+    zeroStock: statsData.value.zeroStock,
+    hasStock: statsData.value.hasStock,
+    allCount: statsData.value.allCount
   };
 });
 
@@ -342,14 +330,46 @@ const fetchData = async () => {
   loading.value = true;
   try {
     const [batchesRes, productsRes, tenantsRes, warehousesRes]: any[] = await Promise.all([
-      supplyApi.getExternalBatches(),
+      supplyApi.getExternalBatches({
+        page: currentPage.value,
+        limit: pageSize.value,
+        search: searchQuery.value || undefined,
+        productId: productFilter.value || undefined,
+        hideEmptyStock: hideEmptyStock.value ? 'true' : 'false'
+      }),
       productApi.getList({ limit: 100 }),
       tenantApi.getActive({ limit: 100 }),
       transportApi.getWarehouses()
     ]);
     
     // Defensive data parsing
-    batches.value = batchesRes.data?.data || batchesRes.data || [];
+    const resData = batchesRes.data;
+    if (resData && typeof resData === 'object' && 'data' in resData) {
+      batches.value = resData.data || [];
+      totalBatches.value = resData.total || 0;
+      if (resData.stats) {
+        statsData.value = {
+          allCount: resData.stats.allCount || 0,
+          hasStock: resData.stats.hasStock || 0,
+          zeroStock: resData.stats.zeroStock || 0,
+          totalWeight: resData.stats.totalWeight || 0
+        };
+      }
+    } else {
+      batches.value = Array.isArray(resData) ? resData : [];
+      totalBatches.value = batches.value.length;
+      // Fallback
+      const all = batches.value;
+      const zeroStock = all.filter(b => (Number(b.totalQuantity) || 0) < 0.01).length;
+      const hasStock = all.filter(b => (Number(b.totalQuantity) || 0) >= 0.01).length;
+      statsData.value = {
+        allCount: all.length,
+        hasStock,
+        zeroStock,
+        totalWeight: all.reduce((acc, b) => acc + (Number(b.totalQuantity) || 0), 0)
+      };
+    }
+    
     products.value = productsRes.data?.items || productsRes.data?.data || productsRes.data || [];
     tenants.value = tenantsRes.data?.items || tenantsRes.data?.data || tenantsRes.data || [];
     warehouses.value = warehousesRes.data || [];
@@ -362,6 +382,33 @@ const fetchData = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// Reset to page 1 on filter changes
+watch([productFilter, hideEmptyStock], () => {
+  currentPage.value = 1;
+  fetchData();
+});
+
+let searchTimeout: any = null;
+watch(searchQuery, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    currentPage.value = 1;
+    fetchData();
+  }, 300);
+});
+
+// Pagination handlers
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  fetchData();
+};
+
+const handleCurrentChange = (val: number) => {
+  currentPage.value = val;
+  fetchData();
 };
 
 const handleAdd = () => {
@@ -1011,6 +1058,11 @@ onMounted(fetchData);
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="batchCode" label="Mã Lô" width="220">
           <template #default="{ row }">
             <div class="flex flex-col">
@@ -1069,6 +1121,19 @@ onMounted(fetchData);
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 50, 100, 500]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalBatches"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <el-dialog

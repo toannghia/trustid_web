@@ -15,8 +15,12 @@
 
     <!-- Table -->
     <el-card shadow="hover">
-      <el-table :data="filteredStaffs" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+      <el-table :data="staffs" v-loading="loading" style="width: 100%">
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column label="Họ tên" min-width="200">
           <template #default="{ row }">
             <div class="font-medium text-blue-600">{{ row.fullName || '—' }}</div>
@@ -39,6 +43,19 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalStaffs"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <QuickUserModal ref="modalRef" role-name="KCS_STAFF" @created="loadData" />
@@ -58,6 +75,10 @@ const searchKeyword = ref('');
 const showModal = ref(false);
 const modalRef = ref<any>();
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalStaffs = ref(0);
+
 watch(showModal, (val) => {
   if (val) {
     showModal.value = false;
@@ -65,27 +86,51 @@ watch(showModal, (val) => {
   }
 });
 
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
+});
+
 const loadData = async () => {
   loading.value = true;
   try {
-    const res = await userApi.getList({ page: 1, limit: 1000, roleName: 'KCS_STAFF' });
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      roleName: 'KCS_STAFF'
+    };
+    if (searchKeyword.value) {
+      params.search = searchKeyword.value;
+    }
+    const res = await userApi.getList(params);
     const data = res.data;
     staffs.value = data?.data || data?.items || (Array.isArray(data) ? data : []);
+    totalStaffs.value = data?.total || staffs.value.length;
   } catch (err: any) {
     ElMessage.error(err.response?.data?.message || 'Không thể tải dữ liệu');
   } finally {
     loading.value = false;
   }
 };
-
-const filteredStaffs = computed(() => {
-  if (!searchKeyword.value) return staffs.value;
-  const kw = searchKeyword.value.toLowerCase();
-  return staffs.value.filter(u => 
-    (u.fullName && u.fullName.toLowerCase().includes(kw)) ||
-    (u.username && u.username.toLowerCase().includes(kw))
-  );
-});
 
 onMounted(() => {
   loadData();

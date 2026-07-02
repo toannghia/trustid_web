@@ -99,6 +99,7 @@ onMounted(fetchPools);
         style="width: 100%"
         header-cell-class-name="bg-gray-50 text-gray-700 font-bold"
       >
+        <el-table-column type="index" label="STT" width="60" align="center" />
         <el-table-column prop="name" label="Tên lô mã" min-width="200">
           <template #default="scope">
             <span class="font-medium text-blue-600 cursor-pointer">{{ scope.row.name }}</span>

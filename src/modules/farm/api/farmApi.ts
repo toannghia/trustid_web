@@ -129,8 +129,8 @@ export const farmApi = {
     },
 
     // Master Growing Areas
-    getMasterGrowingAreas() {
-        return api.get<MasterGrowingArea[]>(`${baseUrl}/master-growing-areas`);
+    getMasterGrowingAreas(params?: any) {
+        return api.get<MasterGrowingArea[]>(`${baseUrl}/master-growing-areas`, { params });
     },
     createMasterGrowingArea(data: { code: string; name: string; address?: string; province?: string; ward?: string; ownerName?: string; managerName?: string; plantType?: string; leaderIds?: string[]; maxAreaM2?: number; }) {
         return api.post<MasterGrowingArea>(`${baseUrl}/master-growing-areas`, data);
@@ -146,8 +146,8 @@ export const farmApi = {
     },
 
     // Templates
-    getTemplates() {
-        return api.get<ProcessTemplate[]>(`${baseUrl}/templates`);
+    getTemplates(params?: any) {
+        return api.get<any>(`${baseUrl}/templates`, { params });
     },
     createTemplate(data: { name: string; tasks_config: any[] }) {
         return api.post<ProcessTemplate>(`${baseUrl}/templates`, data);
@@ -157,8 +157,8 @@ export const farmApi = {
     },
 
     // Cycles
-    getCycles() {
-        return api.get<CropCycle[]>(`${baseUrl}/cycles`);
+    getCycles(params?: any) {
+        return api.get<any>(`${baseUrl}/cycles`, { params });
     },
     startCycle(data: { location_id: string; template_id: string; name: string; start_date: string }) {
         return api.post<CropCycle>(`${baseUrl}/cycles`, data);
@@ -177,8 +177,8 @@ export const farmApi = {
     },
 
     // Materials
-    getMaterials(includeInactive = false) {
-        return api.get<Material[]>(`${baseUrl}/materials`, { params: { includeInactive } });
+    getMaterials(params?: any) {
+        return api.get<any>(`${baseUrl}/materials`, { params: typeof params === 'boolean' ? { includeInactive: params } : params });
     },
     suggestMaterialCode(type: string) {
         return api.get<{ code: string }>(`${baseUrl}/materials/suggest-code`, { params: { type } });

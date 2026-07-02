@@ -10,20 +10,20 @@
 
     <!-- Search Toolbar -->
     <div class="mb-4 flex gap-4 flex-wrap">
-        <el-input v-model="searchKeyword" placeholder="Tìm theo tên hoặc mã vùng..." class="w-64" clearable prefix-icon="Search" @input="loadData" />
+        <el-input v-model="searchKeyword" placeholder="Tìm theo tên hoặc mã vùng..." class="w-64" clearable prefix-icon="Search" />
         <el-select v-model="filter.province" placeholder="Tỉnh/Thành" clearable class="w-48" @change="handleFilterProvinceChange">
              <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
         </el-select>
-        <el-select v-model="filter.ward" placeholder="Phường/Xã" clearable class="w-48" @change="loadData" :disabled="!filter.province">
+        <el-select v-model="filter.ward" placeholder="Phường/Xã" clearable class="w-48" @change="handleFilterChange" :disabled="!filter.province">
              <el-option v-for="w in filterWards" :key="w.name" :label="w.name" :value="w.name" />
         </el-select>
-        <el-select v-model="filter.masterGrowingAreaId" placeholder="Vùng trồng lớn" clearable class="w-48" @change="loadData">
+        <el-select v-model="filter.masterGrowingAreaId" placeholder="Vùng trồng lớn" clearable class="w-48" @change="handleFilterChange">
              <el-option v-for="a in masterGrowingAreas" :key="a.id" :label="a.name" :value="a.id" />
         </el-select>
-        <el-select v-model="filter.farmerId" placeholder="Nông hộ" clearable filterable class="w-48" @change="loadData" v-if="!isFarmerRole">
+        <el-select v-model="filter.farmerId" placeholder="Nông hộ" clearable filterable class="w-48" @change="handleFilterChange" v-if="!isFarmerRole">
              <el-option v-for="u in farmers" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
         </el-select>
-        <el-select v-model="filter.leaderId" placeholder="Đội trưởng" clearable filterable class="w-48" @change="loadData">
+        <el-select v-model="filter.leaderId" placeholder="Đội trưởng" clearable filterable class="w-48" @change="handleFilterChange">
              <el-option v-for="u in allTeamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
         </el-select>
     </div>
@@ -31,7 +31,11 @@
     <!-- Table -->
     <el-card shadow="hover" class="mb-6">
       <el-table :data="locations" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="name" label="Tên thửa" min-width="220">
           <template #default="{ row }">
             <router-link :to="`/farm/locations/${row.id}`" class="text-blue-600 hover:text-blue-800 font-medium cursor-pointer hover:underline">
@@ -100,6 +104,19 @@
             </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalLocations"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <!-- Create/Edit Modal -->
@@ -322,6 +339,9 @@ import { vietnamUnits } from '@/common/data/vietnam-units';
 
 const locations = ref<Location[]>([]);
 const loading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalLocations = ref(0);
 const showCreateModal = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
@@ -516,7 +536,7 @@ const handleFilterProvinceChange = () => {
     filter.ward = '';
     const prov = provinces.value.find(p => p.name === filter.province);
     filterWards.value = prov ? prov.wards : [];
-    loadData();
+    handleFilterChange();
 };
 
 // Map Search Helpers
@@ -875,32 +895,52 @@ watch(() => [form.lat, form.long], ([newLat, newLong]) => {
     }
 });
 
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
+});
+
 const loadData = async () => {
   loading.value = true;
   try {
-    const params: any = {};
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value
+    };
     if (filter.province) params.province = filter.province;
     if (filter.ward) params.ward = filter.ward;
     if (filter.masterGrowingAreaId) params.masterGrowingAreaId = filter.masterGrowingAreaId;
     if (filter.farmerId) params.farmerId = filter.farmerId;
     if (filter.leaderId) params.leaderId = filter.leaderId;
-    // Note: Search keyword filtering is currently done client-side if API doesn't support it, 
-    // or pass to API if implemented. Current API implementation might not support 'search' param yet.
-    // Based on Controller, we only added province/ward support. 
-    // So we'll filter client-side for search for now if API returns all.
+    if (searchKeyword.value) params.search = searchKeyword.value;
     
     const { data } = await farmApi.getLocations(params);
-    let result = data || [];
-    
-    if (searchKeyword.value) {
-        const lowerKey = searchKeyword.value.toLowerCase();
-        result = result.filter((loc: any) => 
-            (loc.name && loc.name.toLowerCase().includes(lowerKey)) || 
-            (loc.code && loc.code.toLowerCase().includes(lowerKey))
-        );
+    if (data && typeof data === 'object' && 'data' in data) {
+      locations.value = data.data || [];
+      totalLocations.value = data.total || 0;
+    } else {
+      locations.value = data || [];
+      totalLocations.value = locations.value.length;
     }
-    
-    locations.value = result;
   } catch (err) {
     ElMessage.error('Không thể tải danh sách thửa');
   } finally {

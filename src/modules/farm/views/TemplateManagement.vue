@@ -18,7 +18,11 @@
     <!-- Table -->
     <el-card shadow="hover" class="mb-6">
       <el-table :data="filteredTemplates" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="name" label="Tên quy trình" min-width="250" />
         <el-table-column label="Số lượng việc" width="150" align="center">
           <template #default="{ row }">
@@ -36,6 +40,19 @@
             </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalTemplates"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <!-- Create/Edit Modal -->
@@ -157,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { Plus, Delete, Search } from '@element-plus/icons-vue';
 import { ElMessage, type FormInstance } from 'element-plus';
 import { farmApi, type ProcessTemplate, type Material } from '../api/farmApi';
@@ -177,9 +194,36 @@ const formRef = ref<FormInstance>();
 
 const searchKeyword = ref('');
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalTemplates = ref(0);
+
 const filteredTemplates = computed(() => {
-    if (!searchKeyword.value) return templates.value;
-    return templates.value.filter(t => t.name.toLowerCase().includes(searchKeyword.value.toLowerCase()));
+    return templates.value;
+});
+
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
 });
 
 // Edit State
@@ -241,8 +285,20 @@ const removeTaskFromStage = (stageIndex: number, taskIndex: number) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await farmApi.getTemplates();
-    templates.value = data;
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    if (searchKeyword.value) params.search = searchKeyword.value;
+
+    const { data } = await farmApi.getTemplates(params);
+    if (data && typeof data === 'object' && 'data' in data) {
+      templates.value = data.data || [];
+      totalTemplates.value = data.total || 0;
+    } else {
+      templates.value = data || [];
+      totalTemplates.value = templates.value.length;
+    }
   } catch (err) {
     ElMessage.error('Không thể tải danh sách quy trình');
   } finally {

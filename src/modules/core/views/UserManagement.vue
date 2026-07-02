@@ -58,6 +58,7 @@ const submitting = ref(false);
 const showModal = ref(false);
 const isEdit = ref(false);
 const currentUser = ref<any>(null);
+const totalUsers = ref(0);
 
 const userForm = reactive({
   full_name: '',
@@ -76,6 +77,35 @@ const filter = reactive({
   tenantId: '',
   roleName: '',
   showEndUsers: false
+});
+
+const handlePageChange = (val: number) => {
+    filter.page = val;
+    fetchUsers();
+};
+
+const handleSizeChange = (val: number) => {
+    filter.limit = val;
+    filter.page = 1;
+    fetchUsers();
+};
+
+const handleFilterChange = () => {
+    filter.page = 1;
+    fetchUsers();
+};
+
+import { watch } from 'vue';
+let searchTimeout: any = null;
+watch(() => filter.search, () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        handleFilterChange();
+    }, 300);
+});
+
+watch([() => filter.tenantId, () => filter.roleName, () => filter.showEndUsers], () => {
+    handleFilterChange();
 });
 
 const openCreateModal = () => {
@@ -175,6 +205,7 @@ const fetchUsers = async () => {
 
     const { data } = await userApi.getList(apiParams as any);
     users.value = data.data || data.items || (Array.isArray(data) ? data : []);
+    totalUsers.value = data.meta?.total || users.value.length;
   } catch (error) {
     console.error('Error fetching users:', error);
     ElMessage.error('Không thể tải danh sách người dùng');
@@ -217,26 +248,26 @@ onMounted(() => {
       <div class="flex flex-wrap gap-4 items-end">
         <div class="w-64">
           <label class="text-sm font-medium text-gray-700 block mb-1">Từ khóa</label>
-          <el-input v-model="filter.search" placeholder="Tên, Username, Email..." :prefix-icon="Search" @input="fetchUsers" />
+          <el-input v-model="filter.search" placeholder="Tên, Username, Email..." :prefix-icon="Search" clearable />
         </div>
         <div class="w-48" v-if="isSystemAdmin">
           <label class="text-sm font-medium text-gray-700 block mb-1">Doanh nghiệp</label>
-          <el-select v-model="filter.tenantId" clearable placeholder="Tất cả" @change="fetchUsers" class="w-full">
+          <el-select v-model="filter.tenantId" clearable placeholder="Tất cả" class="w-full">
             <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </div>
         <div class="w-40">
           <label class="text-sm font-medium text-gray-700 block mb-1">Vai trò</label>
-          <el-select v-model="filter.roleName" clearable placeholder="Tất cả" @change="fetchUsers" class="w-full">
+          <el-select v-model="filter.roleName" clearable placeholder="Tất cả" class="w-full">
             <el-option v-for="(label, code) in roleMap" :key="code" :label="label" :value="code" />
           </el-select>
         </div>
         <div>
-          <el-button type="primary" :icon="Filter" @click="fetchUsers">Lọc dữ liệu</el-button>
+          <el-button type="primary" :icon="Filter" @click="handleFilterChange">Lọc dữ liệu</el-button>
         </div>
         <div class="ml-auto flex items-center gap-2">
             <span class="text-sm font-medium text-gray-700">Hiển thị End User</span>
-            <el-switch v-model="filter.showEndUsers" @change="fetchUsers" />
+            <el-switch v-model="filter.showEndUsers" />
         </div>
       </div>
     </LTECard>
@@ -307,6 +338,19 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="p-4 flex justify-end">
+          <el-pagination
+              v-model:current-page="filter.page"
+              v-model:page-size="filter.limit"
+              :total="totalUsers"
+              :page-sizes="[10, 50, 100, 500]"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              @size-change="handleSizeChange"
+              @current-change="handlePageChange"
+          />
+      </div>
     </LTECard>
 
     <!-- Modal Tạo/Sửa người dùng -->

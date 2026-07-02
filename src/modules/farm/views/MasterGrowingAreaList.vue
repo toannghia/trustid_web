@@ -8,9 +8,18 @@
       </el-button>
     </div>
 
+    <!-- Search Toolbar -->
+    <div class="mb-4 flex gap-4 flex-wrap">
+        <el-input v-model="searchKeyword" placeholder="Tìm theo tên hoặc mã vùng..." class="w-64" clearable prefix-icon="Search" />
+    </div>
+
     <el-card shadow="hover">
       <el-table :data="areas" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="code" label="Mã vùng" width="150" font-weight="bold" />
         <el-table-column prop="name" label="Tên Vùng trồng" min-width="250">
           <template #default="{ row }">
@@ -53,6 +62,19 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalAreas"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <MasterGrowingAreaModal ref="modalRef" @created="loadData" />
@@ -61,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Search } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi, type MasterGrowingArea } from '../api/farmApi';
 import MasterGrowingAreaModal from '../components/MasterGrowingAreaModal.vue';
@@ -70,6 +92,11 @@ const areas = ref<MasterGrowingArea[]>([]);
 const loading = ref(false);
 const showModal = ref(false);
 const modalRef = ref<any>();
+
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalAreas = ref(0);
+const searchKeyword = ref('');
 
 watch(showModal, (val) => {
   if (val) {
@@ -82,11 +109,47 @@ const openEditModal = (row: MasterGrowingArea) => {
   modalRef.value?.open(row);
 };
 
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
+});
+
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await farmApi.getMasterGrowingAreas();
-    areas.value = data || [];
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    if (searchKeyword.value) params.search = searchKeyword.value;
+    
+    const { data } = await farmApi.getMasterGrowingAreas(params);
+    if (data && typeof data === 'object' && 'data' in data) {
+      areas.value = data.data || [];
+      totalAreas.value = data.total || 0;
+    } else {
+      areas.value = data || [];
+      totalAreas.value = areas.value.length;
+    }
   } catch (err: any) {
     ElMessage.error(err.response?.data?.message || 'Không thể tải danh sách');
   } finally {

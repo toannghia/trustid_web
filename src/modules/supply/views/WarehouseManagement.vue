@@ -8,10 +8,28 @@
       </el-button>
     </div>
 
+    <!-- Search and count -->
+    <div class="flex items-center gap-4 mb-4">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="Tìm kiếm kho bãi..."
+        clearable
+        style="width: 240px"
+        @input="debouncedSearch"
+      />
+      <span class="text-gray-500 text-sm">
+        Tổng số: <strong>{{ totalWarehouses }}</strong> kho bãi
+      </span>
+    </div>
+
     <!-- Table -->
     <el-card shadow="hover" class="mb-6">
       <el-table :data="warehouses" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="name" label="Tên kho" min-width="180" />
         <el-table-column prop="type" label="Phân loại" width="130">
             <template #default="{ row }">
@@ -53,6 +71,18 @@
             </template>
         </el-table-column>
       </el-table>
+
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalWarehouses"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
 
     <!-- Create/Edit Modal -->
@@ -183,6 +213,11 @@ const showCreateModal = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalWarehouses = ref(0);
+const searchKeyword = ref('');
+
 // Load managers
 import { userApi } from '@/modules/core/api/user';
 const loadManagers = async () => {
@@ -298,13 +333,45 @@ watch(() => [form.lat, form.long], ([newLat, newLong]) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await transportApi.getWarehouses();
-    warehouses.value = data;
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value,
+    };
+    if (searchKeyword.value) {
+      params.search = searchKeyword.value;
+    }
+    const { data } = await transportApi.getWarehouses(params);
+    warehouses.value = data.data || [];
+    totalWarehouses.value = data.total || 0;
   } catch (err) {
     ElMessage.error('Không thể tải danh sách kho');
   } finally {
     loading.value = false;
   }
+};
+
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
+};
+
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  loadData();
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  loadData();
+};
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+  loadData();
 };
 
 const openEditModal = (row: Warehouse) => {

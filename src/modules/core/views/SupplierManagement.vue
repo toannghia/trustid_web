@@ -13,10 +13,52 @@ const showModal = ref(false);
 const isEdit = ref(false);
 const editingSupplier = ref(null);
 
+const page = ref(1);
+const limit = ref(10);
+const totalSuppliers = ref(0);
+
+const handlePageChange = (val: number) => {
+    page.value = val;
+    fetchSuppliers();
+};
+
+const handleSizeChange = (val: number) => {
+    limit.value = val;
+    page.value = 1;
+    fetchSuppliers();
+};
+
+const handleFilterChange = () => {
+    page.value = 1;
+    fetchSuppliers();
+};
+
+import { watch } from 'vue';
+let searchTimeout: any = null;
+watch(searchTerm, () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        handleFilterChange();
+    }, 300);
+});
+
 const fetchSuppliers = async () => {
     try {
-        const { data } = await supplierApi.getAll();
-        suppliers.value = data.data || data || [];
+        const params: any = {
+            page: page.value,
+            limit: limit.value
+        };
+        if (searchTerm.value) {
+            params.search = searchTerm.value;
+        }
+        const { data } = await supplierApi.getAll(params);
+        if (data && data.data && Array.isArray(data.data)) {
+            suppliers.value = data.data;
+            totalSuppliers.value = data.meta?.total || data.data.length;
+        } else {
+            suppliers.value = data.data || data || [];
+            totalSuppliers.value = suppliers.value.length;
+        }
     } catch (e) {
         console.error(e);
         ElMessage.error('Lỗi tải danh sách nhà cung cấp');
@@ -50,14 +92,7 @@ const handleDelete = (row: any) => {
     }).catch(() => {});
 };
 
-const filteredSuppliers = computed(() => {
-    if (!searchTerm.value) return suppliers.value;
-    const lower = searchTerm.value.toLowerCase();
-    return suppliers.value.filter((s: any) => 
-        s.name?.toLowerCase().includes(lower) || 
-        s.type?.toLowerCase().includes(lower)
-    );
-});
+const filteredSuppliers = computed(() => suppliers.value);
 
 const getTypeLabel = (type: string) => {
     const map: Record<string, string> = {
@@ -99,7 +134,11 @@ onMounted(() => {
             </div>
 
             <el-table :data="filteredSuppliers" stripe border style="width: 100%">
-                <el-table-column type="index" label="#" width="50" align="center" />
+                <el-table-column label="STT" width="50" align="center">
+                    <template #default="scope">
+                        {{ (page - 1) * limit + scope.$index + 1 }}
+                    </template>
+                </el-table-column>
                 
                 <el-table-column prop="name" label="Tên đối tác" min-width="200">
                     <template #default="scope">
@@ -140,6 +179,19 @@ onMounted(() => {
                     </template>
                 </el-table-column>
             </el-table>
+
+            <div class="p-4 flex justify-end">
+                <el-pagination
+                    v-model:current-page="page"
+                    v-model:page-size="limit"
+                    :total="totalSuppliers"
+                    :page-sizes="[10, 50, 100, 500]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    background
+                    @size-change="handleSizeChange"
+                    @current-change="handlePageChange"
+                />
+            </div>
         </LTECard>
 
         <SupplierFormModal 

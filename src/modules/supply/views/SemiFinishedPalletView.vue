@@ -16,7 +16,7 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-      <el-select v-model="filterStatus" placeholder="Trạng thái" clearable style="width: 160px" @change="fetchPallets">
+      <el-select v-model="filterStatus" placeholder="Trạng thái" clearable style="width: 160px" @change="handleFilterChange">
         <el-option label="Tất cả" value="" />
         <el-option label="🟡 Trống" value="EMPTY" />
         <el-option label="🔵 Đang xếp" value="LOADING" />
@@ -28,6 +28,11 @@
 
     <!-- Table -->
     <el-table :data="pallets" v-loading="loading" stripe @row-click="viewDetail" style="cursor: pointer;" class="modern-table">
+      <el-table-column label="STT" width="60" align="center">
+        <template #default="{ $index }">
+          {{ (currentPage - 1) * pageSize + $index + 1 }}
+        </template>
+      </el-table-column>
       <el-table-column prop="palletCode" label="Mã Pallet" min-width="180">
         <template #default="{ row }"><strong class="code-text">{{ row.palletCode }}</strong></template>
       </el-table-column>
@@ -59,7 +64,18 @@
       </el-table-column>
     </el-table>
 
-    <el-pagination v-if="total > pageSize" :current-page="currentPage" :page-size="pageSize" :total="total" layout="prev, pager, next" @current-change="(p: number) => { currentPage = p; fetchPallets() }" class="pagination" />
+    <div class="pagination-container flex justify-end mt-4">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 50, 100, 500]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
 
     <!-- Create Dialog -->
     <el-dialog v-model="showCreateDialog" title="Tạo Pallet BTP mới" width="420" :close-on-click-modal="false" class="rounded-dialog">
@@ -245,7 +261,7 @@ const pallets = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(10)
 const filterStatus = ref('')
 const searchCode = ref('')
 
@@ -289,7 +305,26 @@ const linkIsFull = computed(() => {
 let debounceTimer: any = null
 function debouncedSearch() {
   clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => fetchPallets(), 300)
+  debounceTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchPallets()
+  }, 300)
+}
+
+function handleFilterChange() {
+  currentPage.value = 1
+  fetchPallets()
+}
+
+function handleSizeChange(val: number) {
+  pageSize.value = val
+  currentPage.value = 1
+  fetchPallets()
+}
+
+function handlePageChange(val: number) {
+  currentPage.value = val
+  fetchPallets()
 }
 
 async function fetchPallets() {

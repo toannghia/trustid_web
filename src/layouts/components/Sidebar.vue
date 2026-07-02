@@ -74,7 +74,7 @@ const menuGroups: MenuGroup[] = [
     icon: UserFilled,
     roles: ['TEAM_LEADER'],
     items: [
-      { title: 'Quản lý Nông dân', path: '/farm/my-team', roles: ['TEAM_LEADER'], icon: User },
+      { title: 'Quản lý Nông dân', path: '/farm/my-team', roles: ['ADMIN', 'TEAM_LEADER'], icon: User },
     ]
   },
   /*
@@ -108,10 +108,10 @@ const menuGroups: MenuGroup[] = [
     roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
     items: [
       { title: 'Lệnh Sản Xuất', path: '/supply/production-orders', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Tickets },
-      { title: 'Kho dư', path: '/supply/surplus', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
+      //{ title: 'Kho dư', path: '/supply/surplus', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
       { title: 'Quản lý Pallet', path: '/supply/pallets', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Box },
       //{ title: 'Lệnh Đóng gói', path: '/supply/packaging', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Postcard },
-      { title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },
+      //{ title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },
       { title: 'Sản phẩm Active', path: '/supply/items', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Goods },
     ]
   },
@@ -200,7 +200,7 @@ const menuGroups: MenuGroup[] = [
     icon: Setting,
     roles: ['ADMIN', 'TENANT_ADMIN'],
     items: [
-      { title: 'Thông tin tổ chức', path: '/tenant/settings', roles: ['TENANT_ADMIN'], icon: OfficeBuilding },
+      //{ title: 'Thông tin tổ chức', path: '/tenant/settings', roles: ['TENANT_ADMIN'], icon: OfficeBuilding },
       { title: 'Quản lý Doanh nghiệp', path: '/tenants', roles: ['ADMIN'], icon: Operation },
       { title: 'NDA Gateway', path: '/gateway-dashboard', roles: ['ADMIN'], icon: Connection },
       { title: 'Người dùng', path: '/users', roles: ['ADMIN', 'TENANT_ADMIN'], icon: User },

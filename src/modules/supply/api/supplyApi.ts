@@ -133,8 +133,8 @@ export const supplyApi = {
     createExternalBatch(data: CreateExternalBatchDto) {
         return api.post(`${baseUrl}/batches/external`, data);
     },
-    getExternalBatches() {
-        return api.get<any[]>(`${baseUrl}/batches/external`);
+    getExternalBatches(params?: any) {
+        return api.get<any[]>(`${baseUrl}/batches/external`, { params });
     },
     updateExternalBatch(id: string, data: Partial<CreateExternalBatchDto>) {
         return api.patch(`${baseUrl}/batches/external/${id}`, data);
@@ -160,8 +160,8 @@ export const supplyApi = {
     getHarvestStats(harvestCode: string) {
         return api.get(`${baseUrl}/packaging/harvest-stats`, { params: { harvestCode } });
     },
-    getBatches() {
-        return api.get<any[]>(`${baseUrl}/batches`);
+    getBatches(params?: { page?: number; limit?: number; batchType?: string; excludeBatchType?: string; search?: string }) {
+        return api.get<any>(`${baseUrl}/batches`, { params });
     },
     getBatch(id: string) {
         return api.get<any>(`${baseUrl}/batches/${id}`);
@@ -176,7 +176,7 @@ export const supplyApi = {
         return api.get<any[]>(`${baseUrl}/batches/${batchId}/items`);
     },
     getAllItems(params?: any) {
-        return api.get<any[]>(`${baseUrl}/packaging/items`, { params });
+        return api.get<any>(`${baseUrl}/packaging/items`, { params });
     },
     // Old single activation (keep for backward compat if needed, or remove)
     activateItem(data: ActivateItemDto) {

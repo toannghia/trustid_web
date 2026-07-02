@@ -9,7 +9,7 @@
 
     <!-- Filters -->
     <div class="flex gap-4 mb-4">
-      <el-select v-model="filters.status" placeholder="Trạng thái lệnh" clearable @change="fetchOrders">
+      <el-select v-model="filters.status" placeholder="Trạng thái lệnh" clearable @change="handleFilterChange">
         <el-option label="Bản nháp (DRAFT)" value="DRAFT" />
         <el-option label="Đã xác nhận (CONFIRMED)" value="CONFIRMED" />
         <el-option label="Đang lấy hàng (PICKING)" value="PICKING" />
@@ -21,7 +21,11 @@
     <!-- Table -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <el-table v-loading="loading" :data="orders" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="orderCode" label="Mã Lệnh Xuất" width="180">
           <template #default="{ row }">
             <a href="#" @click.prevent="openDetail(row.id)" class="font-bold text-blue-600 block hover:underline">{{ row.orderCode }}</a>
@@ -128,6 +132,18 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="p-4 border-t flex justify-end bg-white">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="totalOrders"
+          :page-sizes="[10, 50, 100, 500]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <!-- Chi Tiết Dialog -->
@@ -211,16 +227,47 @@ const getWarehouseName = (id: string) => {
   return w ? w.name : id;
 };
 
+const totalOrders = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
+
 const fetchOrders = async () => {
   loading.value = true;
   try {
-    const { data } = await exportOrderApi.getOrders(filters.value);
-    orders.value = data;
+    const params = {
+      ...filters.value,
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    const { data } = await exportOrderApi.getOrders(params);
+    if (data && Array.isArray(data)) {
+      orders.value = data;
+      totalOrders.value = data.length;
+    } else {
+      orders.value = data.items || [];
+      totalOrders.value = data.pagination?.total || 0;
+    }
   } catch (err: any) {
     ElMessage.error(err.response?.data?.message || 'Lỗi tải danh sách lệnh');
   } finally {
     loading.value = false;
   }
+};
+
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  fetchOrders();
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  fetchOrders();
+};
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+  fetchOrders();
 };
 
 const openDetail = async (id: string) => {

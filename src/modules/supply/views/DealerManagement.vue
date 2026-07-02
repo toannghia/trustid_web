@@ -13,6 +13,10 @@ const searchTerm = ref('');
 const isEdit = ref(false);
 const showCreateDialog = ref(false);
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalDealers = ref(0);
+
 const form = ref<DealerDto>({
     name: '',
     taxCode: '',
@@ -29,8 +33,18 @@ const editDealer = ref<DealerDto | undefined>(undefined);
 const fetchDealers = async () => {
     loading.value = true;
     try {
-        const { data } = await dealerApi.getList();
-        dealers.value = data;
+        const { data } = await dealerApi.getList({
+            page: currentPage.value,
+            limit: pageSize.value,
+            search: searchTerm.value || undefined
+        });
+        if (data && Array.isArray(data)) {
+            dealers.value = data;
+            totalDealers.value = data.length;
+        } else {
+            dealers.value = data.data || [];
+            totalDealers.value = data.total || 0;
+        }
     } catch (e: any) {
         ElMessage.error('Lỗi tải danh sách đại lý: ' + (e.response?.data?.message || e.message));
     } finally {
@@ -38,16 +52,29 @@ const fetchDealers = async () => {
     }
 };
 
-const filteredDealers = computed(() => {
-    if (!searchTerm.value) return dealers.value;
-    const lower = searchTerm.value.toLowerCase();
-    return dealers.value.filter(d => 
-        d.name.toLowerCase().includes(lower) || 
-        d.contactPerson?.toLowerCase().includes(lower) ||
-        d.taxCode?.toLowerCase().includes(lower) ||
-        d.provinces?.some(p => p.toLowerCase().includes(lower))
-    );
-});
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        handleFilterChange();
+    }, 300);
+};
+
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    fetchDealers();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    fetchDealers();
+};
+
+const handlePageChange = (val: number) => {
+    currentPage.value = val;
+    fetchDealers();
+};
 
 const handleCreate = () => {
     editDealer.value = undefined;
@@ -106,13 +133,18 @@ onMounted(fetchDealers);
                         :prefix-icon="Search" 
                         class="w-80" 
                         clearable 
+                        @input="debouncedSearch"
                     />
                 </div>
                 <el-button type="primary" :icon="Plus" @click="handleCreate">Thêm đại lý</el-button>
             </div>
 
-            <el-table :data="filteredDealers" v-loading="loading" stripe border>
-                <el-table-column type="index" label="STT" width="60" align="center" />
+            <el-table :data="dealers" v-loading="loading" stripe border>
+                <el-table-column label="STT" width="60" align="center">
+                    <template #default="{ $index }">
+                        {{ (currentPage - 1) * pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
                 <el-table-column prop="name" label="Tên Đại lý / Nhà phân phối" min-width="200">
                     <template #default="{ row }">
                         <div class="font-bold text-blue-700">{{ row.name }}</div>
@@ -191,6 +223,19 @@ onMounted(fetchDealers);
                     </template>
                 </el-table-column>
             </el-table>
+
+            <div class="flex justify-end mt-4">
+                <el-pagination
+                    v-model:current-page="currentPage"
+                    v-model:page-size="pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="totalDealers"
+                    background
+                    @size-change="handleSizeChange"
+                    @current-change="handlePageChange"
+                />
+            </div>
         </LTECard>
 
         <!-- Dialog Thêm/Sửa chung -->

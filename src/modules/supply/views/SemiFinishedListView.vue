@@ -18,16 +18,47 @@
         </div>
       </template>
 
+      <!-- Filters -->
+      <div class="flex flex-wrap gap-3 items-center mb-4">
+        <el-input
+          v-model="searchTerm"
+          placeholder="Tìm theo mã lô, sản phẩm..."
+          clearable
+          style="width: 280px"
+          @input="debouncedSearch"
+          :prefix-icon="Search"
+        />
+        <el-select
+          v-model="filterStatus"
+          placeholder="Trạng thái"
+          clearable
+          style="width: 160px"
+          @change="handleFilterChange"
+        >
+          <el-option label="Tất cả trạng thái" value="" />
+          <el-option label="Đang hoạt động" value="ACTIVE" />
+          <el-option label="Hoàn thành" value="COMPLETED" />
+          <el-option label="Đã xuất" value="EXPORTED" />
+        </el-select>
+        <span class="ml-auto text-sm text-slate-500">
+          Tổng: <strong>{{ total }}</strong> lô
+        </span>
+      </div>
+
       <el-table 
           v-loading="loading" 
-          :data="semiFinishedBatches" 
+          :data="batches" 
           border 
           stripe 
           class="modern-table"
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="55" align="center" :selectable="canSelectRow" />
-          <el-table-column label="STT" type="index" width="60" align="center" />
+          <el-table-column label="STT" width="60" align="center">
+            <template #default="{ $index }">
+              {{ (currentPage - 1) * pageSize + $index + 1 }}
+            </template>
+          </el-table-column>
         
         <el-table-column label="Mã lô" width="160">
           <template #default="{ row }">
@@ -104,6 +135,19 @@
            </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-container flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 50, 100, 500]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
 
       <!-- Dialog chi tiết lô -->
       <el-dialog v-model="detailVisible" title="Chi tiết lô bán thành phẩm" width="700px">
@@ -310,9 +354,11 @@ const supplementaryItemCount = computed(() =>
   batchItems.value.filter(i => i.isSupplementary).length
 );
 
-const semiFinishedBatches = computed(() => {
-  return batches.value.filter(b => b.batchType === 'SEMI_FINISHED' && b.status !== 'CANCELLED');
-});
+const total = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const searchTerm = ref('');
+const filterStatus = ref('');
 
 const canSelectRow = (row: any) => row.availableQuantity > 0.001;
 
@@ -331,13 +377,47 @@ const getDisplayLocation = (batch: any) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await supplyApi.getBatches();
-    batches.value = data || [];
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      batchType: 'SEMI_FINISHED'
+    };
+    if (searchTerm.value) params.search = searchTerm.value;
+    if (filterStatus.value) params.status = filterStatus.value;
+    
+    const { data } = await supplyApi.getBatches(params);
+    batches.value = data.data || [];
+    total.value = data.total || 0;
   } catch (error) {
     console.error(error);
   } finally {
     loading.value = false;
   }
+};
+
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    currentPage.value = 1;
+    loadData();
+  }, 300);
+};
+
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  loadData();
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  loadData();
+};
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+  loadData();
 };
 
 const goToCreate = () => {

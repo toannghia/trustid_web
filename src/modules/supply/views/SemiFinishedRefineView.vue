@@ -434,7 +434,7 @@
     <!-- Dialog cảnh báo đổi pallet khi chưa đầy -->
     <el-dialog
       :model-value="!!switchConfirmState"
-      @update:model-value="(val) => { if(!val) switchConfirmState = null; }"
+      @update:model-value="(val: boolean) => { if(!val) switchConfirmState = null; }"
       title="Cảnh báo: Pallet hiện tại chưa đầy"
       width="480px"
       destroy-on-close
@@ -463,7 +463,7 @@
     <!-- Dialog thay đổi Pallet hàng loạt -->
     <el-dialog
       :model-value="!!changingPalletId"
-      @update:model-value="(val) => { if(!val) changingPalletId = null; }"
+      @update:model-value="(val: boolean) => { if(!val) changingPalletId = null; }"
       title="Đổi Pallet Hàng Loạt"
       width="480px"
       destroy-on-close

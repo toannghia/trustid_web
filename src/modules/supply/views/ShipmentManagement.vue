@@ -89,6 +89,10 @@ const timelineEvents = computed(() => {
         .sort((a, b) => a.time.getTime() - b.time.getTime());
 });
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+
 onMounted(() => {
     loadShipments();
 });
@@ -98,11 +102,37 @@ const loadShipments = async () => {
     try {
         const res = await shipmentV2Api.getShipments({
             status: statusFilter.value || undefined,
-            type: undefined // Can filter by type if needed
+            search: search.value || undefined,
+            page: currentPage.value,
+            limit: pageSize.value,
+            type: undefined
         });
-        shipments.value = res.data;
+        const data = res.data;
+        if (data && Array.isArray(data)) {
+            shipments.value = data;
+            total.value = data.length;
+        } else {
+            shipments.value = data.items || [];
+            total.value = data.pagination?.total || 0;
+        }
     } catch (e) { ElMessage.error('Lỗi tải danh sách vận chuyển'); }
     finally { loading.value = false; }
+};
+
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadShipments();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadShipments();
+};
+
+const handlePageChange = (val: number) => {
+    currentPage.value = val;
+    loadShipments();
 };
 
 const viewDetail = async (row: any) => {
@@ -186,19 +216,23 @@ const receiverConfirm = async () => {
 
     <!-- FILTERS -->
     <div class="mb-4 flex flex-wrap gap-4 items-center">
-        <el-radio-group v-model="statusFilter" @change="loadShipments">
+        <el-radio-group v-model="statusFilter" @change="handleFilterChange">
             <el-radio-button label="">Tất cả</el-radio-button>
             <el-radio-button label="CREATED">Mới tạo</el-radio-button>
             <el-radio-button label="READY_FOR_PICKUP">Sẵn sàng giao</el-radio-button>
             <el-radio-button label="IN_TRANSIT">Đang đi</el-radio-button>
             <el-radio-button label="DELIVERED">Hoàn thành</el-radio-button>
         </el-radio-group>
-        <el-input v-model="search" placeholder="Mã vận đơn..." class="w-64" prefix-icon="Search" clearable @input="loadShipments" />
+        <el-input v-model="search" placeholder="Mã vận đơn..." class="w-64" prefix-icon="Search" clearable @input="handleFilterChange" />
     </div>
 
     <!-- TABLE -->
     <el-table :data="shipments" v-loading="loading" border stripe style="width: 100%" class="rounded-xl overflow-hidden shadow-sm">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="trackingCode" label="Vận đơn" width="160">
             <template #default="{row}">
                 <div class="font-mono font-bold text-blue-600 cursor-pointer hover:underline" @click="viewDetail(row)">{{ row.trackingCode }}</div>
@@ -267,6 +301,19 @@ const receiverConfirm = async () => {
             </template>
         </el-table-column>
     </el-table>
+
+    <div class="mt-4 flex justify-end">
+        <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 50, 100, 500]"
+            layout="total, sizes, prev, pager, next, jumper"
+            background
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+        />
+    </div>
 
 
     <!-- SCAN DIALOG -->

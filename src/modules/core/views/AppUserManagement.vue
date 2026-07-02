@@ -55,6 +55,12 @@ const handlePageChange = (page: number) => {
     fetchUsers();
 };
 
+const handleSizeChange = (limit: number) => {
+    query.limit = limit;
+    query.page = 1;
+    fetchUsers();
+};
+
 const viewDetails = (user: any) => {
     selectedUser.value = user;
     dialogVisible.value = true;
@@ -189,8 +195,10 @@ onMounted(() => {
                     v-model:current-page="query.page"
                     v-model:page-size="query.limit"
                     :total="totalUsers"
-                    layout="prev, pager, next"
+                    :page-sizes="[10, 50, 100, 500]"
+                    layout="total, sizes, prev, pager, next, jumper"
                     background
+                    @size-change="handleSizeChange"
                     @current-change="handlePageChange"
                 />
             </div>

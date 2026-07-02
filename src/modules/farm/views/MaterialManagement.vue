@@ -28,7 +28,11 @@
     <!-- Table -->
     <el-card shadow="hover" class="mb-6">
       <el-table :data="filteredMaterials" v-loading="loading" style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column label="STT" width="60" align="center">
+          <template #default="{ $index }">
+            {{ (currentPage - 1) * pageSize + $index + 1 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="code" label="Mã vật tư" width="120">
             <template #default="{ row }">
                 <span class="font-mono text-sm font-semibold text-blue-600">{{ row.code }}</span>
@@ -77,6 +81,19 @@
             </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div class="flex justify-end mt-4">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalMaterials"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <!-- Create/Edit Material Modal -->
@@ -176,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { Plus, Search, Edit, Download, Share, Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi, type Material } from '../api/farmApi';
@@ -191,6 +208,10 @@ const togglingId = ref<string | null>(null);
 const searchKeyword = ref('');
 const filterType = ref('');
 const filterStatus = ref('ALL');
+
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalMaterials = ref(0);
 
 const getMaterialTypeName = (type: string) => {
     const map: Record<string, string> = {
@@ -213,16 +234,35 @@ const getMaterialTypeColor = (type: string) => {
 };
 
 const filteredMaterials = computed(() => {
-    return materials.value.filter(item => {
-        const keyword = searchKeyword.value.toLowerCase();
-        const matchesSearch = item.name.toLowerCase().includes(keyword) ||
-                              (item.code && item.code.toLowerCase().includes(keyword));
-        const matchesType = filterType.value ? item.type === filterType.value : true;
-        const matchesStatus = filterStatus.value === 'ALL' ? true :
-                              filterStatus.value === 'ACTIVE' ? item.isActive :
-                              !item.isActive;
-        return matchesSearch && matchesType && matchesStatus;
-    });
+    return materials.value;
+});
+
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+watch([filterType, filterStatus], () => {
+    handleFilterChange();
+});
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
 });
 
 // Create/Edit Modal State
@@ -264,8 +304,26 @@ const inventoryRules = reactive<FormRules>({
 const loadData = async () => {
     loading.value = true;
     try {
-        const { data } = await farmApi.getMaterials(true);
-        materials.value = data;
+        const params: any = {
+            page: currentPage.value,
+            limit: pageSize.value
+        };
+        if (searchKeyword.value) params.search = searchKeyword.value;
+        if (filterType.value) params.type = filterType.value;
+        if (filterStatus.value !== 'ALL') {
+            params.includeInactive = filterStatus.value === 'INACTIVE';
+        } else {
+            params.includeInactive = true;
+        }
+
+        const { data } = await farmApi.getMaterials(params);
+        if (data && typeof data === 'object' && 'data' in data) {
+            materials.value = data.data || [];
+            totalMaterials.value = data.total || 0;
+        } else {
+            materials.value = data || [];
+            totalMaterials.value = materials.value.length;
+        }
     } catch (err) {
         ElMessage.error('Lỗi tải dữ liệu');
     } finally {

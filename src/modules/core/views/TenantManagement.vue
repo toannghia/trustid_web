@@ -51,16 +51,59 @@ const openEditModal = (tenant: any) => {
     showModal.value = true;
 };
 
+const page = ref(1);
+const limit = ref(10);
+const totalTenants = ref(0);
+
+const handlePageChange = (val: number) => {
+    page.value = val;
+    fetchTenants();
+};
+
+const handleSizeChange = (val: number) => {
+    limit.value = val;
+    page.value = 1;
+    fetchTenants();
+};
+
+const handleFilterChange = () => {
+    page.value = 1;
+    fetchTenants();
+};
+
+import { watch } from 'vue';
+let searchTimeout: any = null;
+watch(() => filter.search, () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        handleFilterChange();
+    }, 300);
+});
+
+watch([() => filter.province, () => filter.trustedOnly], () => {
+    handleFilterChange();
+});
+
 const fetchTenants = async () => {
     loading.value = true;
     try {
         // Build Params
-        const params: any = { search: filter.search };
+        const params: any = { 
+            search: filter.search,
+            page: page.value,
+            limit: limit.value
+        };
         if (filter.province) params.province = filter.province;
         if (filter.trustedOnly) params.isTrustedPartner = true;
 
         const { data } = await tenantApi.getAll(params);
-        tenants.value = data.data || data.items || (Array.isArray(data) ? data : []);
+        if (data && data.data && Array.isArray(data.data)) {
+            tenants.value = data.data;
+            totalTenants.value = data.meta?.total || data.data.length;
+        } else {
+            tenants.value = data.data || data.items || (Array.isArray(data) ? data : []);
+            totalTenants.value = tenants.value.length;
+        }
     } catch (e) {
         console.error(e);
         ElMessage.error('Lỗi tải danh sách');
@@ -153,7 +196,7 @@ onMounted(() => {
       <el-table :data="tenants" v-loading="loading" style="width: 100%" stripe border>
         <el-table-column label="STT" width="60" align="center">
             <template #default="scope">
-                {{ scope.$index + 1 }}
+                {{ (page - 1) * limit + scope.$index + 1 }}
             </template>
         </el-table-column>
         <el-table-column label="Thông tin doanh nghiệp" min-width="250" v-if="columns[0].visible">
@@ -251,6 +294,19 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="p-4 flex justify-end">
+          <el-pagination
+              v-model:current-page="page"
+              v-model:page-size="limit"
+              :total="totalTenants"
+              :page-sizes="[10, 50, 100, 500]"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              @size-change="handleSizeChange"
+              @current-change="handlePageChange"
+          />
+      </div>
     </LTECard>
 
     <TenantFormModal 

@@ -32,8 +32,8 @@ export const dealerApi = {
     create(data: DealerDto) {
         return api.post(baseUrl, data);
     },
-    getList() {
-        return api.get<DealerDto[]>(baseUrl);
+    getList(params?: { page?: number; limit?: number; search?: string }) {
+        return api.get<any>(baseUrl, { params });
     },
     getOne(id: string) {
         return api.get<DealerDto>(`${baseUrl}/${id}`);

@@ -5,8 +5,40 @@
     </div>
 
     <!-- Stats or List would go here -->
-    <el-table :data="filteredBatches" stripe border style="width: 100%">
-        <el-table-column type="index" label="STT" width="60" align="center" />
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-3 items-center mb-4">
+      <el-input
+        v-model="searchTerm"
+        placeholder="Tìm theo mã lô, sản phẩm..."
+        clearable
+        style="width: 280px"
+        @input="debouncedSearch"
+        :prefix-icon="Search"
+      />
+      <el-select
+        v-model="filterStatus"
+        placeholder="Trạng thái"
+        clearable
+        style="width: 160px"
+        @change="handleFilterChange"
+      >
+        <el-option label="Tất cả trạng thái" value="" />
+        <el-option label="Đang đóng gói" value="PACKING" />
+        <el-option label="Đã đóng" value="CLOSED" />
+        <el-option label="Đã xuất" value="SHIPPED" />
+        <el-option label="Hoàn thành" value="COMPLETED" />
+      </el-select>
+      <span class="ml-auto text-sm text-slate-500">
+        Tổng: <strong>{{ total }}</strong> lô
+      </span>
+    </div>
+
+    <el-table :data="batches" stripe border style="width: 100%">
+        <el-table-column label="STT" width="60" align="center">
+            <template #default="{ $index }">
+                {{ (currentPage - 1) * pageSize + $index + 1 }}
+            </template>
+        </el-table-column>
         <el-table-column prop="batchCode" label="Mã Lô" width="250" sortable>
              <template #default="{row}">
                  <span class="font-bold cursor-pointer text-blue-600" @click="viewDetails(row)">
@@ -51,6 +83,19 @@
             </template>
         </el-table-column>
     </el-table>
+
+    <div class="pagination-container flex justify-end mt-4">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 50, 100, 500]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
 
     <!-- Drawer Details -->
     <el-drawer v-model="showDetail" title="Chi tiết Lô Thành Phẩm" size="60%" destroy-on-close>
@@ -169,7 +214,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
 import { ElMessage } from 'element-plus';
-import { Loading, CircleCheckFilled, TopRight } from '@element-plus/icons-vue';
+import { Loading, CircleCheckFilled, TopRight, Search } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 const getBatchStatusLabel = (status: string) => {
@@ -183,10 +228,11 @@ const getBatchStatusLabel = (status: string) => {
 };
 
 const batches = ref<any[]>([]);
-const filteredBatches = computed(() => {
-    // Chỉ hiển thị các lô thành phẩm (mặc định là FARM hoặc không phải SEMI_FINISHED)
-    return batches.value.filter(b => b.batchType !== 'SEMI_FINISHED');
-});
+const total = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const searchTerm = ref('');
+const filterStatus = ref('');
 const items = ref<any[]>([]);
 const selectedBatch = ref<any>(null);
 const showDetail = ref(false);
@@ -251,12 +297,46 @@ const continuePacking = (row: any) => {
 
 const loadBatches = async () => {
     try {
-        const { data } = await supplyApi.getBatches();
-        batches.value = data;
+        const params: any = {
+            page: currentPage.value,
+            limit: pageSize.value,
+            excludeBatchType: 'SEMI_FINISHED'
+        };
+        if (searchTerm.value) params.search = searchTerm.value;
+        if (filterStatus.value) params.status = filterStatus.value;
+
+        const { data } = await supplyApi.getBatches(params);
+        batches.value = data.data || [];
+        total.value = data.total || 0;
     } catch (err: any) {
         ElMessage.error('Lỗi tải danh sách lô');
     }
 }
+
+let debounceTimer: any = null;
+const debouncedSearch = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    currentPage.value = 1;
+    loadBatches();
+  }, 300);
+};
+
+const handleFilterChange = () => {
+  currentPage.value = 1;
+  loadBatches();
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  loadBatches();
+};
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+  loadBatches();
+};
 
 const viewDetails = async (row: any) => {
     selectedBatch.value = row;

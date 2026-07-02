@@ -42,7 +42,7 @@ export const shipmentV2Api = {
         return api.post(`${baseUrl}/${id}/confirm-receive`);
     },
     getShipments(params?: any) {
-        return api.get<any[]>(baseUrl, { params });
+        return api.get<any>(baseUrl, { params });
     },
     getDetail(id: string) {
         return api.get<any>(`${baseUrl}/${id}`);

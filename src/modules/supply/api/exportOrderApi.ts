@@ -13,7 +13,7 @@ export const exportOrderApi = {
         return api.put<any>(`${baseUrl}/${id}`, data);
     },
     getOrders(filters?: any) {
-        return api.get<any[]>(baseUrl, { params: filters });
+        return api.get<any>(baseUrl, { params: filters });
     },
     getDetail(id: string) {
         return api.get<any>(`${baseUrl}/${id}`);

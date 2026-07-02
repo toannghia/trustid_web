@@ -7,6 +7,8 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
 
+import vi from 'element-plus/es/locale/lang/vi';
+
 dayjs.extend(relativeTime);
 dayjs.locale('vi');
 
@@ -20,7 +22,9 @@ const pinia = createPinia();
 
 app.use(pinia);
 app.use(router);
-app.use(ElementPlus);
+app.use(ElementPlus, {
+  locale: vi
+});
 
 // Thay vì app.use(component), ta sử dụng app.component(key, component)
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

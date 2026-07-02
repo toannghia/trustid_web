@@ -27,7 +27,11 @@
             <!-- Table -->
             <el-card shadow="hover" class="mb-6">
             <el-table :data="filteredCycles" v-loading="loading" style="width: 100%">
-                <el-table-column type="index" label="STT" width="60" align="center" />
+                <el-table-column label="STT" width="60" align="center">
+                  <template #default="{ $index }">
+                    {{ (currentPage - 1) * pageSize + $index + 1 }}
+                  </template>
+                </el-table-column>
                 <el-table-column prop="name" label="Tên vụ mùa" min-width="200" />
                 <el-table-column label="Vùng trồng" min-width="150">
                     <template #default="{ row }">
@@ -59,6 +63,19 @@
                     </template>
                 </el-table-column>
             </el-table>
+
+            <!-- Pagination -->
+            <div class="flex justify-end mt-4">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="totalCycles"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
             </el-card>
         </el-tab-pane>
 
@@ -138,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { VideoPlay, Search } from '@element-plus/icons-vue';
 import { ElMessage, type FormInstance } from 'element-plus';
 import { farmApi, type CropCycle, type Location, type ProcessTemplate } from '../api/farmApi';
@@ -163,12 +180,40 @@ const formRef = ref<FormInstance>();
 const searchKeyword = ref('');
 const filterStatus = ref('');
 
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalCycles = ref(0);
+
 const filteredCycles = computed(() => {
-    return cycles.value.filter(c => {
-        const matchesName = c.name.toLowerCase().includes(searchKeyword.value.toLowerCase());
-        const matchesStatus = filterStatus.value ? c.status === filterStatus.value : true;
-        return matchesName && matchesStatus;
-    });
+    return cycles.value;
+});
+
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleSizeChange = (val: number) => {
+    pageSize.value = val;
+    currentPage.value = 1;
+    loadData();
+};
+
+const handleCurrentChange = (val: number) => {
+    currentPage.value = val;
+    loadData();
+};
+
+watch(() => filterStatus.value, () => {
+    handleFilterChange();
+});
+
+let searchTimeout: any = null;
+watch(() => searchKeyword.value, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 300);
 });
 
 // Edit State
@@ -197,8 +242,21 @@ const formatDate = (dateStr: string) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data } = await farmApi.getCycles();
-    cycles.value = data;
+    const params: any = {
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    if (searchKeyword.value) params.search = searchKeyword.value;
+    if (filterStatus.value) params.status = filterStatus.value;
+
+    const { data } = await farmApi.getCycles(params);
+    if (data && typeof data === 'object' && 'data' in data) {
+      cycles.value = data.data || [];
+      totalCycles.value = data.total || 0;
+    } else {
+      cycles.value = data || [];
+      totalCycles.value = cycles.value.length;
+    }
   } catch (err) {
     ElMessage.error('Không thể tải danh sách vụ mùa');
   } finally {
