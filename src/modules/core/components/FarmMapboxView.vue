@@ -98,6 +98,38 @@ let map: mapboxgl.Map | null = null;
 let popup: mapboxgl.Popup | null = null;
 let mapListenersAdded = false;
 let provincesGeoJson: any = null;
+let activeMarkers: mapboxgl.Marker[] = [];
+let islandMarkers: mapboxgl.Marker[] = [];
+
+const clearMarkers = () => {
+  activeMarkers.forEach(m => m.remove());
+  activeMarkers = [];
+};
+
+const clearIslandMarkers = () => {
+  islandMarkers.forEach(m => m.remove());
+  islandMarkers = [];
+};
+
+const addIslandMarkers = () => {
+  if (!map) return;
+  clearIslandMarkers();
+
+  const islands = [
+    { lng: 112.4743021, lat: 16.5839161, text: 'Quần đảo<br/>Hoàng Sa' },
+    { lng: 115.7505101, lat: 10.6921803, text: 'Quần đảo<br/>Trường Sa' }
+  ];
+
+  islands.forEach(island => {
+    const el = document.createElement('div');
+    el.className = 'island-label-marker';
+    el.innerHTML = island.text;
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([island.lng, island.lat])
+      .addTo(map!);
+    islandMarkers.push(marker);
+  });
+};
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -173,14 +205,23 @@ const buildPopupHTML = (loc: MapLocation): string => {
   return lines.join('');
 };
 
-const setMapLanguageToVietnamese = () => {
+const setMapLanguageAndFilterVietnam = () => {
   if (!map) return;
   try {
     const style = map.getStyle();
     if (!style || !style.layers) return;
 
     style.layers.forEach((layer: any) => {
-      if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+      const sourceLayer = layer['source-layer'];
+      const isPlaceOrLabel = 
+        layer.id.includes('country-label') ||
+        layer.id.includes('place-label') ||
+        layer.id.includes('settlement') ||
+        layer.id.includes('state-label') ||
+        (sourceLayer && (sourceLayer.includes('place') || sourceLayer.includes('label')));
+
+      // 1. Localize labels to Vietnamese (only for place/label layers)
+      if (layer.type === 'symbol' && layer.layout && layer.layout['text-field'] && isPlaceOrLabel) {
         try {
           map!.setLayoutProperty(layer.id, 'text-field', [
             'coalesce',
@@ -190,9 +231,62 @@ const setMapLanguageToVietnamese = () => {
           ]);
         } catch (e) { /* ignore */ }
       }
+
+      // 2. Filter out symbols/labels of other countries (keep only Vietnam)
+      if (layer.type === 'symbol' && isPlaceOrLabel) {
+        try {
+          const originalFilter = map!.getFilter(layer.id);
+          const countryFilter = [
+            'any',
+            ['!', ['has', 'iso_3166_1']],
+            ['==', ['get', 'iso_3166_1'], 'VN'],
+            ['==', ['get', 'iso_3166_1_alpha_3'], 'VNM']
+          ];
+
+          let finalFilter: any;
+          if (originalFilter) {
+            if (Array.isArray(originalFilter) && originalFilter[0] === 'all') {
+              const alreadyFiltered = originalFilter.some(f => 
+                Array.isArray(f) && f[0] === 'any' && JSON.stringify(f).includes('iso_3166_1')
+              );
+              finalFilter = alreadyFiltered ? originalFilter : [...originalFilter, countryFilter];
+            } else {
+              finalFilter = ['all', originalFilter, countryFilter];
+            }
+          } else {
+            finalFilter = countryFilter;
+          }
+
+          map!.setFilter(layer.id, finalFilter);
+
+          // Lock ward, town, village and minor subdivisions to zoom >= 8.5
+          if (
+            layer.id.includes('minor') ||
+            layer.id.includes('subdivision') ||
+            layer.id.includes('village') ||
+            layer.id.includes('town') ||
+            layer.id.includes('hamlet') ||
+            layer.id.includes('suburb') ||
+            layer.id.includes('neighbourhood')
+          ) {
+            map!.setLayerZoomRange(layer.id, 8.5, 24);
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // 3. Dim boundaries/borders of other countries
+      if (
+        layer.id.includes('admin-0-boundary') ||
+        layer.id.includes('admin-border') ||
+        layer.id.includes('boundary')
+      ) {
+        try {
+          map!.setPaintProperty(layer.id, 'line-opacity', 0.15);
+        } catch (e) { /* ignore */ }
+      }
     });
   } catch (err) {
-    console.error('Error setting map language to Vietnamese:', err);
+    console.error('Error styling/filtering map:', err);
   }
 };
 
@@ -203,8 +297,9 @@ const handleStyleChange = (newStyle: string) => {
   // After style change, re-render layers once new style loads
   map.once('style.load', () => {
     mapListenersAdded = false;
-    setMapLanguageToVietnamese();
+    setMapLanguageAndFilterVietnam();
     renderLocations();
+    addIslandMarkers();
   });
 };
 
@@ -219,15 +314,15 @@ const initMap = async () => {
   mapboxgl.accessToken = MAPBOX_TOKEN;
 
   const VIETNAM_BOUNDS: mapboxgl.LngLatBoundsLike = [
-    [100.0, 6.0],
-    [118.0, 24.0]
+    [98.0, 5.0],
+    [120.0, 25.5]
   ];
 
   map = new mapboxgl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [108.2772, 14.0583], // Vietnam center
-    zoom: 5.0,
+    center: [110.5, 14.8], // Vietnam center shifted slightly east for archipelagos visibility
+    zoom: 4.8,
     minZoom: 4.8,
     maxZoom: 16,
     maxBounds: VIETNAM_BOUNDS,
@@ -239,8 +334,9 @@ const initMap = async () => {
 
   map.on('load', () => {
     loading.value = false;
-    setMapLanguageToVietnamese();
+    setMapLanguageAndFilterVietnam();
     renderLocations();
+    addIslandMarkers();
   });
 };
 
@@ -248,15 +344,15 @@ const renderLocations = () => {
   if (!map || !map.isStyleLoaded()) return;
 
   // Clean up existing sources/layers
-  ['vietnam-provinces-fill', 'vietnam-provinces-outline', 'farm-polygons-fill', 'farm-polygons-outline', 'farm-points', 'farm-scans'].forEach(id => {
+  ['vietnam-provinces-fill', 'vietnam-provinces-outline', 'archipelago-islet-dots', 'farm-polygons-fill', 'farm-polygons-outline', 'farm-points', 'farm-scans'].forEach(id => {
     if (map!.getLayer(id)) map!.removeLayer(id);
   });
-  ['vietnam-provinces-source', 'farm-polygons-source', 'farm-points-source', 'farm-scans-source'].forEach(id => {
+  ['vietnam-provinces-source', 'archipelago-islets-source', 'farm-polygons-source', 'farm-points-source', 'farm-scans-source'].forEach(id => {
     if (map!.getSource(id)) map!.removeSource(id);
   });
 
   // Remove existing markers
-  document.querySelectorAll('.farm-marker').forEach(el => el.remove());
+  clearMarkers();
 
   const polygonFeatures: any[] = [];
   const pointFeatures: any[] = [];
@@ -357,6 +453,49 @@ const renderLocations = () => {
     });
   }
 
+  // Island text labels are handled by addIslandMarkers() (DOM-based, always visible)
+  // Small dots for individual islets inside each archipelago
+  const isletDots: any[] = [];
+  // Hoàng Sa islets (approximate positions of major islands)
+  const hoangSaIslets = [
+    [112.33, 16.83], [112.19, 16.52], [112.71, 16.47],
+    [111.60, 16.52], [112.00, 16.33], [112.50, 16.97],
+    [111.75, 16.70], [112.35, 16.08], [112.89, 16.58]
+  ];
+  // Trường Sa islets (approximate positions of major reefs/islands)
+  const truongSaIslets = [
+    [114.36, 11.05], [115.82, 9.68], [113.85, 10.37],
+    [114.08, 8.86], [115.55, 10.73], [114.47, 9.20],
+    [116.05, 9.87], [113.62, 11.45], [114.68, 10.05],
+    [115.30, 11.49], [116.70, 10.38], [113.25, 10.80]
+  ];
+  [...hoangSaIslets, ...truongSaIslets].forEach(c => {
+    isletDots.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: c },
+      properties: {}
+    });
+  });
+
+  map!.addSource('archipelago-islets-source', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: isletDots }
+  });
+
+  // Small dots representing individual islets
+  map!.addLayer({
+    id: 'archipelago-islet-dots',
+    type: 'circle',
+    source: 'archipelago-islets-source',
+    paint: {
+      'circle-radius': 3,
+      'circle-color': '#FFF04D',
+      'circle-opacity': 0.8,
+      'circle-stroke-width': 1,
+      'circle-stroke-color': 'rgba(255, 240, 77, 0.4)'
+    }
+  });
+
   // Add Polygon layer
   if (polygonFeatures.length) {
     map!.addSource('farm-polygons-source', {
@@ -429,23 +568,26 @@ const renderLocations = () => {
 
   if (!mapListenersAdded) {
     // Click and hover on province boundaries
-    map!.on('click', 'vietnam-provinces-fill', (e) => {
-      if (!e.features?.length) return;
-      const feature = e.features[0];
-      const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
-      if (name) {
-        emit('change-province', name);
-      }
-    });
+    if (map!.getLayer('vietnam-provinces-fill')) {
+      map!.on('click', 'vietnam-provinces-fill', (e) => {
+        if (!e.features?.length) return;
+        const feature = e.features[0];
+        const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
+        if (name) {
+          emit('change-province', name);
+        }
+      });
 
-    map!.on('mouseenter', 'vietnam-provinces-fill', () => {
-      if (map) map.getCanvas().style.cursor = 'pointer';
-    });
-    map!.on('mouseleave', 'vietnam-provinces-fill', () => {
-      if (map) map.getCanvas().style.cursor = '';
-    });
+      map!.on('mouseenter', 'vietnam-provinces-fill', () => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+      });
+      map!.on('mouseleave', 'vietnam-provinces-fill', () => {
+        if (map) map.getCanvas().style.cursor = '';
+      });
+    }
 
     // Click on polygon
+    if (map!.getLayer('farm-polygons-fill')) {
       map!.on('click', 'farm-polygons-fill', (e) => {
         if (!e.features?.length) return;
         const props_data = e.features[0].properties;
@@ -466,6 +608,10 @@ const renderLocations = () => {
       map!.on('mouseleave', 'farm-polygons-fill', () => {
         if (map) map.getCanvas().style.cursor = '';
       });
+    }
+
+    // Click on points
+    if (map!.getLayer('farm-points')) {
       map!.on('click', 'farm-points', (e) => {
         if (!e.features?.length) return;
         const props_data = e.features[0].properties;
@@ -487,6 +633,10 @@ const renderLocations = () => {
       map!.on('mouseleave', 'farm-points', () => {
         if (map) map.getCanvas().style.cursor = '';
       });
+    }
+
+    // Click on scans
+    if (map!.getLayer('farm-scans')) {
       map!.on('click', 'farm-scans', (e) => {
         if (!e.features?.length) return;
         const scan = e.features[0].properties as any;
@@ -517,32 +667,12 @@ const renderLocations = () => {
       map!.on('mouseleave', 'farm-scans', () => {
         if (map) map.getCanvas().style.cursor = '';
       });
+    }
     
     mapListenersAdded = true;
   }
 
-  // Add Archipelago Labels
-  const islands = [
-    { pos: [112.4743021, 16.5839161], text: 'Quần đảo<br/>Hoàng Sa' },
-    { pos: [115.7505101, 10.6921803], text: 'Quần đảo<br/>Trường Sa' },
-  ];
 
-  islands.forEach(island => {
-    const el = document.createElement('div');
-    el.innerHTML = island.text;
-    el.style.color = '#FFF04D';
-    el.style.fontSize = '12px';
-    el.style.fontWeight = 'bold';
-    el.style.textAlign = 'center';
-    el.style.lineHeight = '1.2';
-    el.style.textShadow = '1px 1px 3px black, -1px -1px 3px black';
-    el.style.pointerEvents = 'none'; // so it doesn't block map clicks
-
-    new mapboxgl.Marker({ element: el })
-      .setLngLat(island.pos as [number, number])
-      .addTo(map!);
-    // We optionally don't add these to bounds so it focuses on user data
-  });
 
   // Fit bounds
   try {
@@ -556,7 +686,7 @@ const renderLocations = () => {
       map!.flyTo({ center: [props.centerCoordinate.lng, props.centerCoordinate.lat], zoom: 9, duration: 1000 });
     } else if (!hasValidData && !props.centerCoordinate) {
       // Zoom out to whole country if no location selected and no data
-      map!.flyTo({ center: [108.2772, 14.0583], zoom: 5, duration: 1000 });
+      map!.flyTo({ center: [110.5, 14.8], zoom: 4.8, duration: 1000 });
     }
   } catch (err) {
     console.error('Error fitting bounds in mapbox:', err);
@@ -630,6 +760,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (popup) popup.remove();
+  clearMarkers();
+  clearIslandMarkers();
   if (map) {
     map.remove();
     map = null;
@@ -765,5 +897,20 @@ onUnmounted(() => {
   border-radius: 10px !important;
   padding: 14px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+
+</style>
+
+<style>
+/* Global styles for island sovereignty labels (DOM-based, always visible) */
+.island-label-marker {
+  color: #FFF04D;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+  text-shadow: 1px 1px 3px black, -1px -1px 3px black;
+  pointer-events: none;
+  white-space: nowrap;
 }
 </style>
