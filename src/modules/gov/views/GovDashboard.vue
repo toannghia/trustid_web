@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 bg-gray-50 min-h-screen">
+  <div class="p-6 bg-gray-50 min-h-screen" ref="dashboardRef">
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-gray-800">Tổng quan Hệ thống Quản lý</h2>
       <div class="flex gap-4">
@@ -12,7 +12,9 @@
         <el-button type="danger" plain @click="openRecallDialog" class="font-semibold shadow-sm">
           <el-icon class="mr-1"><Warning /></el-icon> Cảnh báo / Thu hồi
         </el-button>
-        <el-button type="primary" @click="exportReport" class="font-semibold shadow-sm">Xuất Báo cáo</el-button>
+        <el-button type="primary" @click="exportReport" :loading="exporting" class="font-semibold shadow-sm">
+          {{ exporting ? 'Đang xuất...' : 'Xuất Báo cáo' }}
+        </el-button>
       </div>
     </div>
 
@@ -203,9 +205,13 @@ import { MapLocation, Warning } from '@element-plus/icons-vue';
 import { vietnamUnits } from '@/common/data/vietnam-units';
 import { provinceCoordinates } from '@/common/data/province-coordinates';
 import { computed } from 'vue';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const selectedProvince = ref('');
 const selectedWard = ref('');
+const dashboardRef = ref<HTMLElement | null>(null);
+const exporting = ref(false);
 
 const provinces = ref([...vietnamUnits].sort((a, b) => a.name.localeCompare(b.name, 'vi')));
 const filterWards = ref<any[]>([]);
@@ -326,8 +332,91 @@ const submitRecall = async () => {
     }
 };
 
-const exportReport = () => {
-    ElMessage.success('Báo cáo đang được xuất ra PDF. Vui lòng đợi...');
+const exportReport = async () => {
+    if (!dashboardRef.value) return;
+    exporting.value = true;
+
+    try {
+        await new Promise(r => setTimeout(r, 300));
+
+        const element = dashboardRef.value;
+
+        const canvas = await html2canvas(element, {
+            scale: 1.5,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#f9fafb',
+            logging: false,
+            // Skip WebGL canvases (Mapbox) that cause html2canvas to hang
+            ignoreElements: (el: Element) => {
+                return el.classList?.contains('mapboxgl-canvas');
+            },
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+
+        // A4 landscape
+        const pdfWidth = 297;
+        const pdfHeight = 210;
+        const margin = 10;
+        const contentWidth = pdfWidth - margin * 2;
+        const contentHeight = pdfHeight - margin * 2;
+
+        const ratio = contentWidth / imgWidth;
+        const scaledHeight = imgHeight * ratio;
+
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        // Header
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const provinceLabel = selectedProvince.value || 'Toàn quốc';
+
+        pdf.setFontSize(16);
+        pdf.setTextColor(15, 43, 70);
+        pdf.text('BAO CAO TONG QUAN HE THONG QUAN LY', pdfWidth / 2, margin + 4, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(`Khu vuc: ${provinceLabel}  |  Ngay xuat: ${dateStr}`, pdfWidth / 2, margin + 10, { align: 'center' });
+
+        const headerOffset = 16;
+        let yOffset = 0;
+        const firstPageContentHeight = contentHeight - headerOffset;
+
+        // First page
+        pdf.addImage(imgData, 'JPEG', margin, margin + headerOffset, contentWidth, scaledHeight, undefined, 'FAST');
+
+        // Additional pages
+        yOffset += firstPageContentHeight;
+        while (yOffset < scaledHeight) {
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', margin, margin - yOffset, contentWidth, scaledHeight, undefined, 'FAST');
+            yOffset += contentHeight;
+        }
+
+        // Page numbers
+        const totalPages = pdf.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setTextColor(156, 163, 175);
+            pdf.text(`Trang ${i}/${totalPages}`, pdfWidth - margin, pdfHeight - 4, { align: 'right' });
+            pdf.text('TrustID - He thong Truy xuat Nguon goc', margin, pdfHeight - 4);
+        }
+
+        // Download directly (avoids popup blocker issues)
+        const fileName = `BaoCao_GovDashboard_${provinceLabel}_${now.toISOString().slice(0, 10)}.pdf`;
+        pdf.save(fileName);
+
+        ElMessage.success('Báo cáo PDF đã được tải xuống!');
+    } catch (e: any) {
+        console.error('Export PDF error:', e);
+        ElMessage.error('Lỗi khi xuất báo cáo: ' + (e?.message || 'Unknown error'));
+    } finally {
+        exporting.value = false;
+    }
 }
 
 onMounted(() => {

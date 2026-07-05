@@ -368,12 +368,13 @@ const initMap = async () => {
   map = new mapboxgl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [110.5, 14.8], // Vietnam center shifted slightly east for archipelagos visibility
+    center: [110.5, 14.8],
     zoom: 4.8,
     minZoom: 4.8,
     maxZoom: 16,
     maxBounds: VIETNAM_BOUNDS,
     attributionControl: true,
+    preserveDrawingBuffer: true,
   });
 
   map.addControl(new mapboxgl.NavigationControl(), 'top-right');

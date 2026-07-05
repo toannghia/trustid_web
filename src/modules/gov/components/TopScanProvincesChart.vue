@@ -79,6 +79,6 @@ watch(() => props.province, fetchData);
 }
 .chart-area {
   width: 100%;
-  height: 220px;
+  height: 360px;
 }
 </style>
