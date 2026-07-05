@@ -100,6 +100,7 @@ let mapListenersAdded = false;
 let provincesGeoJson: any = null;
 let activeMarkers: mapboxgl.Marker[] = [];
 let islandMarkers: mapboxgl.Marker[] = [];
+let cityMarkers: mapboxgl.Marker[] = [];
 
 const clearMarkers = () => {
   activeMarkers.forEach(m => m.remove());
@@ -128,6 +129,51 @@ const addIslandMarkers = () => {
       .setLngLat([island.lng, island.lat])
       .addTo(map!);
     islandMarkers.push(marker);
+  });
+};
+
+const clearCityMarkers = () => {
+  cityMarkers.forEach(m => m.remove());
+  cityMarkers = [];
+};
+
+const addCityMarkers = () => {
+  if (!map) return;
+  clearCityMarkers();
+
+  const cities = [
+    { lng: 105.8542, lat: 21.0285, text: 'Hà Nội' },
+    { lng: 108.2022, lat: 16.0544, text: 'Đà Nẵng' },
+    { lng: 105.8500, lat: 21.5833, text: 'Thái Nguyên' },
+    { lng: 103.0189, lat: 21.3855, text: 'Điện Biên' },
+    { lng: 105.1500, lat: 9.1769, text: 'Cà Mau' },
+    { lng: 104.8878, lat: 19.2564, text: 'Nghệ An' },
+    { lng: 108.0500, lat: 12.6667, text: 'Đắk Lắk' },
+    { lng: 106.2570, lat: 22.6567, text: 'Cao Bằng' },
+  ];
+
+  cities.forEach(city => {
+    const el = document.createElement('div');
+    el.className = 'city-label-marker';
+    el.textContent = city.text;
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([city.lng, city.lat])
+      .addTo(map!);
+    cityMarkers.push(marker);
+  });
+
+  // Set initial visibility based on current zoom
+  updateCityMarkersVisibility();
+};
+
+/** Hide custom city labels when zoomed in (Mapbox native labels take over). */
+const CITY_LABEL_MAX_ZOOM = 5.5;
+const updateCityMarkersVisibility = () => {
+  if (!map) return;
+  const zoom = map.getZoom();
+  const visible = zoom < CITY_LABEL_MAX_ZOOM;
+  cityMarkers.forEach(m => {
+    m.getElement().style.display = visible ? '' : 'none';
   });
 };
 
@@ -300,6 +346,7 @@ const handleStyleChange = (newStyle: string) => {
     setMapLanguageAndFilterVietnam();
     renderLocations();
     addIslandMarkers();
+    addCityMarkers();
   });
 };
 
@@ -337,7 +384,11 @@ const initMap = async () => {
     setMapLanguageAndFilterVietnam();
     renderLocations();
     addIslandMarkers();
+    addCityMarkers();
   });
+
+  // Toggle custom city labels based on zoom to avoid overlap with Mapbox native labels
+  map.on('zoom', updateCityMarkersVisibility);
 };
 
 const renderLocations = () => {
@@ -772,6 +823,7 @@ onUnmounted(() => {
   if (popup) popup.remove();
   clearMarkers();
   clearIslandMarkers();
+  clearCityMarkers();
   if (map) {
     map.remove();
     map = null;
@@ -922,5 +974,21 @@ onUnmounted(() => {
   text-shadow: 1px 1px 3px black, -1px -1px 3px black;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* Priority city labels (DOM-based, always visible) */
+.city-label-marker {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1;
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.8),
+    1px 1px 2px rgba(0, 0, 0, 0.6),
+    -1px -1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 </style>
