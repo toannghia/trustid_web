@@ -28,8 +28,8 @@ const weekEnd = ref('');
 const scanData = ref<{ label: string; count: number }[]>([]);
 
 const weekLabel = computed(() => {
-  if (!weekStart.value) return 'Tuần này';
-  return weekOffset.value === 0 ? 'Tuần này' : `${weekStart.value} → ${weekEnd.value}`;
+  if (!weekStart.value) return '7 ngày gần nhất';
+  return weekOffset.value === 0 ? '7 ngày gần nhất' : `${weekStart.value} → ${weekEnd.value}`;
 });
 
 const changeWeek = (delta: number) => {
