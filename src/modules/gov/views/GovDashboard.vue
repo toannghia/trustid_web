@@ -128,7 +128,7 @@
           :selected-province="selectedProvince"
           @change-province="selectedProvince = $event; handleProvinceChange()"
           height="100%"
-          class="flex-1 min-h-[480px]"
+          class="flex-1 min-h-[780px]"
         />
         <div class="mt-2 text-xs text-gray-500">
           <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Vùng trồng: {{ farms.length }}</span>

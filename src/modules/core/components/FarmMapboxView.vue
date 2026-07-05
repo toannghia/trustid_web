@@ -674,22 +674,41 @@ const renderLocations = () => {
 
 
 
-  // Fit bounds
+  // Fit bounds — when a province is selected, always use province GeoJSON
+  // bounds so the entire province fits within the map frame.
   try {
-    if (hasValidData && props.autoFitBounds !== false) {
-      // Mapbox LngLatBounds is empty if both _sw and _ne are undefined.
-      // isEmpty() will check this safely.
+    if (props.selectedProvince && provincesGeoJson) {
+      fitToProvince(props.selectedProvince);
+    } else if (hasValidData && props.autoFitBounds !== false) {
       if (!bounds.isEmpty()) {
         map!.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 1000 });
       }
     } else if (!hasValidData && props.centerCoordinate) {
       map!.flyTo({ center: [props.centerCoordinate.lng, props.centerCoordinate.lat], zoom: 9, duration: 1000 });
     } else if (!hasValidData && !props.centerCoordinate) {
-      // Zoom out to whole country if no location selected and no data
       map!.flyTo({ center: [110.5, 14.8], zoom: 4.8, duration: 1000 });
     }
   } catch (err) {
     console.error('Error fitting bounds in mapbox:', err);
+  }
+};
+
+/** Zoom the map to fit a province boundary within the visible frame. */
+const fitToProvince = (provinceName: string) => {
+  if (!map || !provincesGeoJson) return;
+  const feature = provincesGeoJson.features.find((f: any) => {
+    const name = f.properties?.adm1_name1 || f.properties?.adm1_name || '';
+    return name.toLowerCase() === provinceName.toLowerCase();
+  });
+  if (feature && feature.geometry) {
+    const bounds = getFeatureBounds(feature.geometry.coordinates);
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, {
+        padding: { top: 80, bottom: 80, left: 80, right: 80 },
+        maxZoom: 9,
+        duration: 1200,
+      });
+    }
   }
 };
 
@@ -738,19 +757,10 @@ watch(() => props.selectedProvince, (newProvince) => {
     ]);
   }
 
-  if (newProvince && provincesGeoJson) {
-    const feature = provincesGeoJson.features.find((f: any) => {
-      const name = f.properties?.adm1_name1 || f.properties?.adm1_name || '';
-      return name.toLowerCase() === newProvince.toLowerCase();
-    });
-    if (feature && feature.geometry) {
-      const bounds = getFeatureBounds(feature.geometry.coordinates);
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 40, maxZoom: 10, duration: 1500 });
-      }
-    }
+  if (newProvince) {
+    fitToProvince(newProvince);
   } else {
-    map.flyTo({ center: [108.2772, 14.0583], zoom: 5, duration: 1500 });
+    map.flyTo({ center: [110.5, 14.8], zoom: 4.8, duration: 1500 });
   }
 });
 
