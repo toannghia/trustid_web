@@ -90,6 +90,20 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="Thu hồi nhập" prop="recallInbound" width="140" align="right">
+          <template #default="{ row }">
+            <span v-if="row.recallInbound > 0" class="text-orange-500 font-bold">⟲ {{ formatNumber(row.recallInbound) }}</span>
+            <span v-else class="text-gray-300">0</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Hủy" prop="disposed" width="120" align="right">
+          <template #default="{ row }">
+            <span v-if="row.disposed > 0" class="text-red-700 font-bold">🗑 {{ formatNumber(row.disposed) }}</span>
+            <span v-else class="text-gray-300">0</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="Tồn cuối kỳ" prop="closingBalance" width="140" align="right" class-name="bg-blue-50">
           <template #default="{ row }">
             <span class="text-blue-700 font-bold text-base">{{ formatNumber(row.closingBalance) }}</span>
@@ -124,6 +138,8 @@ interface SummaryData {
   openingBalance: number;
   inbound: number;
   outbound: number;
+  recallInbound: number;
+  disposed: number;
   closingBalance: number;
 }
 
@@ -169,8 +185,8 @@ const getSummaries = (param: { columns: TableColumnCtx<any>[]; data: any[] }) =>
       return;
     }
     
-    // index 2: opening, 3: inbound, 4: outbound, 5: closing
-    if (['openingBalance', 'inbound', 'outbound', 'closingBalance'].includes(column.property)) {
+    // summable columns
+    if (['openingBalance', 'inbound', 'outbound', 'recallInbound', 'disposed', 'closingBalance'].includes(column.property)) {
       const values = data.map(item => Number(item[column.property]));
       if (!values.every(value => Number.isNaN(value))) {
         const sum = values.reduce((prev, curr) => {

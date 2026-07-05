@@ -114,7 +114,7 @@
         </div>
 
         <!-- Quick Stats Row -->
-        <div class="grid grid-cols-4 gap-4">
+        <div class="grid grid-cols-5 gap-4">
           <div class="stat-box">
             <div class="stat-label">Quy đổi</div>
             <div class="stat-value">{{ currentInputWeightKg.toLocaleString() }} kg</div>
@@ -123,13 +123,63 @@
             <div class="stat-label">Output</div>
             <div class="stat-value">{{ computedOutputWeight.toFixed(2) }} kg</div>
           </div>
+          <div class="stat-box" :class="actualSurplusKg > 0 ? '!bg-amber-50 !border-amber-200' : ''">
+            <div class="stat-label">Dư thừa (kg)</div>
+            <el-input-number
+              v-model="actualSurplusKg"
+              :min="0"
+              :max="computedSurplusKg"
+              :precision="1"
+              :step="0.5"
+              size="small"
+              controls-position="right"
+              class="w-full surplus-stat-input"
+            />
+          </div>
           <div class="stat-box">
             <div class="stat-label">Hao hụt</div>
-            <div class="stat-value text-orange-600">{{ computedLossPct.toFixed(2) }}%</div>
+            <div class="stat-value text-orange-600">{{ adjustedLossPct.toFixed(2) }}%</div>
           </div>
           <div class="stat-box">
             <div class="stat-label">Tổng bao</div>
             <div class="stat-value">{{ bagCount }} bao</div>
+          </div>
+        </div>
+
+        <!-- Surplus Input Section -->
+        <div v-if="computedSurplusKg > 0" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase text-amber-700">📦 Khối lượng dư thừa sau sơ chế</span>
+            <el-tag size="small" type="warning" effect="plain" class="!text-[10px]">Tự động tính = Input − Output</el-tag>
+          </div>
+          <div class="grid grid-cols-3 gap-4 items-end">
+            <div>
+              <label class="text-xs text-gray-500 font-medium block mb-1">KL dư (tự tính)</label>
+              <div class="h-8 flex items-center font-bold text-amber-800 bg-amber-100 px-3 rounded border border-amber-200 text-sm">
+                {{ computedSurplusKg.toFixed(1) }} kg
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 font-medium block mb-1">KL dư thực tế (kg)</label>
+              <el-input-number
+                v-model="actualSurplusKg"
+                :min="0"
+                :max="computedSurplusKg"
+                :precision="1"
+                :step="0.5"
+                class="w-full"
+                controls-position="right"
+              />
+            </div>
+            <div v-if="surplusLossKg > 0">
+              <label class="text-xs text-gray-500 font-medium block mb-1">Hao hụt sơ chế</label>
+              <div class="h-8 flex items-center font-semibold text-orange-600 bg-orange-50 px-3 rounded border border-orange-200 text-sm">
+                {{ surplusLossKg.toFixed(1) }} kg ({{ surplusLossPct }}%)
+              </div>
+            </div>
+          </div>
+          <div class="text-[10px] text-amber-600 italic">
+            * KL dư thực tế sẽ được ghi nhận vào "Kho dư" để có thể tái sử dụng cho lần đóng gói tiếp theo. Phần chênh lệch = hao hụt sơ chế.
           </div>
         </div>
       </el-card>
@@ -758,10 +808,35 @@ const currentInputWeightKg = computed(() => {
 
 const selectedSourceBatch = computed(() => sourceBatches.value.find(b => b.id === selectedSourceBatchId.value));
 const computedOutputWeight = computed(() => Number(packageWeightKg.value || 0) * Number(bagCount.value || 0));
+
+// Surplus (dư thừa) computations
+const actualSurplusKg = ref(0);
+const computedSurplusKg = computed(() => {
+  const diff = currentInputWeightKg.value - computedOutputWeight.value;
+  return Math.max(0, diff);
+});
+const surplusLossKg = computed(() => Math.max(0, computedSurplusKg.value - actualSurplusKg.value));
+const surplusLossPct = computed(() => {
+  if (currentInputWeightKg.value <= 0) return '0.0';
+  return ((surplusLossKg.value / currentInputWeightKg.value) * 100).toFixed(1);
+});
+// Auto-reset actualSurplusKg when computedSurplusKg changes
+watch(computedSurplusKg, (newVal) => {
+  if (actualSurplusKg.value > newVal) {
+    actualSurplusKg.value = newVal;
+  }
+});
+
 const computedLossPct = computed(() => {
   const input = currentInputWeightKg.value;
   if (input <= 0) return 0;
-  const loss = ((input - computedOutputWeight.value) / input) * 100;
+  const loss = ((input - computedOutputWeight.value - actualSurplusKg.value) / input) * 100;
+  return Math.max(0, loss);
+});
+const adjustedLossPct = computed(() => {
+  const input = currentInputWeightKg.value;
+  if (input <= 0) return 0;
+  const loss = ((input - computedOutputWeight.value - actualSurplusKg.value) / input) * 100;
   return Math.max(0, loss);
 });
 const validationMessage = computed(() => {
@@ -1474,7 +1549,8 @@ const submit = async () => {
       warehouse_id: packagingInfo.value.warehouse_id,
       packaging_date: packagingInfo.value.date.toISOString(),
       location_name: packagingInfo.value.location,
-      package_weight: packageWeightKg.value
+      package_weight: packageWeightKg.value,
+      actual_surplus_kg: computedSurplusKg.value > 0 ? actualSurplusKg.value : undefined
     };
     
     saving.value = true;
@@ -1673,5 +1749,14 @@ onMounted(() => {
 .custom-number-input :deep(.el-input__wrapper) {
   border-top-right-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
+}
+.surplus-stat-input :deep(.el-input__inner) {
+  font-weight: 800;
+  font-size: 14px;
+  color: #b45309;
+}
+.surplus-stat-input :deep(.el-input-number__decrease),
+.surplus-stat-input :deep(.el-input-number__increase) {
+  background: transparent;
 }
 </style>

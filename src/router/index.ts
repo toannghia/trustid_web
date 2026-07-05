@@ -521,6 +521,18 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/modules/supply/views/RecallManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Quản lý Thu hồi' }
       },
+      {
+        path: '/supply/recalls/:id',
+        name: 'RecallOrderDetail',
+        component: () => import('@/modules/supply/views/RecallOrderDetail.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN'], title: 'Chi tiết Thu hồi' }
+      },
+      {
+        path: '/supply/recall-report',
+        name: 'RecallReport',
+        component: () => import('@/modules/supply/views/RecallReport.vue'),
+        meta: { roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'], title: 'Báo cáo Thu hồi' }
+      },
       // VẬN CHUYỂN (TRANSPORT)
       {
         path: '/transport/warehouses',
