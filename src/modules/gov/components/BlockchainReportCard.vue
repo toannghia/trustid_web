@@ -5,7 +5,18 @@
         <span class="icon">⛓️</span>
         <h3>Báo cáo Blockchain</h3>
       </div>
-      <el-tag size="small" type="success" effect="dark">Live</el-tag>
+      <div class="header-actions">
+        <el-tag
+          size="small"
+          class="polygon-tag"
+          @click="openPolygon"
+          style="cursor: pointer;"
+        >
+          <svg viewBox="0 0 38 33" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px; display: inline-block;" fill="currentColor"><path d="M29 10.2c-.7-.4-1.6-.4-2.4 0l-5.6 3.3-3.8 2.1-5.5 3.3c-.7.4-1.6.4-2.4 0l-4.3-2.5c-.7-.4-1.2-1.2-1.2-2.1v-5c0-.8.4-1.6 1.2-2.1l4.3-2.5c.7-.4 1.6-.4 2.4 0l4.3 2.5c.7.4 1.2 1.2 1.2 2.1v3.3l3.8-2.2V7c0-.8-.4-1.6-1.2-2.1l-8-4.7c-.7-.4-1.6-.4-2.4 0L1.2 5C.4 5.4 0 6.2 0 7v9.4c0 .8.4 1.6 1.2 2.1l8.1 4.7c.7.4 1.6.4 2.4 0l5.5-3.2 3.8-2.2 5.5-3.2c.7-.4 1.6-.4 2.4 0l4.3 2.5c.7.4 1.2 1.2 1.2 2.1v5c0 .8-.4 1.6-1.2 2.1L29 29.9c-.7.4-1.6.4-2.4 0l-4.3-2.5c-.7-.4-1.2-1.2-1.2-2.1v-3.2l-3.8 2.2v3.3c0 .8.4 1.6 1.2 2.1l8.1 4.7c.7.4 1.6.4 2.4 0l8.1-4.7c.7-.4 1.2-1.2 1.2-2.1V18c0-.8-.4-1.6-1.2-2.1L29 10.2z"/></svg>
+          Polygon
+        </el-tag>
+        <el-tag size="small" type="success" effect="dark">Live</el-tag>
+      </div>
     </div>
     <div class="kpi-row">
       <div class="kpi-item">
@@ -101,6 +112,10 @@ const renderChart = () => {
 
 onMounted(fetchData);
 
+const openPolygon = () => {
+  window.open('https://polygonscan.com/address/0x8a6433A30abF6bE87382615cb82289a0D31E444b', '_blank');
+};
+
 watch(() => chartRef.value, () => {
   if (chartRef.value && data.value.weekly.days.length) renderChart();
 });
@@ -118,6 +133,21 @@ watch(() => chartRef.value, () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.polygon-tag {
+  background: rgba(130, 71, 229, 0.2) !important;
+  border-color: rgba(130, 71, 229, 0.5) !important;
+  color: #a78bfa !important;
+  transition: all 0.2s;
+}
+.polygon-tag:hover {
+  background: rgba(130, 71, 229, 0.4) !important;
+  transform: scale(1.05);
 }
 .header-left {
   display: flex;
