@@ -18,7 +18,7 @@ import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 
-const props = defineProps<{ province?: string }>();
+const props = defineProps<{ province?: string; tenantId?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const weekOffset = ref(0);
@@ -41,6 +41,7 @@ const fetchData = async () => {
   try {
     const params: any = { weekOffset: weekOffset.value };
     if (props.province) params.province = props.province;
+    if (props.tenantId) params.tenantId = props.tenantId;
     const { data: res } = await api.get('/api/gov/weekly-scans', { params });
     weekStart.value = res.weekStart;
     weekEnd.value = res.weekEnd;
@@ -86,7 +87,7 @@ const renderChart = () => {
 };
 
 onMounted(fetchData);
-watch(() => props.province, () => { weekOffset.value = 0; fetchData(); });
+watch(() => [props.province, props.tenantId], () => { weekOffset.value = 0; fetchData(); });
 </script>
 
 <style scoped>

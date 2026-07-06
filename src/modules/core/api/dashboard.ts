@@ -15,6 +15,7 @@ export const dashboardApi = {
   getTenantStats: () => api.get('/tenant/dashboard/summary'),
   getTenantActivity: () => api.get('/tenant/dashboard/activity'),
   getTenantMaps: () => api.get('/tenant/dashboard/maps'),
+  getTenantSupplyStats: () => api.get('/tenant/dashboard/supply-stats'),
 
   // Admin Map: all locations cross-tenant
   getAdminLocationsMap: (tenantId?: string) =>

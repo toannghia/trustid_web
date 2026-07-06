@@ -13,7 +13,7 @@ import { ref, onMounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
-const props = defineProps<{ province?: string }>();
+const props = defineProps<{ province?: string; tenantId?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const selectedYear = ref(String(new Date().getFullYear()));
@@ -23,6 +23,7 @@ const fetchData = async () => {
   try {
     const params: any = { year: selectedYear.value };
     if (props.province) params.province = props.province;
+    if (props.tenantId) params.tenantId = props.tenantId;
     const { data: res } = await api.get('/api/gov/seasonal-harvest', { params });
     seasons.value = res.seasons;
     await nextTick();
@@ -46,7 +47,7 @@ const renderChart = () => {
 };
 
 onMounted(fetchData);
-watch(() => props.province, fetchData);
+watch(() => [props.province, props.tenantId], fetchData);
 </script>
 
 <style scoped>

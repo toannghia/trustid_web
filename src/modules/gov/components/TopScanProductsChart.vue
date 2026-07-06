@@ -6,9 +6,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
+
+const props = defineProps<{ tenantId?: string }>();
 
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
@@ -16,7 +18,9 @@ const topData = ref<{ productName: string; count: number }[]>([]);
 
 const fetchData = async () => {
   try {
-    const res = await api.get('/api/gov/top-scan-products');
+    const params: any = {};
+    if (props.tenantId) params.tenantId = props.tenantId;
+    const res = await api.get('/api/gov/top-scan-products', { params });
     topData.value = res.data || [];
     await nextTick();
     renderChart();
@@ -82,6 +86,8 @@ onMounted(() => {
   fetchData();
   window.addEventListener('resize', handleResize);
 });
+
+watch(() => props.tenantId, fetchData);
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
