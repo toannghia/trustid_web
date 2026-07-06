@@ -4,10 +4,12 @@ import { dashboardApi } from '../api/dashboard';
 import * as echarts from 'echarts';
 import { codeApi } from '../api/codeApi';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { User, OfficeBuilding, Goods, PriceTag, Timer, DataLine, Search, MapLocation } from '@element-plus/icons-vue';
+import { User, OfficeBuilding, Goods, PriceTag, Timer, DataLine, Search, MapLocation, Top } from '@element-plus/icons-vue';
 import FarmMapboxView from '../components/FarmMapboxView.vue';
-
-// ... (stats, lists defs)
+import BlockchainReportCard from '@/modules/gov/components/BlockchainReportCard.vue';
+import WeeklyScanChart from '@/modules/gov/components/WeeklyScanChart.vue';
+import TopScanProvincesChart from '@/modules/gov/components/TopScanProvincesChart.vue';
+import QrIssuanceChart from '@/modules/gov/components/QrIssuanceChart.vue';
 
 const quickScanCode = ref('');
 const scanning = ref(false);
@@ -17,7 +19,6 @@ const onQuickScan = async () => {
     scanning.value = true;
     try {
         let location = undefined;
-        // Attempt to get location quietly
         if (navigator.geolocation) {
             try {
                 const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -59,13 +60,6 @@ const onQuickScan = async () => {
     }
 };
 
-// ... (existing functions)
-
-// ...
-
-
-
-
 const stats = ref({
   users: 0, newUsers: 0,
   tenants: 0, newTenants: 0,
@@ -79,11 +73,10 @@ const lists = ref({
     latestProducts: []
 });
 
-const activeTab = ref('products'); // Change default tab here: 'users', 'products', 'tenants'
+const activeTab = ref('products');
 const activeStatTab = ref('tenant');
 const chartRef = ref(null);
 
-// Aggregate stats from backend
 const mockTenantStats = ref<any[]>([]);
 const mockProductStats = ref<any[]>([]);
 const mockCategoryStats = ref<any[]>([]);
@@ -138,7 +131,7 @@ const handleApprove = async (id: string, name: string) => {
         await dashboardApi.approveBoundary(id);
         ElMessage.success('Đã phê duyệt ranh giới');
         loadPendingApprovals();
-        loadMapData(); // Refresh map with new polygons
+        loadMapData();
     } catch(e) {
         if (e !== 'cancel') ElMessage.error('Có lỗi xảy ra khi phê duyệt');
     }
@@ -167,17 +160,14 @@ const initChart = (data: any[]) => {
   const myChart = echarts.init(chartRef.value);
   
   const option = {
-    title: { text: '', left: 'center' }, // removed title since we have a header for the col
     tooltip: { trigger: 'item' },
     series: [
       {
         type: 'pie',
-        radius: ['45%', '75%'], // slightly smaller inside the smaller container
+        radius: ['45%', '75%'],
         center: ['50%', '50%'],
         data: data,
-        label: {
-          show: false // hide labels to save space
-        },
+        label: { show: false },
         emphasis: {
             itemStyle: {
                 shadowBlur: 10,
@@ -215,7 +205,6 @@ onMounted(async () => {
     console.error('Dashboard load error', e);
   }
 
-  // Load map and approvals data
   loadTenants();
   loadMapData();
   loadPendingApprovals();
@@ -223,268 +212,286 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6">
-      <h2 class="text-2xl font-bold mb-6 text-gray-800">Bảng điều khiển</h2>
+  <div class="p-6 bg-gray-50 min-h-screen">
+    <!-- Header with Quick Scan -->
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">Bảng điều khiển</h2>
+      <div class="flex gap-3 items-center">
+        <el-input
+          v-model="quickScanCode"
+          placeholder="Quét mã nhanh..."
+          class="w-64"
+          :suffix-icon="Search"
+          @keyup.enter="onQuickScan"
+          clearable
+        />
+        <el-button type="primary" @click="onQuickScan" :loading="scanning">Kiểm tra</el-button>
+      </div>
+    </div>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <!-- Users -->
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500 hover:shadow-md transition">
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+      <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-blue-500 hover:shadow-md transition">
         <div class="flex justify-between items-start">
-            <div>
-                <div class="text-gray-500 text-sm font-medium">Người dùng</div>
-                <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.users }}</div>
-                <div class="text-xs text-green-600 mt-2 flex items-center">
-                    <el-icon class="mr-1"><Top /></el-icon>
-                    +{{ stats.newUsers }} hôm nay
-                </div>
+          <div>
+            <div class="text-gray-500 text-sm font-medium">Người dùng</div>
+            <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.users }}</div>
+            <div class="text-xs text-green-600 mt-2 flex items-center">
+              <el-icon class="mr-1"><Top /></el-icon>
+              +{{ stats.newUsers }} hôm nay
             </div>
-            <div class="p-3 bg-blue-50 rounded-full text-blue-600">
-                <el-icon class="text-xl"><User /></el-icon>
-            </div>
+          </div>
+          <div class="p-3 bg-blue-50 rounded-full text-blue-600">
+            <el-icon class="text-xl"><User /></el-icon>
+          </div>
         </div>
       </div>
 
-      <!-- Tenants -->
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-purple-500 hover:shadow-md transition">
-         <div class="flex justify-between items-start">
-            <div>
-                <div class="text-gray-500 text-sm font-medium">Doanh nghiệp</div>
-                <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.tenants }}</div>
-                 <div class="text-xs text-green-600 mt-2 flex items-center">
-                    <el-icon class="mr-1"><Top /></el-icon>
-                    +{{ stats.newTenants }} hôm nay
-                </div>
+      <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-purple-500 hover:shadow-md transition">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-gray-500 text-sm font-medium">Doanh nghiệp</div>
+            <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.tenants }}</div>
+            <div class="text-xs text-green-600 mt-2 flex items-center">
+              <el-icon class="mr-1"><Top /></el-icon>
+              +{{ stats.newTenants }} hôm nay
             </div>
-            <div class="p-3 bg-purple-50 rounded-full text-purple-600">
-                <el-icon class="text-xl"><OfficeBuilding /></el-icon>
-            </div>
+          </div>
+          <div class="p-3 bg-purple-50 rounded-full text-purple-600">
+            <el-icon class="text-xl"><OfficeBuilding /></el-icon>
+          </div>
         </div>
       </div>
 
-      <!-- Products -->
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-orange-500 hover:shadow-md transition">
-         <div class="flex justify-between items-start">
-            <div>
-                <div class="text-gray-500 text-sm font-medium">Sản phẩm</div>
-                <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.products }}</div>
-                 <div class="text-xs text-gray-500 mt-2">
-                    {{ stats.activeProducts }} đang hoạt động
-                </div>
+      <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-orange-500 hover:shadow-md transition">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-gray-500 text-sm font-medium">Sản phẩm</div>
+            <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.products }}</div>
+            <div class="text-xs text-gray-500 mt-2">
+              {{ stats.activeProducts }} đang hoạt động
             </div>
-            <div class="p-3 bg-orange-50 rounded-full text-orange-600">
-                <el-icon class="text-xl"><Goods /></el-icon>
-            </div>
+          </div>
+          <div class="p-3 bg-orange-50 rounded-full text-orange-600">
+            <el-icon class="text-xl"><Goods /></el-icon>
+          </div>
         </div>
       </div>
 
-       <!-- Codes -->
-      <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-green-500 hover:shadow-md transition">
-         <div class="flex justify-between items-start">
-            <div>
-                <div class="text-gray-500 text-sm font-medium">Mã Tem (Codes)</div>
-                <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.codes.toLocaleString() }}</div>
-                 <div class="text-xs text-gray-500 mt-2">
-                    {{ stats.usedCodes.toLocaleString() }} đã sử dụng
-                </div>
+      <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-green-500 hover:shadow-md transition">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-gray-500 text-sm font-medium">Mã Tem (Codes)</div>
+            <div class="text-3xl font-bold mt-1 text-gray-800">{{ stats.codes.toLocaleString() }}</div>
+            <div class="text-xs text-gray-500 mt-2">
+              {{ stats.usedCodes.toLocaleString() }} đã sử dụng
             </div>
-            <div class="p-3 bg-green-50 rounded-full text-green-600">
-                <el-icon class="text-xl"><PriceTag /></el-icon>
-            </div>
+          </div>
+          <div class="p-3 bg-green-50 rounded-full text-green-600">
+            <el-icon class="text-xl"><PriceTag /></el-icon>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Middle Section: Chart and Stats -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Chart -->
-        <div class="bg-white p-6 rounded-lg shadow-sm col-span-1">
-             <h3 class="font-bold mb-4 text-gray-700 flex items-center gap-2">
-                 Tỷ trọng ngành hàng
-             </h3>
-             <div class="h-64" ref="chartRef"></div>
-        </div>
-
-        <!-- Aggregated Stats Table Section -->
-        <div class="bg-white p-6 rounded-lg shadow-sm col-span-2">
-            <h3 class="font-bold mb-4 text-gray-700 flex items-center gap-2">
-                <el-icon><DataLine /></el-icon> Số liệu tổng hợp & Thống kê lượt quét
-            </h3>
-            <el-tabs v-model="activeStatTab">
-                <el-tab-pane label="Top Doanh nghiệp" name="tenant">
-                    <el-table :data="mockTenantStats" size="small" stripe border>
-                        <el-table-column prop="name" label="Tên Doanh nghiệp" />
-                        <el-table-column prop="productCount" label="Sản phẩm" align="center" width="90" />
-                        <el-table-column prop="userCount" label="Users" align="center" width="70" />
-                        <el-table-column prop="scanCount" label="Lượt quét" align="center" width="100">
-                             <template #default="{ row }">
-                                 <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
-                             </template>
-                        </el-table-column>
-                    </el-table>
-                </el-tab-pane>
-                <el-tab-pane label="Theo Sản phẩm" name="product">
-                    <el-table :data="mockProductStats" size="small" stripe border>
-                        <el-table-column prop="name" label="Tên Sản phẩm" />
-                        <el-table-column prop="tenant" label="Doanh nghiệp" />
-                        <el-table-column prop="scanCount" label="Lượt quét" align="center" width="100">
-                            <template #default="{ row }">
-                                 <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
-                             </template>
-                        </el-table-column>
-                    </el-table>
-                </el-tab-pane>
-                <el-tab-pane label="Theo Danh mục" name="category">
-                    <el-table :data="mockCategoryStats" size="small" stripe border>
-                        <el-table-column prop="name" label="Danh mục (Ngành)" />
-                        <el-table-column prop="productCount" label="Số sản phẩm" align="center" width="120" />
-                        <el-table-column prop="scanCount" label="Tổng lượt quét" align="center" width="120">
-                            <template #default="{ row }">
-                                 <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
-                             </template>
-                        </el-table-column>
-                    </el-table>
-                </el-tab-pane>
-            </el-tabs>
-        </div>
-    </div>
-
-    <!-- Map Section -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-gray-700 flex items-center gap-2 text-lg">
-                <el-icon><MapLocation /></el-icon>
-                Bản đồ Vùng trồng toàn hệ thống
-            </h3>
-            <el-select
-                v-model="mapTenantFilter"
-                placeholder="Tất cả doanh nghiệp"
-                clearable
-                class="w-64"
-                @change="onTenantFilterChange"
-            >
-                <el-option
-                    v-for="t in tenantsList"
-                    :key="t.id"
-                    :label="t.name"
-                    :value="t.id"
-                />
-            </el-select>
+    <!-- Row 2: Map (left) + Weekly Scan & Top Provinces (right) — giống Gov -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Map -->
+      <div class="bg-white rounded-lg shadow-sm p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-bold text-gray-700 flex items-center gap-2 text-sm">
+            <el-icon><MapLocation /></el-icon>
+            Bản đồ Vùng trồng toàn hệ thống
+          </h3>
+          <el-select
+            v-model="mapTenantFilter"
+            placeholder="Tất cả DN"
+            clearable
+            size="small"
+            class="w-48"
+            @change="onTenantFilterChange"
+          >
+            <el-option v-for="t in tenantsList" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
         </div>
         <FarmMapboxView
-            :locations="mapLocations"
-            :scans="mapScans"
-            :auto-fit-bounds="false"
-            height="500px"
-            @select="(loc) => console.log('Selected location:', loc)"
+          :locations="mapLocations"
+          :scans="mapScans"
+          :auto-fit-bounds="false"
+          height="100%"
+          class="flex-1 min-h-[600px]"
+          @select="(loc) => console.log('Selected location:', loc)"
         />
         <div class="mt-2 text-xs text-gray-500 flex gap-4">
-            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> Vùng trồng: {{ mapLocations.length }}</span>
-            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> Lượt quét: {{ mapScans.length }}</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Vùng trồng: {{ mapLocations.length }}</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Lượt quét: {{ mapScans.length }}</span>
         </div>
+      </div>
+
+      <!-- Right column: Weekly Scan + Top Provinces -->
+      <div class="flex flex-col gap-6">
+        <WeeklyScanChart />
+        <TopScanProvincesChart />
+      </div>
     </div>
 
-    <!-- Bottom Section: Detailed Lists -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-        <el-tabs v-model="activeTab">
-            <el-tab-pane label="Phê duyệt vùng trồng" name="approvals">
-                 <el-table :data="pendingApprovals" stripe style="width: 100%">
-                    <el-table-column type="index" label="STT" width="60" />
-                    <el-table-column prop="name" label="Tên vùng trồng" />
-                    <el-table-column label="Doanh nghiệp">
-                        <template #default="scope">{{ scope.row.tenant?.name || '---' }}</template>
-                    </el-table-column>
-                    <el-table-column prop="updateReason" label="Lý do thay đổi" />
-                    <el-table-column label="Diện tích dự kiến">
-                        <template #default="{ row }">{{ row.areaM2?.toLocaleString() }} m²</template>
-                    </el-table-column>
-                    <el-table-column label="Ngày cập nhật" width="120">
-                        <template #default="{ row }">{{ new Date(row.updatedAt).toLocaleDateString() }}</template>
-                    </el-table-column>
-                    <el-table-column label="Thao tác" width="200" align="center">
-                        <template #default="{ row }">
-                            <el-button type="success" size="small" @click="handleApprove(row.id, row.name)">Duyệt</el-button>
-                            <el-button type="danger" size="small" @click="handleReject(row.id, row.name)">Từ chối</el-button>
-                        </template>
-                    </el-table-column>
-                 </el-table>
-                 <div v-if="pendingApprovals.length === 0" class="text-gray-500 text-center py-6">
-                     Không có yêu cầu duyệt ranh giới nào.
-                 </div>
-            </el-tab-pane>
-            <el-tab-pane label="Sản phẩm mới nhất" name="products">
-                 <el-table :data="lists.latestProducts" stripe style="width: 100%">
-                    <el-table-column label="Ảnh" width="70">
-                        <template #default="scope">
-                             <el-image 
-                                v-if="scope.row.images && scope.row.images.length"
-                                :src="getImageUrl(scope.row.images[0])"
-                                class="w-10 h-10 rounded"
-                                fit="cover"
-                                :preview-src-list="scope.row.images.map((img: string) => getImageUrl(img))"
-                                preview-teleported
-                             >
-                                <template #error>
-                                    <div class="w-10 h-10 bg-gray-100 flex items-center justify-center text-xs text-gray-400">Err</div>
-                                </template>
-                             </el-image>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="name" label="Tên sản phẩm" />
-                    <el-table-column prop="gtinCode" label="GTIN" />
-                    <el-table-column label="Doanh nghiệp">
-                        <template #default="scope">{{ scope.row.tenant?.name }}</template>
-                    </el-table-column>
-                      <el-table-column label="Danh mục">
-                        <template #default="scope">{{ scope.row.category?.name }}</template>
-                    </el-table-column>
-                    <el-table-column label="Ngày tạo" width="180">
-                        <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
-                    </el-table-column>
-                </el-table>
-            </el-tab-pane>
-            <el-tab-pane label="Người dùng mới nhất" name="users">
-                <el-table :data="lists.latestUsers" stripe style="width: 100%">
-                    <el-table-column type="index" label="STT" width="60" />
-                    <el-table-column prop="username" label="Tên đăng nhập" />
-                    <el-table-column prop="fullName" label="Họ tên" />
-                    <el-table-column label="Doanh nghiệp">
-                        <template #default="scope">
-                            {{ scope.row.tenant?.name || '---' }}
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="role" label="Vai trò">
-                         <template #default="scope">
-                            <el-tag size="small">{{ scope.row.role?.name || scope.row.role }}</el-tag>
-                         </template>
-                    </el-table-column>
-                    <el-table-column prop="status" label="Trạng thái">
-                        <template #default="scope">
-                            <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">
-                                {{ scope.row.status === 'ACTIVE' ? 'Hoạt động' : scope.row.status === 'BLOCKED' ? 'Đã khóa' : scope.row.status === 'INACTIVE' ? 'Ngừng hoạt động' : scope.row.status }}
-                            </el-tag>
-                        </template>
-                    </el-table-column>
-                    <el-table-column label="Ngày tạo" width="120">
-                        <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
-                    </el-table-column>
-                </el-table>
-            </el-tab-pane>
+    <!-- Row 3: Blockchain + QR Issuance -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <BlockchainReportCard />
+      <QrIssuanceChart />
+    </div>
 
-            <el-tab-pane label="Doanh nghiệp mới nhất" name="tenants">
-                 <el-table :data="lists.latestTenants" stripe style="width: 100%">
-                    <el-table-column prop="name" label="Tên doanh nghiệp" />
-                    <el-table-column prop="taxCode" label="Mã số thuế" />
-                    <el-table-column prop="email" label="Email" />
-                    <el-table-column prop="phone" label="SĐT" />
-                    <el-table-column label="Ngày tạo" width="180">
-                        <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
-                    </el-table-column>
-                </el-table>
-            </el-tab-pane>
+    <!-- Row 4: Pie Chart + Stats Tabs -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- Pie Chart -->
+      <div class="bg-white p-5 rounded-lg shadow-sm col-span-1">
+        <h3 class="font-bold mb-4 text-gray-700 text-sm">Tỷ trọng ngành hàng</h3>
+        <div class="h-56" ref="chartRef"></div>
+      </div>
 
-             
+      <!-- Stats Tabs -->
+      <div class="bg-white p-5 rounded-lg shadow-sm col-span-2">
+        <h3 class="font-bold mb-3 text-gray-700 flex items-center gap-2 text-sm">
+          <el-icon><DataLine /></el-icon> Số liệu tổng hợp & Thống kê lượt quét
+        </h3>
+        <el-tabs v-model="activeStatTab">
+          <el-tab-pane label="Top Doanh nghiệp" name="tenant">
+            <el-table :data="mockTenantStats" size="small" stripe border>
+              <el-table-column prop="name" label="Tên Doanh nghiệp" />
+              <el-table-column prop="productCount" label="Sản phẩm" align="center" width="90" />
+              <el-table-column prop="userCount" label="Users" align="center" width="70" />
+              <el-table-column prop="scanCount" label="Lượt quét" align="center" width="100">
+                <template #default="{ row }">
+                  <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="Theo Sản phẩm" name="product">
+            <el-table :data="mockProductStats" size="small" stripe border>
+              <el-table-column prop="name" label="Tên Sản phẩm" />
+              <el-table-column prop="tenant" label="Doanh nghiệp" />
+              <el-table-column prop="scanCount" label="Lượt quét" align="center" width="100">
+                <template #default="{ row }">
+                  <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="Theo Danh mục" name="category">
+            <el-table :data="mockCategoryStats" size="small" stripe border>
+              <el-table-column prop="name" label="Danh mục (Ngành)" />
+              <el-table-column prop="productCount" label="Số sản phẩm" align="center" width="120" />
+              <el-table-column prop="scanCount" label="Tổng lượt quét" align="center" width="120">
+                <template #default="{ row }">
+                  <span class="font-semibold text-blue-600">{{ row.scanCount.toLocaleString() }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
         </el-tabs>
+      </div>
+    </div>
+
+    <!-- Row 5: Bottom Lists -->
+    <div class="bg-white rounded-lg shadow-sm p-5">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="Phê duyệt vùng trồng" name="approvals">
+          <el-table :data="pendingApprovals" stripe style="width: 100%">
+            <el-table-column type="index" label="STT" width="60" />
+            <el-table-column prop="name" label="Tên vùng trồng" />
+            <el-table-column label="Doanh nghiệp">
+              <template #default="scope">{{ scope.row.tenant?.name || '---' }}</template>
+            </el-table-column>
+            <el-table-column prop="updateReason" label="Lý do thay đổi" />
+            <el-table-column label="Diện tích dự kiến">
+              <template #default="{ row }">{{ row.areaM2?.toLocaleString() }} m²</template>
+            </el-table-column>
+            <el-table-column label="Ngày cập nhật" width="120">
+              <template #default="{ row }">{{ new Date(row.updatedAt).toLocaleDateString() }}</template>
+            </el-table-column>
+            <el-table-column label="Thao tác" width="200" align="center">
+              <template #default="{ row }">
+                <el-button type="success" size="small" @click="handleApprove(row.id, row.name)">Duyệt</el-button>
+                <el-button type="danger" size="small" @click="handleReject(row.id, row.name)">Từ chối</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-if="pendingApprovals.length === 0" class="text-gray-500 text-center py-6">
+            Không có yêu cầu duyệt ranh giới nào.
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="Sản phẩm mới nhất" name="products">
+          <el-table :data="lists.latestProducts" stripe style="width: 100%">
+            <el-table-column label="Ảnh" width="70">
+              <template #default="scope">
+                <el-image 
+                  v-if="scope.row.images && scope.row.images.length"
+                  :src="getImageUrl(scope.row.images[0])"
+                  class="w-10 h-10 rounded"
+                  fit="cover"
+                  :preview-src-list="scope.row.images.map((img: string) => getImageUrl(img))"
+                  preview-teleported
+                >
+                  <template #error>
+                    <div class="w-10 h-10 bg-gray-100 flex items-center justify-center text-xs text-gray-400">Err</div>
+                  </template>
+                </el-image>
+              </template>
+            </el-table-column>
+            <el-table-column prop="name" label="Tên sản phẩm" />
+            <el-table-column prop="gtinCode" label="GTIN" />
+            <el-table-column label="Doanh nghiệp">
+              <template #default="scope">{{ scope.row.tenant?.name }}</template>
+            </el-table-column>
+            <el-table-column label="Danh mục">
+              <template #default="scope">{{ scope.row.category?.name }}</template>
+            </el-table-column>
+            <el-table-column label="Ngày tạo" width="120">
+              <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="Người dùng mới nhất" name="users">
+          <el-table :data="lists.latestUsers" stripe style="width: 100%">
+            <el-table-column type="index" label="STT" width="60" />
+            <el-table-column prop="username" label="Tên đăng nhập" />
+            <el-table-column prop="fullName" label="Họ tên" />
+            <el-table-column label="Doanh nghiệp">
+              <template #default="scope">{{ scope.row.tenant?.name || '---' }}</template>
+            </el-table-column>
+            <el-table-column prop="role" label="Vai trò">
+              <template #default="scope">
+                <el-tag size="small">{{ scope.row.role?.name || scope.row.role }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="Trạng thái">
+              <template #default="scope">
+                <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">
+                  {{ scope.row.status === 'ACTIVE' ? 'Hoạt động' : scope.row.status === 'BLOCKED' ? 'Đã khóa' : scope.row.status === 'INACTIVE' ? 'Ngừng hoạt động' : scope.row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="Ngày tạo" width="120">
+              <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="Doanh nghiệp mới nhất" name="tenants">
+          <el-table :data="lists.latestTenants" stripe style="width: 100%">
+            <el-table-column prop="name" label="Tên doanh nghiệp" />
+            <el-table-column prop="taxCode" label="Mã số thuế" />
+            <el-table-column prop="email" label="Email" />
+            <el-table-column prop="phone" label="SĐT" />
+            <el-table-column label="Ngày tạo" width="120">
+              <template #default="scope">{{ new Date(scope.row.createdAt).toLocaleDateString() }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
     </div>
   </div>
 </template>
