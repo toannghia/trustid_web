@@ -10,6 +10,8 @@ import BlockchainReportCard from '@/modules/gov/components/BlockchainReportCard.
 import WeeklyScanChart from '@/modules/gov/components/WeeklyScanChart.vue';
 import TopScanProvincesChart from '@/modules/gov/components/TopScanProvincesChart.vue';
 import QrIssuanceChart from '@/modules/gov/components/QrIssuanceChart.vue';
+import TopScanProductsChart from '@/modules/gov/components/TopScanProductsChart.vue';
+import TopScanTenantsChart from '@/modules/gov/components/TopScanTenantsChart.vue';
 
 const quickScanCode = ref('');
 const scanning = ref(false);
@@ -335,10 +337,16 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Row 3: Blockchain + QR Issuance -->
+    <!-- Row 3: Blockchain + QR Issuance + Top Products -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <BlockchainReportCard />
       <QrIssuanceChart />
+    </div>
+
+    <!-- Row 3b: Top Products + Top Tenants -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <TopScanProductsChart />
+      <TopScanTenantsChart />
     </div>
 
     <!-- Row 4: Pie Chart + Stats Tabs -->

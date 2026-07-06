@@ -156,6 +156,12 @@
       <SeasonalHarvestChart :province="selectedProvince" />
     </div>
 
+    <!-- Top Products + Top Tenants by Scans -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <TopScanProductsChart />
+      <TopScanTenantsChart />
+    </div>
+
     <!-- Products & Enterprises -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="bg-white rounded-lg shadow-sm p-5">
@@ -201,6 +207,8 @@ import WeeklyScanChart from '@/modules/gov/components/WeeklyScanChart.vue';
 import SeasonalHarvestChart from '@/modules/gov/components/SeasonalHarvestChart.vue';
 import QrIssuanceChart from '@/modules/gov/components/QrIssuanceChart.vue';
 import TopScanProvincesChart from '@/modules/gov/components/TopScanProvincesChart.vue';
+import TopScanProductsChart from '@/modules/gov/components/TopScanProductsChart.vue';
+import TopScanTenantsChart from '@/modules/gov/components/TopScanTenantsChart.vue';
 import { MapLocation, Warning } from '@element-plus/icons-vue';
 import { vietnamUnits } from '@/common/data/vietnam-units';
 import { provinceCoordinates } from '@/common/data/province-coordinates';
