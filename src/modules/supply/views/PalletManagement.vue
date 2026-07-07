@@ -86,8 +86,26 @@
     </div>
 
     <!-- Create Dialog -->
-    <el-dialog v-model="showCreateDialog" title="Tạo Pallet mới" width="420" :close-on-click-modal="false" class="rounded-dialog">
-      <el-form label-position="top">
+    <el-dialog
+      v-model="showCreateDialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+      width="420px"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            Tạo Pallet mới
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Tiền tố mã pallet">
           <el-input v-model="createForm.prefix" placeholder="PLT" maxlength="10" style="width: 100%" @input="createForm.prefix = createForm.prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')">
             <template #prepend>Prefix</template>
@@ -103,14 +121,36 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">Huỷ</el-button>
-        <el-button type="primary" @click="handleCreate" :loading="creating">Tạo {{ createForm.quantity }} Pallet</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateDialog = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+          <el-button type="primary" @click="handleCreate" :loading="creating" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+            Tạo {{ createForm.quantity }} Pallet
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Detail Dialog -->
-    <el-dialog v-model="showDetailDialog" :title="`Chi tiết — ${detailPallet?.palletCode}`" width="860" :close-on-click-modal="false" class="rounded-dialog">
-      <div v-if="detailPallet" v-loading="loadingDetail">
+    <el-dialog
+      v-model="showDetailDialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+      width="860px"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            Chi tiết — {{ detailPallet?.palletCode }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDetailDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div v-if="detailPallet" v-loading="loadingDetail" style="padding: 24px 24px 8px;">
         <div class="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
           <div>
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mã Pallet</div>
@@ -170,21 +210,45 @@
         </el-table>
       </div>
       <template #footer>
-        <el-button @click="releasePallet" type="warning" :disabled="!detailPallet?.currentBagCount">Giải phóng tất cả</el-button>
-        <el-button @click="showDetailDialog = false">Đóng</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="releasePallet" type="warning" :disabled="!detailPallet?.currentBagCount" style="border-radius: 8px; padding: 10px 20px;">Giải phóng tất cả</el-button>
+          <el-button @click="showDetailDialog = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Edit Dialog -->
-    <el-dialog v-model="showEditDialog" title="Cập nhật Pallet" width="380" class="rounded-dialog">
-      <el-form label-position="top">
+    <el-dialog
+      v-model="showEditDialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+      width="380px"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            Cập nhật Pallet
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showEditDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Giới hạn bao / pallet">
           <el-input-number v-model="editForm.maxBags" :min="0" :max="999" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">Huỷ</el-button>
-        <el-button type="primary" @click="handleUpdate" :loading="updating">Lưu</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showEditDialog = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+          <el-button type="primary" @click="handleUpdate" :loading="updating" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+            Lưu
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -195,6 +259,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Search } from '@element-plus/icons-vue'
 import api from '@/common/utils/api'
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const pallets = ref<any[]>([])
 const total = ref(0)
@@ -466,5 +531,24 @@ onMounted(fetchPallets)
 :deep(.el-dialog__footer) {
   padding: 16px 24px 20px;
   border-top: 1px solid var(--tid-border);
+}
+</style>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
 }
 </style>

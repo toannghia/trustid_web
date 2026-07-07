@@ -9,6 +9,7 @@ import { Plus, Delete, Upload, Connection } from '@element-plus/icons-vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import MediaManager from './MediaManager.vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps<{
     modelValue: boolean; // control visibility
@@ -486,14 +487,24 @@ const handleSubmitWithSync = async () => {
 <template>
     <el-dialog 
         :model-value="modelValue" 
-        :title="isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'" 
         width="95%"
         style="max-width: 800px" 
         :close-on-click-modal="false"
+        :show-close="false"
         @update:model-value="handleClose"
-        class="responsive-dialog"
+        class="responsive-dialog branded-product-dialog"
     >
-      <el-form :model="productForm" label-position="top">
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                <span style="color: #fff; font-size: 16px; font-weight: 600;">
+                    {{ isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
+                </span>
+            </div>
+        </template>
+
+        <el-form :model="productForm" label-position="top" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
         <div class="flex flex-col gap-4">
             <!-- Row 1: Name & Category -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -694,9 +705,14 @@ const handleSubmitWithSync = async () => {
         </div>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="handleClose">Hủy bỏ</el-button>
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="handleClose" style="border-radius: 8px; padding: 10px 20px;">Hủy bỏ</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="handleSubmit"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
             {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
           <el-button 
@@ -704,10 +720,11 @@ const handleSubmitWithSync = async () => {
             type="success" 
             :loading="submitting" 
             @click="handleSubmitWithSync"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #006b47; cursor: pointer;"
           >
             {{ isEdit ? 'Cập nhật & Đồng bộ NDA' : 'Tạo & Đồng bộ NDA' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
     
@@ -732,5 +749,23 @@ const handleSubmitWithSync = async () => {
 }
 :deep(.ql-editor) {
   min-height: 100%;
+}
+</style>
+
+<style>
+.branded-product-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-product-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-product-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-product-dialog .el-dialog__footer {
+  padding: 0 !important;
 }
 </style>

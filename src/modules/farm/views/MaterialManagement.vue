@@ -99,11 +99,26 @@
     <!-- Create/Edit Material Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Vật tư' : 'Thêm Vật tư mới'"
       width="500px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-material-dialog"
       @closed="resetCreateForm"
     >
-      <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-position="top">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Vật tư' : 'Thêm Vật tư mới' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-position="top" style="padding: 24px 24px 8px;">
         <el-row :gutter="20">
           <el-col :span="12">
              <el-form-item label="Loại" prop="type">
@@ -150,43 +165,70 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitCreateForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="submitCreateForm"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Import/Allocate Modal -->
     <el-dialog
       v-model="showInventoryModal"
-      :title="inventoryForm.type === 'IMPORT' ? 'Nhập kho' : 'Phân bổ vật tư'"
-      width="400px"
+      width="420px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-material-dialog"
       @closed="resetInventoryForm"
     >
-      <div v-if="selectedMaterial" class="mb-4 p-3 bg-gray-50 rounded">
-          <div class="font-bold">{{ selectedMaterial.name }}</div>
-          <div class="text-sm text-gray-500">Mã: {{ selectedMaterial.code }} · Tồn hiện tại: {{ selectedMaterial.stockQuantity }} {{ selectedMaterial.unit }}</div>
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            {{ inventoryForm.type === 'IMPORT' ? 'Nhập kho vật tư' : 'Phân bổ vật tư' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showInventoryModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div v-if="selectedMaterial" class="mb-4 p-3 bg-gray-50 rounded" style="border: 1px solid #e4e7ed; border-radius: 8px;">
+            <div class="font-bold text-gray-800">{{ selectedMaterial.name }}</div>
+            <div class="text-sm text-gray-500">Mã: {{ selectedMaterial.code }} · Tồn hiện tại: <span class="font-semibold text-blue-600">{{ selectedMaterial.stockQuantity }} {{ selectedMaterial.unit }}</span></div>
+        </div>
+
+        <el-form :model="inventoryForm" label-position="top" :rules="inventoryRules" ref="inventoryFormRef">
+          <el-form-item :label="inventoryForm.type === 'IMPORT' ? 'Số lượng nhập' : 'Số lượng phân bổ'" prop="quantity">
+             <el-input-number v-model="inventoryForm.quantity" :min="0.1" class="w-full" style="--el-border-radius-base: 8px;" />
+          </el-form-item>
+          <el-form-item label="Ghi chú">
+             <el-input v-model="inventoryForm.notes" type="textarea" style="--el-border-radius-base: 8px;" />
+          </el-form-item>
+        </el-form>
       </div>
 
-      <el-form :model="inventoryForm" label-position="top" :rules="inventoryRules" ref="inventoryFormRef">
-        <el-form-item :label="inventoryForm.type === 'IMPORT' ? 'Số lượng nhập' : 'Số lượng phân bổ'" prop="quantity">
-           <el-input-number v-model="inventoryForm.quantity" :min="0.1" class="w-full" />
-        </el-form-item>
-        <el-form-item label="Ghi chú">
-           <el-input v-model="inventoryForm.notes" type="textarea" />
-        </el-form-item>
-      </el-form>
-
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showInventoryModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitInventory">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showInventoryModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="submitInventory"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
             Xác nhận
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -198,6 +240,7 @@ import { Plus, Search, Edit, Download, Share, Refresh } from '@element-plus/icon
 import { ElMessage } from 'element-plus';
 import { farmApi, type Material } from '../api/farmApi';
 import type { FormInstance, FormRules } from 'element-plus';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const materials = ref<Material[]>([]);
 const loading = ref(false);
@@ -463,3 +506,21 @@ onMounted(() => {
     fetchSuggestedCode();
 });
 </script>
+
+<style>
+.branded-material-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-material-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-material-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-material-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

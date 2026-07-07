@@ -77,8 +77,27 @@
     </el-card>
 
     <!-- Dialog Thêm/Sửa KH -->
-    <el-dialog v-model="dialogVisible" :title="form.id ? 'Sửa Khách Hàng' : 'Thêm Khách Hàng'" width="450px" destroy-on-close>
-      <el-form :model="form" label-position="top" @submit.prevent>
+    <el-dialog
+      v-model="dialogVisible"
+      :close-on-click-modal="false"
+      :show-close="false"
+      width="450px"
+      class="branded-customer-dialog"
+      destroy-on-close
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            {{ form.id ? 'Sửa Khách Hàng' : 'Thêm Khách Hàng' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="dialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="form" label-position="top" @submit.prevent style="padding: 24px 24px 8px;">
         <el-form-item label="Tên khách hàng" required>
           <el-input v-model="form.name" placeholder="Ví dụ: Nguyễn Văn A" />
         </el-form-item>
@@ -90,10 +109,12 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">Hủy</el-button>
-          <el-button type="primary" @click="save" :loading="saving">Lưu</el-button>
-        </span>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="dialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="primary" @click="save" :loading="saving" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+            Lưu
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -105,6 +126,7 @@ import { Search, Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const customers = ref<any[]>([]);
 const total = ref(0);
@@ -175,3 +197,22 @@ onMounted(() => {
   loadData();
 });
 </script>
+
+<style>
+.branded-customer-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-customer-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-customer-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-customer-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
+</style>

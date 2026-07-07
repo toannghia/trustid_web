@@ -4,6 +4,7 @@ import { Plus, Delete, Edit, Refresh, Lock, Setting } from '@element-plus/icons-
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
 import { MENU_GROUPS } from '@/config/menuConfig';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const loading = ref(false);
 const roles = ref<any[]>([]);
@@ -355,8 +356,27 @@ onMounted(() => {
         </div>
 
         <!-- Create/Edit Modal -->
-        <el-dialog v-model="dialogVisible" :title="isEdit ? 'Cập nhật Role' : 'Tạo Role Mới'" width="750px" destroy-on-close>
-            <el-form :model="form" :rules="rules" ref="formRef" label-position="top">
+        <el-dialog
+            v-model="dialogVisible"
+            :close-on-click-modal="false"
+            :show-close="false"
+            width="750px"
+            class="branded-role-dialog"
+            destroy-on-close
+        >
+            <template #header>
+                <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+                        {{ isEdit ? 'Cập nhật Role' : 'Tạo Role Mới' }}
+                    </span>
+                    <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="dialogVisible = false">
+                        <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                    </div>
+                </div>
+            </template>
+            <el-form :model="form" :rules="rules" ref="formRef" label-position="top" style="padding: 24px 24px 8px;">
                 <div class="grid grid-cols-2 gap-4">
                     <el-form-item label="Tên Role (Mã định danh)" prop="name">
                         <el-input v-model="form.name" placeholder="VD: FARM_MANAGER" :disabled="isEdit" />
@@ -460,12 +480,12 @@ onMounted(() => {
             </el-form>
 
             <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="dialogVisible = false">Hủy</el-button>
-                    <el-button type="primary" :loading="submitting" @click="handleSubmit">
+                <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+                    <el-button @click="dialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+                    <el-button type="primary" :loading="submitting" @click="handleSubmit" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
                         {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
                     </el-button>
-                </span>
+                </div>
             </template>
         </el-dialog>
     </div>
@@ -483,5 +503,24 @@ onMounted(() => {
 }
 .permission-groups :deep(.el-collapse-item__wrap) {
     border-bottom: 1px solid #f0f0f0;
+}
+</style>
+
+<style>
+.branded-role-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-role-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-role-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-role-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
 }
 </style>

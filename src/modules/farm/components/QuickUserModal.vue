@@ -1,11 +1,25 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="`Thêm Nhanh ${roleName === 'FARMER' ? 'Nông Hộ' : 'Đội Trưởng'}`"
     width="500px"
+    class="branded-quick-user-dialog"
+    :close-on-click-modal="false"
+    :show-close="false"
     @closed="handleClosed"
   >
-    <el-form :model="form" :rules="rules" ref="formRef" label-position="top">
+    <template #header>
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+        <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+          {{ `Thêm Nhanh ${roleName === 'FARMER' ? 'Nông Hộ' : (roleName === 'TEAM_LEADER' ? 'Đội Trưởng' : 'Nhân Viên KCS')}` }}
+        </span>
+        <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+          <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+        </div>
+      </div>
+    </template>
+    <el-form :model="form" :rules="rules" ref="formRef" label-position="top" style="padding: 24px 24px 8px;">
       <el-form-item label="Tên đầy đủ" prop="fullName">
         <el-input v-model="form.fullName" placeholder="Nhập họ và tên" />
       </el-form-item>
@@ -17,10 +31,10 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="visible = false">Hủy</el-button>
-        <el-button type="primary" :loading="loading" @click="submitForm">Tạo mới</el-button>
-      </span>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+        <el-button type="primary" :loading="loading" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">Tạo mới</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -30,6 +44,7 @@ import { ref, reactive } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { userApi } from '../../core/api/user';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps({
   roleName: {
@@ -96,3 +111,21 @@ const submitForm = async () => {
 
 defineExpose({ open });
 </script>
+
+<style>
+.branded-quick-user-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-quick-user-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-quick-user-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-quick-user-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

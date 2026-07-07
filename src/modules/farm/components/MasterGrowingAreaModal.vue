@@ -1,11 +1,25 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="isEdit ? 'Cập nhật Vùng trồng' : 'Thêm Mã Vùng Trồng Nhanh'"
     width="800px"
+    class="branded-growing-area-dialog"
+    :close-on-click-modal="false"
+    :show-close="false"
     @closed="handleClosed"
   >
-    <el-form :model="form" :rules="rules" ref="formRef" label-position="top">
+    <template #header>
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+        <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+          {{ isEdit ? 'Cập nhật Vùng trồng' : 'Thêm Mã Vùng Trồng Nhanh' }}
+        </span>
+        <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+          <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+        </div>
+      </div>
+    </template>
+    <el-form :model="form" :rules="rules" ref="formRef" label-position="top" style="padding: 24px 24px 8px;">
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="Mã vùng trồng" prop="code">
@@ -72,7 +86,7 @@
           <el-select v-model="form.leaderIds" multiple placeholder="Chọn các Đội trưởng phụ trách" filterable class="flex-1">
             <el-option v-for="u in teamLeaders" :key="u.id" :label="`${u.fullName} (${u.username})`" :value="u.id" />
           </el-select>
-          <el-button type="success" plain @click="openQuickUserModal">
+          <el-button type="success" plain @click="openQuickUserModal" style="border-radius: 8px;">
             <el-icon><Plus /></el-icon>
             Thêm Nhanh
           </el-button>
@@ -85,10 +99,12 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="visible = false">Hủy</el-button>
-        <el-button type="primary" :loading="loading" @click="submitForm">{{ isEdit ? 'Cập nhật' : 'Tạo mới' }}</el-button>
-      </span>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+        <el-button type="primary" :loading="loading" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+          {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
+        </el-button>
+      </div>
     </template>
   </el-dialog>
   
@@ -100,7 +116,7 @@ import { ref, reactive } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { farmApi } from '../api/farmApi';
-
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { userApi } from '@/modules/core/api/user';
 import { vietnamUnits } from '@/common/data/vietnam-units';
 import { Plus } from '@element-plus/icons-vue';
@@ -252,3 +268,21 @@ const submitForm = async () => {
 
 defineExpose({ open });
 </script>
+
+<style>
+.branded-growing-area-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-growing-area-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-growing-area-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-growing-area-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

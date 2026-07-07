@@ -4,6 +4,7 @@ import { dealerApi, type DealerDto } from '../api/dealerApi';
 import { regionApi, type RegionDto } from '../api/regionApi';
 import { userApi } from '@/modules/core/api/user';
 import { ElMessage } from 'element-plus';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { UserFilled, Location, Phone, Message, Coordinate } from '@element-plus/icons-vue';
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 import { vietnamUnits } from '@/common/data/vietnam-units';
@@ -351,11 +352,23 @@ onUnmounted(() => {
         @update:model-value="handleClose"
         @opened="handleOpened"
         @closed="handleClosed"
-        :title="isEditMode ? 'Cập nhật thông tin Đại lý' : 'Thêm đại lý mới'" 
         width="750px"
         destroy-on-close
+        :show-close="false"
+        :close-on-click-modal="false"
+        class="branded-dealer-dialog"
     >
-        <el-form :model="form" label-width="130px" v-loading="loading" @submit.prevent="saveDealer">
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                <span style="color: #fff; font-size: 16px; font-weight: 600;">
+                    {{ isEditMode ? 'Cập nhật thông tin Đại lý' : 'Thêm đại lý mới' }}
+                </span>
+            </div>
+        </template>
+
+        <el-form :model="form" label-width="130px" v-loading="loading" @submit.prevent="saveDealer" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
             <el-form-item label="Tên đại lý" required>
                 <el-input v-model="form.name" placeholder="Tên DN / Đại lý / Nhà cung cấp" />
             </el-form-item>
@@ -468,8 +481,35 @@ onUnmounted(() => {
             </template>
         </el-form>
         <template #footer>
-            <el-button @click="handleClose">Hủy</el-button>
-            <el-button type="primary" @click="saveDealer" :loading="loading">Lưu dữ liệu</el-button>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+                <el-button @click="handleClose" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+                <el-button 
+                    type="primary" 
+                    @click="saveDealer" 
+                    :loading="loading"
+                    style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+                >
+                    Lưu dữ liệu
+                </el-button>
+            </div>
         </template>
     </el-dialog>
 </template>
+
+<style>
+.branded-dealer-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-dealer-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-dealer-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-dealer-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

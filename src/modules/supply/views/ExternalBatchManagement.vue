@@ -14,6 +14,7 @@ import {
 } from '@element-plus/icons-vue';
 
 import MediaManager from '@/modules/core/components/MediaManager.vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
 
@@ -1140,17 +1141,20 @@ onMounted(fetchData);
       v-model="showBatchDialog"
       width="1000px"
       :close-on-click-modal="false"
-      class="rounded-xl"
+      :show-close="false"
+      class="rounded-xl branded-external-batch-dialog"
     >
       <template #header>
-        <div class="flex items-center justify-between pr-6 py-2 border-b border-gray-100">
-          <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-base font-bold text-gray-800">
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">
               {{ isEdit ? 'Chỉnh sửa lô nhập ngoài' : 'Nhập lô nguyên liệu ngoài' }}
             </span>
             <template v-if="isEdit">
               <!-- Hiển thị Mã lô -->
-              <span class="px-2 py-0.5 text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded">
+              <span class="px-2 py-0.5 text-xs font-mono font-bold text-blue-200 bg-white/10 border border-white/20 rounded">
                 Mã lô: {{ batchForm.batch_code || 'N/A' }}
               </span>
               <!-- Xem/Sao chép ID -->
@@ -1162,17 +1166,18 @@ onMounted(fetchData);
                   size="small" 
                   :icon="View"
                   @click="showBatchId = true"
+                  style="color: rgba(255,255,255,0.8);"
                 >
                   Xem ID Lô
                 </el-button>
-                <div v-else class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-0.5">
-                  <span class="text-[10px] font-mono text-gray-500">ID: {{ batchForm.id }}</span>
+                <div v-else class="flex items-center gap-1 bg-white/10 border border-white/20 rounded px-2 py-0.5">
+                  <span class="text-[10px] font-mono text-gray-300">ID: {{ batchForm.id }}</span>
                   <el-button 
                     type="primary" 
                     link 
                     size="small" 
                     :icon="CopyDocument" 
-                    class="!p-0 !h-auto ml-1 font-bold text-blue-600 hover:text-blue-800"
+                    class="!p-0 !h-auto ml-1 font-bold !text-blue-300 hover:!text-blue-100"
                     @click="handleCopyBatchId(batchForm.id)"
                   >
                     Sao chép
@@ -1182,7 +1187,7 @@ onMounted(fetchData);
                     link 
                     size="small" 
                     :icon="Close" 
-                    class="!p-0 !h-auto ml-1 font-bold"
+                    class="!p-0 !h-auto ml-1 font-bold !text-red-300 hover:!text-red-100"
                     @click="showBatchId = false"
                   />
                 </div>
@@ -1191,7 +1196,7 @@ onMounted(fetchData);
           </div>
         </div>
       </template>
-      <el-form :model="batchForm" label-width="150px" label-position="left">
+      <el-form :model="batchForm" label-width="150px" label-position="left" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
         <el-collapse v-model="activeSections">
           <!-- Phàn 1: Chung -->
           <el-collapse-item name="general">
@@ -1461,146 +1466,219 @@ onMounted(fetchData);
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showBatchDialog = false">Hủy</el-button>
-        <el-button type="primary" @click="saveBatch">Lưu thông tin</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showBatchDialog = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            @click="saveBatch"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
+            Lưu thông tin
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Dialog Xuất Lô -->
     <el-dialog
       v-model="showExportDialog"
-      title="Xuất lô cho đối tác (Sub-Batch)"
       width="500px"
+      :show-close="false"
+      :close-on-click-modal="false"
+      class="branded-external-batch-dialog"
     >
-      <div v-if="selectedBatchForExport" class="mb-4 p-3 bg-gray-50 rounded border border-dashed">
-        <div class="text-sm font-bold text-gray-700">Lô gốc: {{ selectedBatchForExport.batchCode }}</div>
-        <div class="text-xs text-gray-500">Sản phẩm: {{ selectedBatchForExport.product?.name }}</div>
-      </div>
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xuất lô cho đối tác (Sub-Batch)
+          </span>
+        </div>
+      </template>
 
-      <el-form :model="exportForm" label-width="140px">
-        <el-form-item label="Tenant nhận" required>
-          <el-select v-model="exportForm.targetTenantId" filterable placeholder="Chọn đối tác nhận" class="w-full">
-            <el-option
-              v-for="t in tenants"
-              :key="t.id"
-              :label="t.name"
-              :value="t.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Số lượng xuất" required>
-          <el-input-number v-model="exportForm.quantity" :min="1" class="!w-full" />
-        </el-form-item>
-        <el-form-item label="Dán mã QR mới">
-          <el-input v-model="exportForm.qrCodeSerial" placeholder="Serial tem từ kho cho kiện hàng mới" />
-        </el-form-item>
-      </el-form>
+      <div style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
+        <div v-if="selectedBatchForExport" class="mb-4 p-3 bg-gray-50 rounded border border-dashed">
+          <div class="text-sm font-bold text-gray-700">Lô gốc: {{ selectedBatchForExport.batchCode }}</div>
+          <div class="text-xs text-gray-500">Sản phẩm: {{ selectedBatchForExport.product?.name }}</div>
+        </div>
+
+        <el-form :model="exportForm" label-width="140px">
+          <el-form-item label="Tenant nhận" required>
+            <el-select v-model="exportForm.targetTenantId" filterable placeholder="Chọn đối tác nhận" class="w-full">
+              <el-option
+                v-for="t in tenants"
+                :key="t.id"
+                :label="t.name"
+                :value="t.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Số lượng xuất" required>
+            <el-input-number v-model="exportForm.quantity" :min="1" class="!w-full" />
+          </el-form-item>
+          <el-form-item label="Dán mã QR mới">
+            <el-input v-model="exportForm.qrCodeSerial" placeholder="Serial tem từ kho cho kiện hàng mới" />
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
-        <el-button @click="showExportDialog = false">Hủy</el-button>
-        <el-button type="warning" @click="handleExport">Thực hiện xuất</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showExportDialog = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="warning" 
+            @click="handleExport"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
+            Thực hiện xuất
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Dialog Nhận Lô -->
     <el-dialog
       v-model="showReceiveDialog"
-      title="Quét nhận lô từ Tenant khác"
       width="400px"
-      center
+      :show-close="false"
+      :close-on-click-modal="false"
+      class="branded-external-batch-dialog"
     >
-      <div class="text-center py-4">
-        <el-icon :size="60" class="text-blue-500 mb-4"><Connection /></el-icon>
-        <p class="mb-4 text-sm text-gray-600">Nhập hoặc quét mã QR trên kiện hàng được chuyển giao từ đối tác</p>
-        <el-input 
-          v-model="receiveQr" 
-          placeholder="Quét mã QR tại đây..." 
-          @keyup.enter="onReceive"
-          size="large"
-          class="!w-full"
-          autofocus
-        />
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Quét nhận lô từ Tenant khác
+          </span>
+        </div>
+      </template>
+
+      <div style="padding: 24px; --el-border-radius-base: 8px;">
+        <div class="text-center py-4">
+          <el-icon :size="60" class="text-blue-500 mb-4"><Connection /></el-icon>
+          <p class="mb-4 text-sm text-gray-600">Nhập hoặc quét mã QR trên kiện hàng được chuyển giao từ đối tác</p>
+          <el-input 
+            v-model="receiveQr" 
+            placeholder="Quét mã QR tại đây..." 
+            @keyup.enter="onReceive"
+            size="large"
+            class="!w-full"
+            autofocus
+          />
+        </div>
       </div>
       <template #footer>
-        <el-button @click="showReceiveDialog = false">Đóng</el-button>
-        <el-button type="primary" @click="onReceive">Xác nhận nhận lô</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showReceiveDialog = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+          <el-button 
+            type="primary" 
+            @click="onReceive"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
+            Xác nhận nhận lô
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Dialog Gán Mã -->
     <el-dialog
       v-model="showAssignDialog"
-      title="Gán mã QR cho bao / thùng"
       width="600px"
       destroy-on-close
+      :show-close="false"
+      :close-on-click-modal="false"
+      class="branded-external-batch-dialog"
     >
-      <div v-if="assignBatch" class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <div class="text-sm font-bold text-blue-700">Lô: {{ assignBatch.batchCode }}</div>
-        <div class="text-xs text-blue-500">{{ assignBatch.product?.name }} | Đã gán: {{ assignBatch.packCount }} mã</div>
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Gán mã QR cho bao / thùng
+          </span>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
+        <div v-if="assignBatch" class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div class="text-sm font-bold text-blue-700">Lô: {{ assignBatch.batchCode }}</div>
+          <div class="text-xs text-blue-500">{{ assignBatch.product?.name }} | Đã gán: {{ assignBatch.packCount }} mã</div>
+        </div>
+
+        <el-form :model="assignForm" label-width="160px" label-position="left">
+          <el-form-item label="Serial bắt đầu" required>
+            <el-input v-model="assignForm.start_serial" placeholder="VD: ZPS-00001" />
+          </el-form-item>
+          <el-form-item label="Serial kết thúc" required>
+            <el-input v-model="assignForm.end_serial" placeholder="VD: ZPS-00050" />
+          </el-form-item>
+
+          <el-form-item label="Mã tem hỏng/mất">
+            <div class="w-full">
+              <div class="flex gap-2 mb-2">
+                <el-input
+                  v-model="newExcludedSerial"
+                  placeholder="VD: ZPS-00012"
+                  @keyup.enter="addExcludedSerial"
+                  class="flex-1"
+                />
+                <el-button type="danger" plain @click="addExcludedSerial" :icon="Plus">Thêm</el-button>
+              </div>
+              <div v-if="assignForm.excluded_serials.length" class="flex flex-wrap gap-1">
+                <el-tag
+                  v-for="s in assignForm.excluded_serials"
+                  :key="s"
+                  closable
+                  type="danger"
+                  @close="removeExcludedSerial(s)"
+                >
+                  {{ s }}
+                </el-tag>
+              </div>
+            </div>
+          </el-form-item>
+
+          <!-- Summary Preview -->
+          <div v-if="assignSummary" class="p-4 bg-gray-50 rounded-lg border mb-4">
+            <div class="text-sm font-bold text-gray-700 mb-2">📊 Tổng kết dự kiến</div>
+            <div class="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div class="text-2xl font-bold text-blue-600">{{ assignSummary.total }}</div>
+                <div class="text-xs text-gray-400">Tổng dải</div>
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-red-500">{{ assignSummary.damaged }}</div>
+                <div class="text-xs text-gray-400">Hỏng/Mất</div>
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-green-600">{{ assignSummary.willAssign }}</div>
+                <div class="text-xs text-gray-400">Sẽ gán</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div v-if="assignResult" class="p-4 bg-green-50 rounded-lg border border-green-200 mb-4">
+            <div class="text-sm font-bold text-green-700 mb-1">✅ Kết quả gán mã</div>
+            <div class="text-sm text-green-600">Đã gán: {{ assignResult.assigned }} | Hỏng: {{ assignResult.damaged }} | Tổng lô: {{ assignResult.batchPackCount }}</div>
+          </div>
+        </el-form>
       </div>
-
-      <el-form :model="assignForm" label-width="160px" label-position="left">
-        <el-form-item label="Serial bắt đầu" required>
-          <el-input v-model="assignForm.start_serial" placeholder="VD: ZPS-00001" />
-        </el-form-item>
-        <el-form-item label="Serial kết thúc" required>
-          <el-input v-model="assignForm.end_serial" placeholder="VD: ZPS-00050" />
-        </el-form-item>
-
-        <el-form-item label="Mã tem hỏng/mất">
-          <div class="w-full">
-            <div class="flex gap-2 mb-2">
-              <el-input
-                v-model="newExcludedSerial"
-                placeholder="VD: ZPS-00012"
-                @keyup.enter="addExcludedSerial"
-                class="flex-1"
-              />
-              <el-button type="danger" plain @click="addExcludedSerial" :icon="Plus">Thêm</el-button>
-            </div>
-            <div v-if="assignForm.excluded_serials.length" class="flex flex-wrap gap-1">
-              <el-tag
-                v-for="s in assignForm.excluded_serials"
-                :key="s"
-                closable
-                type="danger"
-                @close="removeExcludedSerial(s)"
-              >
-                {{ s }}
-              </el-tag>
-            </div>
-          </div>
-        </el-form-item>
-
-        <!-- Summary Preview -->
-        <div v-if="assignSummary" class="p-4 bg-gray-50 rounded-lg border mb-4">
-          <div class="text-sm font-bold text-gray-700 mb-2">📊 Tổng kết dự kiến</div>
-          <div class="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div class="text-2xl font-bold text-blue-600">{{ assignSummary.total }}</div>
-              <div class="text-xs text-gray-400">Tổng dải</div>
-            </div>
-            <div>
-              <div class="text-2xl font-bold text-red-500">{{ assignSummary.damaged }}</div>
-              <div class="text-xs text-gray-400">Hỏng/Mất</div>
-            </div>
-            <div>
-              <div class="text-2xl font-bold text-green-600">{{ assignSummary.willAssign }}</div>
-              <div class="text-xs text-gray-400">Sẽ gán</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Result -->
-        <div v-if="assignResult" class="p-4 bg-green-50 rounded-lg border border-green-200 mb-4">
-          <div class="text-sm font-bold text-green-700 mb-1">✅ Kết quả gán mã</div>
-          <div class="text-sm text-green-600">Đã gán: {{ assignResult.assigned }} | Hỏng: {{ assignResult.damaged }} | Tổng lô: {{ assignResult.batchPackCount }}</div>
-        </div>
-      </el-form>
       <template #footer>
-        <el-button @click="showAssignDialog = false">Đóng</el-button>
-        <el-button type="primary" @click="handleAssignCodes" :loading="assignLoading" :disabled="!assignForm.start_serial || !assignForm.end_serial">
-          Gán mã đợt này
-        </el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showAssignDialog = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+          <el-button 
+            type="primary" 
+            @click="handleAssignCodes" 
+            :loading="assignLoading" 
+            :disabled="!assignForm.start_serial || !assignForm.end_serial"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
+            Gán mã đợt này
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -1615,5 +1693,23 @@ onMounted(fetchData);
 <style scoped>
 .font-mono {
   font-family: 'Courier New', Courier, monospace;
+}
+</style>
+
+<style>
+.branded-external-batch-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-external-batch-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-external-batch-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-external-batch-dialog .el-dialog__footer {
+  padding: 0 !important;
 }
 </style>

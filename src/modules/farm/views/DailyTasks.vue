@@ -173,59 +173,75 @@
     <!-- Confirm Modal -->
     <el-dialog
         v-model="showConfirmModal"
-        title="Xác nhận hoàn thành công việc"
         width="600px"
-        align-center
+        class="branded-daily-task-dialog"
+        :close-on-click-modal="false"
+        :show-close="false"
         @closed="resetConfirmForm"
     >
-        <div 
-            class="mb-4 p-3 rounded border"
-            :class="getJobColorRaw(selectedTask?.jobType)"
-        >
-            <div class="flex justify-between items-start">
-                <h4 class="font-bold text-gray-800 text-lg">{{ selectedTask?.title }}</h4>
-                <el-tag v-if="selectedTask?.jobType" size="small" effect="plain" class="ml-2 font-bold">{{ selectedTask.jobType }}</el-tag>
+        <template #header>
+          <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+            <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+              Xác nhận hoàn thành công việc
+            </span>
+            <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showConfirmModal = false">
+              <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
             </div>
-            <div class="text-sm text-gray-700 mt-1">{{ selectedTask?.description }}</div>
+          </div>
+        </template>
+        
+        <div style="padding: 24px 24px 8px;">
+          <div 
+              class="mb-4 p-3 rounded border"
+              :class="getJobColorRaw(selectedTask?.jobType)"
+          >
+              <div class="flex justify-between items-start">
+                  <h4 class="font-bold text-gray-800 text-lg">{{ selectedTask?.title }}</h4>
+                  <el-tag v-if="selectedTask?.jobType" size="small" effect="plain" class="ml-2 font-bold">{{ selectedTask.jobType }}</el-tag>
+              </div>
+              <div class="text-sm text-gray-700 mt-1">{{ selectedTask?.description }}</div>
+          </div>
+
+          <el-form label-position="top">
+               <el-form-item label="Sử dụng vật tư (Nếu có)">
+                   <div v-for="(mat, idx) in materialsUsed" :key="idx" class="flex gap-2 mb-2 w-full">
+                       <el-select 
+                          v-model="mat.material_id" 
+                          filterable 
+                          placeholder="Chọn vật tư..." 
+                          class="flex-1"
+                          @change="(val: any) => onMaterialSelect(val, idx)"
+                       >
+                          <el-option 
+                              v-for="m in materialsList" 
+                              :key="m.id" 
+                              :label="m.name + ' (' + m.stockQuantity + ' ' + m.unit + ')'" 
+                              :value="m.id" 
+                          />
+                       </el-select>
+                       <el-input-number v-model="mat.quantity" :min="0.1" placeholder="Số lượng" style="width: 140px;" />
+                       <div class="flex items-center text-gray-500 w-10 text-sm">{{ mat.unit }}</div>
+                       <el-button type="danger" circle plain :icon="Delete" @click="removeMaterialRow(idx)" />
+                   </div>
+                   <el-button type="dashed" size="small" @click="addMaterialRow">
+                      <el-icon class="mr-1"><Plus /></el-icon> Thêm vật tư
+                   </el-button>
+               </el-form-item>
+
+               <el-form-item label="Ghi chú thêm">
+                   <el-input v-model="confirmNote" type="textarea" :rows="2" placeholder="Ghi chú kết quả, vấn đề phát sinh..." />
+               </el-form-item>
+          </el-form>
         </div>
 
-        <el-form label-position="top">
-             <el-form-item label="Sử dụng vật tư (Nếu có)">
-                 <div v-for="(mat, idx) in materialsUsed" :key="idx" class="flex gap-2 mb-2 w-full">
-                     <el-select 
-                        v-model="mat.material_id" 
-                        filterable 
-                        placeholder="Chọn vật tư..." 
-                        class="flex-1"
-                        @change="(val: any) => onMaterialSelect(val, idx)"
-                     >
-                        <el-option 
-                            v-for="m in materialsList" 
-                            :key="m.id" 
-                            :label="m.name + ' (' + m.stockQuantity + ' ' + m.unit + ')'" 
-                            :value="m.id" 
-                        />
-                     </el-select>
-                     <el-input-number v-model="mat.quantity" :min="0.1" placeholder="Số lượng" style="width: 140px;" />
-                     <div class="flex items-center text-gray-500 w-10 text-sm">{{ mat.unit }}</div>
-                     <el-button type="danger" circle plain :icon="Delete" @click="removeMaterialRow(idx)" />
-                 </div>
-                 <el-button type="dashed" size="small" @click="addMaterialRow">
-                    <el-icon class="mr-1"><Plus /></el-icon> Thêm vật tư
-                 </el-button>
-             </el-form-item>
-
-             <el-form-item label="Ghi chú thêm">
-                 <el-input v-model="confirmNote" type="textarea" :rows="2" placeholder="Ghi chú kết quả, vấn đề phát sinh..." />
-             </el-form-item>
-        </el-form>
-
         <template #footer>
-            <div class="flex justify-between items-center">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 24px 24px;">
                  <span class="text-xs text-gray-400">Hành động này sẽ trừ tồn kho và lưu nhật ký</span>
-                 <div>
-                    <el-button @click="showConfirmModal = false">Đóng</el-button>
-                    <el-button type="success" size="large" :loading="submitting" @click="submitCompletion">
+                 <div style="display: flex; gap: 10px;">
+                    <el-button @click="showConfirmModal = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+                    <el-button type="success" :loading="submitting" @click="submitCompletion" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
                         Lưu kết quả
                     </el-button>
                  </div>
@@ -241,6 +257,7 @@ import { CircleCheckFilled, RemoveFilled, Location, Delete, Plus, CircleCheck, W
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi } from '../api/farmApi';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 // State
 const tasks = ref<any[]>([]);
@@ -449,3 +466,21 @@ onMounted(() => {
     loadTasks();
 });
 </script>
+
+<style>
+.branded-daily-task-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-daily-task-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-daily-task-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-daily-task-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

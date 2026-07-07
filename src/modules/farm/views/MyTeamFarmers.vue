@@ -59,21 +59,41 @@
     </el-card>
 
     <!-- Modal Xem Lô thửa của Nông dân -->
-    <el-dialog v-model="showLocations" :title="`Lô thửa của ${selectedFarmer?.fullName}`" width="800px">
-      <el-table :data="farmerLocations" stripe border>
-        <el-table-column prop="code" label="Mã lô" width="120" />
-        <el-table-column prop="name" label="Tên Lô thửa" />
-        <el-table-column label="Diện tích">
-          <template #default="{ row }">
-            {{ row.areaM2 ? row.areaM2.toLocaleString() + ' m²' : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="Hành động" width="120" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="goToLocation(row.id)">Quản lý</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <el-dialog
+      v-model="showLocations"
+      width="800px"
+      class="branded-team-farmers-dialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            {{ `Lô thửa của ${selectedFarmer?.fullName || ''}` }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showLocations = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px;">
+        <el-table :data="farmerLocations" stripe border>
+          <el-table-column prop="code" label="Mã lô" width="120" />
+          <el-table-column prop="name" label="Tên Lô thửa" />
+          <el-table-column label="Diện tích">
+            <template #default="{ row }">
+              {{ row.areaM2 ? row.areaM2.toLocaleString() + ' m²' : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Hành động" width="120" align="center">
+            <template #default="{ row }">
+              <el-button type="primary" size="small" @click="goToLocation(row.id)" style="background: #00875A; border-color: #00875A; border-radius: 8px;">Quản lý</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -84,6 +104,7 @@ import { useRouter } from 'vue-router';
 import { Location, User } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi } from '../api/farmApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
 const locations = ref<any[]>([]);
@@ -137,3 +158,21 @@ onMounted(() => {
   loadData();
 });
 </script>
+
+<style>
+.branded-team-farmers-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-team-farmers-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-team-farmers-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-team-farmers-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

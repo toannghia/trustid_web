@@ -10,6 +10,7 @@ import LTECard from '@/components/lte/LTECard.vue';
 import { Search, Filter, Delete, Edit, Unlock } from '@element-plus/icons-vue';
 
 import { Plus } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const roles = ref<any[]>([]);
 
@@ -52,6 +53,12 @@ const showModal = ref(false);
 const isEdit = ref(false);
 const currentUser = ref<any>(null);
 const totalUsers = ref(0);
+
+// Delete dialog state
+const showDeleteDialog = ref(false);
+const deleteConfirmChecked = ref(false);
+const deletingUser = ref<any>(null);
+const deleting = ref(false);
 
 const userForm = reactive({
   full_name: '',
@@ -138,6 +145,28 @@ const handleUnlockUser = async (user: any) => {
     fetchUsers();
   } catch (error: any) {
     ElMessage.error(error.message || 'Không thể mở khóa');
+  }
+};
+
+const handleDeleteUser = (user: any) => {
+  deletingUser.value = user;
+  deleteConfirmChecked.value = false;
+  showDeleteDialog.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!deleteConfirmChecked.value || !deletingUser.value) return;
+  deleting.value = true;
+  try {
+    await userApi.delete(deletingUser.value.id);
+    ElMessage.success('Đã xoá tài khoản thành công');
+    showDeleteDialog.value = false;
+    fetchUsers();
+  } catch (error: any) {
+    const msg = error.response?.data?.message || error.message || 'Không thể xoá tài khoản';
+    ElMessage.error(msg);
+  } finally {
+    deleting.value = false;
   }
 };
 
@@ -327,7 +356,7 @@ onMounted(() => {
                   <el-button type="success" link :icon="Unlock" @click="handleUnlockUser(scope.row)"></el-button>
                </el-tooltip>
                <el-button type="primary" link :icon="Edit" @click="handleEditUser(scope.row)"></el-button>
-               <el-button type="danger" link :icon="Delete"></el-button>
+               <el-button type="danger" link :icon="Delete" @click="handleDeleteUser(scope.row)"></el-button>
             </div>
           </template>
         </el-table-column>
@@ -350,42 +379,130 @@ onMounted(() => {
     <!-- Modal Tạo/Sửa người dùng -->
     <el-dialog
       v-model="showModal"
-      :title="isEdit ? 'Cập nhật người dùng' : 'Tạo người dùng mới'"
       width="500px"
       :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-user-dialog"
     >
-      <el-form label-position="top">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            {{ isEdit ? 'Cập nhật thông tin người dùng' : 'Tạo người dùng mới' }}
+          </span>
+        </div>
+      </template>
+
+      <el-form label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Họ tên" required>
-          <el-input v-model="userForm.full_name" placeholder="Nhập họ tên" />
+          <el-input v-model="userForm.full_name" placeholder="Nhập họ tên" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Email" required>
-          <el-input v-model="userForm.email" placeholder="Nhập email" />
+          <el-input v-model="userForm.email" placeholder="Nhập email" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Tên đăng nhập" required>
-          <el-input v-model="userForm.username" placeholder="Nhập username" :disabled="isEdit" />
+          <el-input v-model="userForm.username" placeholder="Nhập username" :disabled="isEdit" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Mật khẩu" :required="!isEdit">
-          <el-input v-model="userForm.password" type="password" placeholder="Nhập mật khẩu" show-password />
+          <el-input v-model="userForm.password" type="password" placeholder="Nhập mật khẩu" show-password style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Vai trò" required>
-          <el-select v-model="userForm.role" placeholder="Chọn vai trò" class="w-full">
+          <el-select v-model="userForm.role" placeholder="Chọn vai trò" class="w-full" style="--el-border-radius-base: 8px;">
             <el-option v-for="r in availableRoles" :key="r.name" :label="r.displayName || r.name" :value="r.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="Doanh nghiệp" v-if="isSystemAdmin">
-          <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable>
+          <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable style="--el-border-radius-base: 8px;">
              <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
       </el-form>
+
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="handleSubmit"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
             {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
-        </span>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Delete Confirmation Dialog -->
+    <el-dialog
+      v-model="showDeleteDialog"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-delete-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">Xác nhận xoá tài khoản</span>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #FEF3F2; border: 1px solid #FECDCA; border-radius: 10px;">
+          <span style="font-size: 22px; margin-top: 1px;">⚠️</span>
+          <div>
+            <p style="font-weight: 600; color: #B42318; margin-bottom: 4px; font-size: 14px;">Hành động không thể hoàn tác!</p>
+            <p style="font-size: 13px; color: #475467; line-height: 1.5;">
+              Bạn đang chuẩn bị xoá tài khoản
+              <strong style="color: #0F2B46;">"{{ deletingUser?.full_name || deletingUser?.fullName || deletingUser?.username }}"</strong>.
+              Tất cả dữ liệu liên quan sẽ bị ảnh hưởng.
+            </p>
+          </div>
+        </div>
+        <el-checkbox v-model="deleteConfirmChecked" style="white-space: normal; word-break: break-word;">
+          <span style="font-size: 13px; color: #344054;">Tôi xác nhận muốn xoá tài khoản này và đã hiểu rằng hành động không thể hoàn tác</span>
+        </el-checkbox>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeleteDialog = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+          <el-button
+            :disabled="!deleteConfirmChecked"
+            :loading="deleting"
+            @click="confirmDelete"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff;"
+            :style="{ background: deleteConfirmChecked ? '#B42318' : '#D0D5DD', cursor: deleteConfirmChecked ? 'pointer' : 'not-allowed' }"
+          >
+            Xoá tài khoản
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
 </template>
+
+<style>
+.branded-delete-dialog,
+.branded-user-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-delete-dialog .el-dialog__header,
+.branded-user-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-delete-dialog .el-dialog__body,
+.branded-user-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-delete-dialog .el-dialog__footer,
+.branded-user-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

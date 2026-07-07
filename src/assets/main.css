@@ -6,6 +6,25 @@
 :root {
   --lte-sidebar-bg: var(--tid-sidebar-bg);
   --lte-main-bg: var(--tid-bg);
+
+  /* Element Plus Brand Color Overrides */
+  --el-color-primary: #00875A !important;
+  --el-color-primary-light-3: #339f7b !important;
+  --el-color-primary-light-5: #66b79c !important;
+  --el-color-primary-light-7: #99cfbd !important;
+  --el-color-primary-light-8: #b3dbcd !important;
+  --el-color-primary-light-9: #ccf8e7 !important;
+  --el-color-primary-dark-2: #006c48 !important;
+}
+
+/* Ensure all primary buttons match the brand green */
+.el-button--primary {
+  --el-button-bg-color: #00875A !important;
+  --el-button-border-color: #00875A !important;
+  --el-button-hover-bg-color: #00a36c !important;
+  --el-button-hover-border-color: #00a36c !important;
+  --el-button-active-bg-color: #006c48 !important;
+  --el-button-active-border-color: #006c48 !important;
 }
 
 body {

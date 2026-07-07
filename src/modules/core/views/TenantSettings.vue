@@ -217,84 +217,7 @@ onMounted(() => {
     <LTEContentHeader title="Thông tin Doanh nghiệp" :breadcrumbs="[{ title: 'Tenant Settings' }]" />
 
     <LTECard variant="primary" outline>
-        <template #header>
-            <div class="flex justify-between items-center">
-                <div class="font-bold flex items-center gap-2">
-                    <el-icon><OfficeBuilding /></el-icon>
-                    Hồ sơ Doanh nghiệp
-                </div>
-                <div class="flex items-center gap-2">
-                     <el-tag :type="getStatusBadge(tenantForm.nda_sync_status).type" effect="dark" v-if="tenantForm.is_nda_enabled">
-                         {{ getStatusBadge(tenantForm.nda_sync_status).text }}
-                     </el-tag>
-                </div>
-            </div>
-        </template>
-
-        <div v-loading="loading" class="max-w-5xl mx-auto py-4">
-             <!-- NDA Status & Registration -->
-             <div class="mb-6 bg-gray-50 border rounded-lg p-4">
-                 <div class="flex items-center justify-between">
-                     <div>
-                         <div class="text-lg font-bold flex items-center gap-2">
-                             Kết nối Cổng truy xuất Quốc gia (NDA)
-                             <el-switch 
-                                v-model="tenantForm.is_nda_enabled" 
-                                active-text="Đang BẬT" 
-                                inactive-text="Đang TẮT" 
-                                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-                                :disabled="tenantForm.nda_sync_status === 'SYNCED' || tenantForm.nda_sync_status === 'PENDING'"
-                            />
-                         </div>
-                         <div class="text-sm text-gray-500 mt-1">Đồng bộ dữ liệu sản phẩm và lô hàng lên hệ thống quốc gia.</div>
-                     </div>
-                     <div>
-                         <el-button 
-                            v-if="tenantForm.is_nda_enabled && tenantForm.nda_sync_status === 'NONE'" 
-                            type="success" 
-                            :icon="CircleCheckFilled"
-                            @click="handleSave"
-                         >
-                             Đăng ký kết nối
-                         </el-button>
-                         <el-button 
-                            v-if="tenantForm.nda_sync_status === 'FAILED'" 
-                            type="warning" 
-                            :icon="WarningFilled"
-                            @click="handleSave"
-                         >
-                             Gửi lại hồ sơ
-                         </el-button>
-                     </div>
-                 </div>
-
-                 <div v-if="tenantForm.did" class="mt-3 bg-white p-2 rounded border border-green-200 text-green-800 text-sm font-mono inline-flex items-center gap-2">
-                    <el-icon><Refresh /></el-icon> DID: {{ tenantForm.did }}
-                </div>
-                
-                <div v-if="tenantForm.nda_sync_status === 'FAILED' && tenantForm.nda_error_msg" class="mt-3 bg-red-50 p-3 rounded border border-red-200 text-red-700 text-sm">
-                    <strong>Lý do từ chối:</strong> {{ tenantForm.nda_error_msg }}
-                </div>
-             </div>
-
-             <!-- KCS Config -->
-             <div class="mb-6 bg-green-50 border border-green-100 rounded-lg p-4">
-                 <div class="flex items-center justify-between">
-                     <div>
-                         <div class="text-lg font-bold flex items-center gap-2 text-green-800">
-                             Quy trình Kiểm định Trước thu hoạch (KCS)
-                             <el-switch 
-                                v-model="tenantForm.require_kcs_inspection" 
-                                active-text="Bắt buộc" 
-                                inactive-text="Không bắt buộc" 
-                                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #a8abb2"
-                            />
-                         </div>
-                         <div class="text-sm text-green-700 mt-1">Yêu cầu Nông hộ phải có biên bản kiểm định "Đạt" từ nhân viên KCS mới được phép tạo Lượt thu hoạch.</div>
-                     </div>
-                 </div>
-             </div>
-
+        <div v-loading="loading" class="py-4">
              <!-- Main Form -->
              <el-form ref="formRef" :model="tenantForm" :rules="rules" label-position="top">
                 <el-row :gutter="30">
@@ -408,8 +331,95 @@ onMounted(() => {
                 </el-row>
              </el-form>
 
+             <!-- Compact Settings Row (NDA & KCS) -->
+             <el-row :gutter="20" class="mt-8 mb-8">
+                 <!-- NDA Connection Box -->
+                 <el-col :span="12">
+                     <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 h-full flex flex-col justify-between">
+                         <div>
+                             <div class="flex items-center justify-between">
+                                 <span class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+                                     🔗 Cổng truy xuất Quốc gia (NDA)
+                                 </span>
+                                 <el-switch 
+                                     v-model="tenantForm.is_nda_enabled" 
+                                     size="small"
+                                     active-text="Bật" 
+                                     inactive-text="Tắt" 
+                                     style="--el-switch-on-color: #00875A; --el-switch-off-color: #a8abb2"
+                                     :disabled="tenantForm.nda_sync_status === 'SYNCED' || tenantForm.nda_sync_status === 'PENDING'"
+                                 />
+                             </div>
+                             <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                 Đồng bộ dữ liệu sản phẩm và lô hàng lên hệ thống quốc gia.
+                             </p>
+                             
+                             <div v-if="tenantForm.is_nda_enabled" class="mt-2.5 flex flex-wrap gap-2 items-center">
+                                 <span class="text-xs text-slate-400">Trạng thái:</span>
+                                 <el-tag :type="getStatusBadge(tenantForm.nda_sync_status).type" size="small" effect="dark">
+                                     {{ getStatusBadge(tenantForm.nda_sync_status).text }}
+                                 </el-tag>
+                             </div>
+
+                             <div v-if="tenantForm.did" class="mt-2 bg-white px-2 py-1 rounded border border-green-200 text-green-800 text-[11px] font-mono inline-flex items-center gap-1">
+                                 <el-icon><Refresh /></el-icon> DID: {{ tenantForm.did }}
+                             </div>
+                            
+                             <div v-if="tenantForm.nda_sync_status === 'FAILED' && tenantForm.nda_error_msg" class="mt-2 bg-red-50 p-2 rounded border border-red-200 text-red-700 text-xs">
+                                 <strong>Lý do từ chối:</strong> {{ tenantForm.nda_error_msg }}
+                             </div>
+                         </div>
+                         
+                         <div v-if="tenantForm.is_nda_enabled && (tenantForm.nda_sync_status === 'NONE' || tenantForm.nda_sync_status === 'FAILED')" class="mt-4 pt-3 border-t border-slate-200 flex justify-end">
+                             <el-button 
+                                 v-if="tenantForm.nda_sync_status === 'NONE'" 
+                                 type="success" 
+                                 size="small"
+                                 :icon="CircleCheckFilled"
+                                 @click="handleSave"
+                                 style="background: #00875A; border-color: #00875A;"
+                             >
+                                 Đăng ký kết nối
+                             </el-button>
+                             <el-button 
+                                 v-if="tenantForm.nda_sync_status === 'FAILED'" 
+                                 type="warning" 
+                                 size="small"
+                                 :icon="WarningFilled"
+                                 @click="handleSave"
+                             >
+                                 Gửi lại hồ sơ
+                             </el-button>
+                         </div>
+                     </div>
+                 </el-col>
+                 
+                 <!-- KCS Configuration Box -->
+                 <el-col :span="12">
+                     <div class="bg-green-50 border border-green-200 rounded-xl p-4 h-full flex flex-col justify-between">
+                         <div>
+                             <div class="flex items-center justify-between">
+                                 <span class="font-bold text-sm text-green-900 flex items-center gap-1.5">
+                                     🛡️ Kiểm định Trước thu hoạch (KCS)
+                                 </span>
+                                 <el-switch 
+                                     v-model="tenantForm.require_kcs_inspection" 
+                                     size="small"
+                                     active-text="Bắt buộc" 
+                                     inactive-text="Tắt" 
+                                     style="--el-switch-on-color: #00875A; --el-switch-off-color: #a8abb2"
+                                 />
+                             </div>
+                             <p class="text-xs text-green-700 mt-1 leading-relaxed">
+                                 Yêu cầu Nông hộ phải có biên bản kiểm định "Đạt" từ nhân viên KCS mới được phép tạo Lượt thu hoạch.
+                             </p>
+                         </div>
+                     </div>
+                 </el-col>
+             </el-row>
+
              <div class="flex justify-end mt-8 border-t pt-4 sticky bottom-0 bg-white py-4 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] -mx-4 px-4 bg-opacity-95 backdrop-blur">
-                 <el-button type="primary" size="large" @click="handleSave" :loading="saving" style="min-width: 150px">
+                 <el-button type="primary" size="large" @click="handleSave" :loading="saving" style="min-width: 150px; background: #00875A; border-color: #00875A;">
                      <el-icon class="mr-2"><Check /></el-icon> Cập nhật thông tin
                  </el-button>
              </div>

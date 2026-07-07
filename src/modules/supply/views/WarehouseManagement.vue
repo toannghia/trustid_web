@@ -88,12 +88,24 @@
     <!-- Create/Edit Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Kho' : 'Thêm Kho mới'"
       width="800px"
       @closed="resetForm"
       @opened="initMap"
+      :show-close="false"
+      :close-on-click-modal="false"
+      class="branded-warehouse-dialog"
     >
-      <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Kho' : 'Thêm Kho mới' }}
+          </span>
+        </div>
+      </template>
+
+      <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
         <el-row :gutter="20">
             <el-col :span="12">
                  <el-form-item label="Tên kho" prop="name">
@@ -176,12 +188,17 @@
         
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="submitForm"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+          >
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -198,6 +215,7 @@
 import { ref, onMounted, reactive, nextTick, watch } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { transportApi, type Warehouse } from '../api/transportApi';
 import QuickCreateUser from '../../core/components/QuickCreateUser.vue';
 import type { FormInstance, FormRules } from 'element-plus';
@@ -450,3 +468,21 @@ onMounted(() => {
     loadManagers();
 });
 </script>
+
+<style>
+.branded-warehouse-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-warehouse-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-warehouse-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-warehouse-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

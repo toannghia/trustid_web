@@ -122,15 +122,27 @@
     <!-- Create/Edit Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Thửa' : 'Thêm thửa mới'"
       width="90%"
       style="max-width: 800px"
-      class="responsive-dialog"
+      class="branded-location-dialog"
       :close-on-click-modal="false"
+      :show-close="false"
       @closed="resetForm"
       @opened="initMap"
     >
-      <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Thửa' : 'Thêm thửa mới' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px;">
         <el-row :gutter="20">
             <el-col :xs="24" :sm="12">
                  <el-form-item label="Tên thửa" prop="name">
@@ -253,12 +265,12 @@
         
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -275,13 +287,26 @@
     <!-- Delete Confirmation Modal -->
     <el-dialog
       v-model="showDeleteModal"
-      title="Xác nhận xóa Thửa đất"
       width="90%"
       style="max-width: 480px"
       :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-delete-location-dialog"
       @closed="closeDeleteModal"
     >
-      <div class="space-y-4">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            Xác nhận xóa Thửa đất
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px 24px 8px;" class="space-y-4">
         <div class="flex items-start gap-3">
           <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
           <div>
@@ -296,23 +321,24 @@
           <strong>Lưu ý:</strong> Việc xóa thửa đất sẽ làm ngừng toàn bộ các chu kỳ cây trồng đang hoạt động liên quan đến thửa này.
         </div>
 
-        <el-checkbox v-model="confirmDeleteCheckbox" class="mt-2">
+        <el-checkbox v-model="confirmDeleteCheckbox" class="mt-2" style="white-space: normal; word-break: break-word;">
           <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa thửa đất này</span>
         </el-checkbox>
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showDeleteModal = false">Hủy bỏ</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeleteModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy bỏ</el-button>
           <el-button
             type="danger"
             :disabled="!confirmDeleteCheckbox"
             :loading="deleting"
             @click="executeDelete"
+            style="border-radius: 8px; padding: 10px 20px;"
           >
             Xác nhận xóa
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -324,6 +350,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Plus, Search, Loading, WarningFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi, type Location, type MasterGrowingArea } from '../api/farmApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import type { FormInstance, FormRules } from 'element-plus';
 import { useAuthStore } from '@/modules/core/store/auth';
 import { userApi } from '@/modules/core/api/user';
@@ -1137,3 +1164,37 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style>
+.branded-location-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-location-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-location-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-location-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+
+.branded-delete-location-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-delete-location-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-delete-location-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-delete-location-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

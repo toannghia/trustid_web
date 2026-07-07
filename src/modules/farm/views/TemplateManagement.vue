@@ -58,12 +58,25 @@
     <!-- Create/Edit Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Quy trình mẫu' : 'Thiết lập Quy trình mẫu'"
       width="900px"
+      class="branded-template-dialog"
       :close-on-click-modal="false"
+      :show-close="false"
       @closed="resetForm"
     >
-      <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Quy trình mẫu' : 'Thiết lập Quy trình mẫu' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px;">
         <el-form-item label="Tên quy trình" prop="name">
           <el-input v-model="form.name" placeholder="VD: Quy trình lúa Đông Xuân" />
         </el-form-item>
@@ -162,12 +175,12 @@
 
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Lưu quy trình' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -178,6 +191,7 @@ import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { Plus, Delete, Search } from '@element-plus/icons-vue';
 import { ElMessage, type FormInstance } from 'element-plus';
 import { farmApi, type ProcessTemplate, type Material } from '../api/farmApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const JOB_TYPES = [
     'Làm đất', 'Xuống giống', 'Bón phân', 'Tưới nước', 
@@ -438,4 +452,22 @@ onMounted(() => {
     addStage();
 });
 </script>
+
+<style>
+.branded-template-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-template-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-template-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-template-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>
 

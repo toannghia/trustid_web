@@ -87,11 +87,25 @@
     <!-- Start/Edit Modal -->
     <el-dialog
       v-model="showStartModal"
-      :title="isEditing ? 'Cập nhật Vụ mùa' : 'Khởi tạo Vụ mùa mới'"
       width="500px"
+      class="branded-crop-cycle-dialog"
+      :close-on-click-modal="false"
+      :show-close="false"
       @closed="resetForm"
     >
-      <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Vụ mùa' : 'Khởi tạo Vụ mùa mới' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showStartModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px;">
         
         <el-form-item label="Tên vụ mùa" prop="name">
           <el-input v-model="form.name" placeholder="VD: Vụ Vải thiều 2026" />
@@ -135,12 +149,12 @@
 
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showStartModal = false">Hủy</el-button>
-          <el-button type="success" :loading="submitting" @click="submitForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showStartModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="success" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Bắt đầu ngay' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -162,6 +176,7 @@ import { farmApi, type CropCycle, type Location, type ProcessTemplate } from '..
 import dayjs from 'dayjs';
 import HarvestModal from '../components/HarvestModal.vue';
 import BatchManagement from './BatchManagement.vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const activeTab = ref('cycles');
 
@@ -341,3 +356,21 @@ const resetForm = () => {
 
 onMounted(loadData);
 </script>
+
+<style>
+.branded-crop-cycle-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-crop-cycle-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-crop-cycle-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-crop-cycle-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

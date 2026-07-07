@@ -136,15 +136,54 @@
         </template>
     </el-drawer>
 
+    <!-- Confirm Send to Packaging Modal -->
+    <el-dialog
+      v-model="showConfirmModal"
+      width="450px"
+      class="branded-batch-confirm-dialog"
+      :close-on-click-modal="false"
+      :show-close="false"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+            Xác nhận chuyển kho
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showConfirmModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px 24px 8px; display: flex; align-items: flex-start; gap: 16px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #FFF7EB; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <el-icon style="font-size: 22px; color: #E6A23C;"><Warning /></el-icon>
+        </div>
+        <div style="flex: 1; font-size: 14px; color: #303133; line-height: 1.6; padding-top: 2px;">
+          Bạn có chắc chắn muốn chuyển lô <strong style="font-family: monospace; color: #0F2B46;">"{{ pendingBatch?.batchCode }}"</strong> sang bộ phận đóng gói?
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showConfirmModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="success" :loading="submittingConfirm" @click="handleConfirmSend" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+            Đồng ý
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue';
-import { Search, Box, Collection } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Search, Box, Collection, Warning } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { farmApi, type Harvest } from '../api/farmApi';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const batches = ref<Harvest[]>([]);
 const loading = ref(false);
@@ -228,25 +267,47 @@ const viewBatchDetails = async (row: Harvest) => {
     }
 }
 
+const showConfirmModal = ref(false);
+const pendingBatch = ref<Harvest | null>(null);
+const submittingConfirm = ref(false);
+
 const confirmSendToPackaging = (row: Harvest) => {
-    ElMessageBox.confirm(
-        `Bạn có chắc chắn muốn chuyển lô "${row.batchCode}" sang bộ phận đóng gói?`,
-        'Xác nhận chuyển kho',
-        {
-            confirmButtonText: 'Đồng ý',
-            cancelButtonText: 'Hủy',
-            type: 'warning',
-        }
-    ).then(async () => {
-        try {
-            await farmApi.updateHarvestStatus(row.id, 'READY_FOR_PACKAGING');
-            ElMessage.success('Đã chuyển lô sang bộ phận đóng gói');
-            loadData();
-        } catch (err) {
-            ElMessage.error('Có lỗi xảy ra khi cập nhật trạng thái');
-        }
-    });
+    pendingBatch.value = row;
+    showConfirmModal.value = true;
+};
+
+const handleConfirmSend = async () => {
+    if (!pendingBatch.value) return;
+    submittingConfirm.value = true;
+    try {
+        await farmApi.updateHarvestStatus(pendingBatch.value.id, 'READY_FOR_PACKAGING');
+        ElMessage.success('Đã chuyển lô sang bộ phận đóng gói');
+        showConfirmModal.value = false;
+        loadData();
+    } catch (err) {
+        ElMessage.error('Có lỗi xảy ra khi cập nhật trạng thái');
+    } finally {
+        submittingConfirm.value = false;
+    }
 };
 
 onMounted(loadData);
 </script>
+
+<style>
+.branded-batch-confirm-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-batch-confirm-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-batch-confirm-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-batch-confirm-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>
