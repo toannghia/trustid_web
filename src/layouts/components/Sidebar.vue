@@ -2,27 +2,8 @@
 import { ref, computed, watch } from 'vue';
 import { useAuthStore } from '@/modules/core/store/auth';
 import { useRoute, useRouter } from 'vue-router';
-import {
-  Management, Box, Tickets, User, Van, OfficeBuilding, ShoppingCart,
-  Coordinate, Setting, Files, Odometer, ArrowRight, SwitchButton,
-  Monitor, Document, List, View, Calendar, Connection, Collection,
-  Sell, Goods, UserFilled, Key, Bell, Operation, Finished, DataLine, Postcard,
-  Download, Upload, Check, TrendCharts, Warning
-} from '@element-plus/icons-vue';
-
-interface MenuItem {
-  title: string;
-  path?: string;
-  roles: string[];
-  icon?: any;
-}
-
-interface MenuGroup {
-  label: string;
-  icon: any;
-  roles: string[];
-  items: MenuItem[];
-}
+import { Setting, SwitchButton } from '@element-plus/icons-vue';
+import { MENU_GROUPS } from '@/config/menuConfig';
 
 const props = defineProps<{ isCollapsed: boolean }>();
 const emit = defineEmits(['close-mobile']);
@@ -30,202 +11,21 @@ const emit = defineEmits(['close-mobile']);
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
-const userRole = computed(() => authStore.user?.role || 'GUEST');
 
 const openGroups = ref<Set<string>>(new Set());
 
-const menuGroups: MenuGroup[] = [
-  {
-    label: 'TỔNG QUAN',
-    icon: Odometer,
-    roles: ['ADMIN', 'REGULATOR', 'TENANT_ADMIN', 'TENANT'],
-    items: [
-      { title: 'Dashboard', path: '/', roles: ['ADMIN', 'REGULATOR'], icon: Monitor },
-      { title: 'Doanh nghiệp', path: '/tenant-dashboard', roles: ['TENANT_ADMIN', 'TENANT'], icon: OfficeBuilding },
-      { title: 'Giám sát (Audit)', path: '/regulator/audit', roles: ['ADMIN', 'REGULATOR'], icon: View },
-    ]
-  },
-  {
-    label: 'QUẢN LÝ VÙNG TRỒNG',
-    icon: Coordinate,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'],
-    items: [
-      { title: 'Quản lý Thửa', path: '/farm/locations', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Coordinate },
-      { title: 'Mã vùng lớn', path: '/farm/master-areas', roles: ['ADMIN', 'TENANT_ADMIN'], icon: OfficeBuilding },
-      { title: 'Đội trưởng', path: '/farm/team-leaders', roles: ['ADMIN', 'TENANT_ADMIN'], icon: UserFilled },
-      { title: 'Nhân viên KCS', path: '/farm/kcs-staff', roles: ['ADMIN', 'TENANT_ADMIN'], icon: UserFilled },
-    ]
-  },
-  {
-    label: 'CANH TÁC',
-    icon: Management,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'],
-    items: [
-      { title: 'Vật tư & Kho nông trại', path: '/farm/materials', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Box },
-      { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', roles: ['ADMIN'], icon: Check },
-      { title: 'Mùa vụ', path: '/farm/cycles', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Calendar },
-      { title: 'Quy trình mẫu', path: '/farm/templates', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Document },
-      { title: 'Việc hôm nay', path: '/farm/tasks', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: List },
-      { title: 'Lô thu hoạch', path: '/farm/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Collection },
-    ]
-  },
-  {
-    label: 'ĐỘI CỦA TÔI',
-    icon: UserFilled,
-    roles: ['TEAM_LEADER'],
-    items: [
-      { title: 'Quản lý Nông dân', path: '/farm/my-team', roles: ['ADMIN', 'TEAM_LEADER'], icon: User },
-    ]
-  },
-  /*
-  {
-    label: 'TÀI SẢN CÂY TRỒNG',
-    icon: Connection,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER', 'END_USER'],
-    items: [
-      { title: 'Bản đồ cây trồng', path: '/asset-map', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Coordinate },
-      { title: 'Quản lý tài sản', path: '/perennial-assets', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Management },
-      { title: 'Danh sách cây', path: '/caretaker/assets', roles: ['ADMIN', 'TENANT_ADMIN', 'FARMER', 'TEAM_LEADER'], icon: List },
-      { title: 'Nhật ký chăm sóc', path: '/caretaker/logs', roles: ['ADMIN', 'FARMER', 'TEAM_LEADER'], icon: Tickets },
-      { title: 'Tài sản của tôi', path: '/owner/assets', roles: ['END_USER', 'ADMIN'], icon: User },
-    ]
-  }, */
-   {
-    label: 'NGUYÊN LIỆU',
-    icon: Box,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
-    items: [
-      { title: 'Lô nhập ngoài', path: '/supply/external-batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Download },
-      { title: 'Bán thành phẩm', path: '/supply/semi-finished', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: TrendCharts },
-      { title: 'Xuất B2B', path: '/supply/semi-finished/export', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Upload },
-      { title: 'Nhập B2B', path: '/supply/semi-finished/import', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Download },
-      { title: 'Pallet BTP', path: '/supply/semi-finished/pallets', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
-    ]
-  },
-  {
-    label: 'SẢN XUẤT & ĐÓNG GÓI',
-    icon: Box,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'],
-    items: [
-      { title: 'Lệnh Sản Xuất', path: '/supply/production-orders', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Tickets },
-      //{ title: 'Kho dư', path: '/supply/surplus', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER', 'WAREHOUSE_MANAGER'], icon: Box },
-      { title: 'Quản lý Pallet', path: '/supply/pallets', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Box },
-      //{ title: 'Lệnh Đóng gói', path: '/supply/packaging', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Postcard },
-      //{ title: 'Lô thành phẩm', path: '/supply/batches', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Finished },
-      { title: 'Sản phẩm Active', path: '/supply/items', roles: ['ADMIN', 'TENANT_ADMIN', 'PACKAGER'], icon: Goods },
-    ]
-  },
-  {
-    label: 'KHO & VẬN CHUYỂN',
-    icon: Van,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER', 'ACCOUNTANT'],
-    items: [
-      { title: 'Lệnh xuất hàng', path: '/supply/export-order', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'], icon: Document },
-      { title: 'Phiếu xuất kho', path: '/supply/export-fulfill', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Upload },
-      { title: 'Quản lý Kho', path: '/transport/warehouses', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: OfficeBuilding },
-      { title: 'Tồn Kho Tổng Hợp', path: '/supply/inventory', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: Collection },
-      { title: 'Báo cáo Xuất Nhập Tồn', path: '/supply/inventory/report', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'], icon: DataLine },
-      { title: 'Quản lý Xe', path: '/transport/vehicles', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Van },
-      { title: 'Đơn hàng vận chuyển', path: '/supply/shipments', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER', 'DRIVER'], icon: List },
-      { title: 'Nhập kho', path: '/transport/operations', roles: ['ADMIN', 'TENANT_ADMIN', 'WAREHOUSE_MANAGER'], icon: Download },
-      { title: 'Xử lý Thu hồi', path: '/supply/recalls', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Warning },
-      
-    ]
-  },
-  {
-    label: 'DANH MỤC',
-    icon: Files,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'],
-    items: [
-      { title: 'Sản phẩm', path: '/products', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Goods },
-      { title: 'Ngành hàng', path: '/categories', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Operation },
-      { title: 'Đối tác & NCC', path: '/suppliers', roles: ['ADMIN', 'TENANT_ADMIN'], icon: UserFilled },
-      { title: 'Đại lý', path: '/supply/dealers', roles: ['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'], icon: Connection },
-      { title: 'Phân vùng quản lý', path: '/supply/territories', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Coordinate },
-    ]
-  },
-  {
-    label: 'CẤP MÃ',
-    icon: Tickets,
-    roles: ['ADMIN', 'TENANT_ADMIN'],
-    items: [
-      { title: 'Cấp mã nội bộ', path: '/codes/generate', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Connection },
-      { title: 'Kho lô tem', path: '/codes/pools', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Collection },
-      { title: 'Đồng bộ Lô (NDA)', path: '/codes/batch-sync', roles: ['ADMIN', 'TENANT_ADMIN'], icon: DataLine },
-      { title: 'Tra cứu Audit', path: '/traceability/audit', roles: ['ADMIN'], icon: View }
-    ]
-  },
-  /*
-  {
-    label: 'BÁN LẺ (RETAIL)',
-    icon: ShoppingCart,
-    roles: ['ADMIN', 'TENANT_ADMIN', 'RETAILER'],
-    items: [
-      { title: 'Bán hàng', path: '/retail/sales', roles: ['ADMIN', 'TENANT_ADMIN', 'RETAILER'], icon: Sell }
-    ]
-  },*/
-  {
-    label: 'ĐẠI LÝ PHÂN PHỐI',
-    icon: Connection,
-    roles: ['DEALER'],
-    items: [
-      { title: 'Tổng quan', path: '/dealer/dashboard', roles: ['DEALER'], icon: DataLine },
-      { title: 'Bảng giá', path: '/dealer/pricing', roles: ['DEALER'], icon: View },
-      { title: 'Nhận hàng', path: '/dealer/receive', roles: ['DEALER'], icon: Box },
-      { title: 'Tồn kho', path: '/dealer/stock', roles: ['DEALER'], icon: Collection },
-      { title: 'Khách hàng', path: '/dealer/customers', roles: ['DEALER'], icon: User },
-      { title: 'Bán lẻ', path: '/dealer/sale', roles: ['DEALER'], icon: ShoppingCart },
-      { title: 'Lịch sử hóa đơn', path: '/dealer/sales', roles: ['DEALER'], icon: List }
-    ]
-  },
-  {
-    label: 'TÀI XẾ VẬN CHUYỂN',
-    icon: Van,
-    roles: ['DRIVER'],
-    items: [
-      { title: 'Bảng điều khiển', path: '/driver/dashboard', roles: ['DRIVER'], icon: Van }
-    ]
-  },
-  {
-    label: 'BLOCKCHAIN',
-    icon: Connection,
-    roles: ['ADMIN', 'TENANT_ADMIN'],
-    items: [
-      { title: 'Tổng quan', path: '/blockchain/dashboard', roles: ['ADMIN', 'TENANT_ADMIN'], icon: Connection },
-      { title: 'Danh sách Batch', path: '/blockchain/batches', roles: ['ADMIN', 'TENANT_ADMIN'], icon: List },
-    ]
-  },
-  {
-    label: 'THIẾT LẬP HỆ THỐNG',
-    icon: Setting,
-    roles: ['ADMIN', 'TENANT_ADMIN'],
-    items: [
-      //{ title: 'Thông tin tổ chức', path: '/tenant/settings', roles: ['TENANT_ADMIN'], icon: OfficeBuilding },
-      { title: 'Quản lý Doanh nghiệp', path: '/tenants', roles: ['ADMIN'], icon: Operation },
-      { title: 'NDA Gateway', path: '/gateway-dashboard', roles: ['ADMIN'], icon: Connection },
-      { title: 'Người dùng', path: '/users', roles: ['ADMIN', 'TENANT_ADMIN'], icon: User },
-      { title: 'Gửi Thông báo', path: '/notifications/send', roles: ['ADMIN'], icon: Bell },
-      { title: 'Phân quyền (Roles)', path: '/admin/roles', roles: ['ADMIN'], icon: Key },
-      { title: 'Khách hàng App', path: '/app-users', roles: ['ADMIN'], icon: UserFilled },
-      { title: 'Cấu hình OTP', path: '/app-users/config', roles: ['ADMIN'], icon: Setting },
-      { title: 'Báo cáo OTP', path: '/app-users/reports', roles: ['ADMIN'], icon: DataLine },
-      { title: 'Cấu hình EUDR', path: '/admin/eudr-config', roles: ['ADMIN'], icon: Coordinate },
-      { title: 'Số liệu App', path: '/admin/home-stats', roles: ['ADMIN'], icon: TrendCharts },
-      { title: 'Quản lý Sao lưu', path: '/admin/backups', roles: ['ADMIN'], icon: Document },
-      { title: 'Mini App Analytics', path: '/admin/miniapp-analytics', roles: ['ADMIN'], icon: TrendCharts },
-      { title: 'Công cụ Database', path: '/admin/db-tools', roles: ['ADMIN'], icon: Monitor },
-    ]
-  }
-];
-
-// Filter groups and items by role
+// Permission-based filtering with 3-layer check
 const filteredGroups = computed(() => {
-  const role = userRole.value;
-  return menuGroups
-    .filter(g => role === 'ADMIN' || g.roles.includes(role))
+  return MENU_GROUPS
     .map(g => ({
       ...g,
-      items: g.items.filter(i => role === 'ADMIN' || i.roles.includes(role))
+      items: g.items.filter(item => {
+        // Layer 1+2: Global + per-role hidden menus
+        if (!authStore.isMenuVisible(item.path)) return false;
+        // Layer 3: Permission check
+        if (!authStore.hasPermission(item.permission)) return false;
+        return true;
+      })
     }))
     .filter(g => g.items.length > 0);
 });
@@ -236,8 +36,8 @@ const isActive = (path?: string) => {
   return route.path === path || route.path.startsWith(path + '/');
 };
 
-const isGroupActive = (group: MenuGroup) => {
-  return group.items.some(i => isActive(i.path));
+const isGroupActive = (group: any) => {
+  return group.items.some((i: any) => isActive(i.path));
 };
 
 const toggleGroup = (label: string) => {

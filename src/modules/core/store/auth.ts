@@ -29,25 +29,50 @@ export const useAuthStore = defineStore('auth', {
         console.log('[AUTH] Normalized role:', roleName, '| Raw:', rawRole);
       }
 
+      // Extract permissions from role object or direct field
+      const permissions = userData.permissions
+        || (typeof rawRole === 'object' && rawRole?.permissions)
+        || userData.PERMISSIONS
+        || [];
+
       return {
         id: userData.ID || userData.id,
         // Role phải là string (VD: "ADMIN") để khớp với Sidebar
         role: roleName,
+        displayName: userData.displayName || (typeof rawRole === 'object' && rawRole?.displayName) || roleName,
         // Lấy NAME làm tên hiển thị nếu FULL_NAME trống
         full_name: userData.full_name || userData.fullName || userData.FULL_NAME || userData.NAME || 'Người dùng',
-        fullName: userData.full_name || userData.fullName || userData.FULL_NAME || userData.NAME || 'Người dùng', // Add camelCase alias
+        fullName: userData.full_name || userData.fullName || userData.FULL_NAME || userData.NAME || 'Người dùng',
         username: userData.USERNAME || userData.username || '',
-        // Fix Avatar URL: Nếu là đường dẫn tương đối (bắt đầu bằng /) thì nối thêm domain API
         // Fix Avatar URL: Nếu là đường dẫn tương đối (không có http) thì nối thêm domain API
         avatar: (userData.avatar && !userData.avatar.startsWith('http'))
           ? `${import.meta.env.VITE_API_URL}${userData.avatar.startsWith('/') ? '' : '/'}${userData.avatar}`
           : (userData.avatar || ''),
-        permissions: userData.PERMISSIONS || userData.permissions || [],
+        permissions,
+        hiddenMenus: userData.hiddenMenus
+          || (typeof rawRole === 'object' && rawRole?.hiddenMenus)
+          || [],
+        globalHiddenMenus: userData.globalHiddenMenus || [],
         tenantId: userData.tenantId || userData.tenant_id || userData.TENANT_ID,
         tenant_name: (userData.tenant && userData.tenant.name) 
           ? userData.tenant.name 
           : (roleName === 'ADMIN' ? 'System Administrator' : (roleName === 'REGULATOR' ? 'Cơ quan Quản lý Nhà nước' : 'Unknown Enterprise'))
       };
+    },
+
+    hasPermission(perm: string): boolean {
+      if (!this.user) return false;
+      if (this.user.permissions?.includes('ALL')) return true;
+      return this.user.permissions?.includes(perm) || false;
+    },
+
+    isMenuVisible(path: string): boolean {
+      if (!this.user) return false;
+      // Layer 1: Global hidden (kể cả ADMIN)
+      if (this.user.globalHiddenMenus?.includes(path)) return false;
+      // Layer 2: Per-role hidden
+      if (this.user.hiddenMenus?.includes(path)) return false;
+      return true;
     },
 
     async login(credentials: any) {

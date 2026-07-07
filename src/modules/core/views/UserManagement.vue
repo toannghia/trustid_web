@@ -11,22 +11,18 @@ import { Search, Filter, Delete, Edit, Unlock } from '@element-plus/icons-vue';
 
 import { Plus } from '@element-plus/icons-vue';
 
-const roleMap: Record<string, string> = {
-  'ADMIN': 'Quản trị hệ thống',
-  'TENANT_ADMIN': 'Quản lý doanh nghiệp',
-  'REGULATOR_OFFICER': 'Cơ quan quản lý',
-  'TEAM_LEADER': 'Đội trưởng vùng trồng',
-  'DEALER': 'Đại lý',
-  'FARMER': 'Nông dân',
-  'WORKER': 'Công nhân sản xuất',
-  'TRANSPORTER': 'Nhân viên vận chuyển',
-  'PACKER': 'Nhân viên đóng gói',
-  'WAREHOUSE_MANAGER': 'Thủ kho',
-  'ACCOUNTANT': 'Kế toán',
-  'END_USER': 'Người tiêu dùng',
-  'KCS_STAFF': 'Nhân viên Kiểm định KCS'
+const roles = ref<any[]>([]);
+
+const fetchRoles = async () => {
+    try {
+        const { data } = await api.get('/admin/roles');
+        roles.value = data || [];
+    } catch (e) {
+        console.error('Failed to fetch roles:', e);
+    }
 };
 
+import api from '@/common/utils/api';
 import { useAuthStore } from '../store/auth';
 
 import { computed } from 'vue';
@@ -35,18 +31,15 @@ const authStore = useAuthStore();
 const isSystemAdmin = computed(() => authStore.user?.role === 'ADMIN');
 
 const availableRoles = computed(() => {
-    if (isSystemAdmin.value) return roleMap;
-    // Tenant Admin cannot create System Admin, Tenant Admins or Regulators
-    const restricted = ['ADMIN', 'REGULATOR_OFFICER']; 
-    // They can create other operational roles
-    return Object.fromEntries(
-        Object.entries(roleMap).filter(([code]) => !restricted.includes(code))
-    );
+    if (isSystemAdmin.value) return roles.value;
+    const restricted = ['ADMIN', 'REGULATOR_OFFICER'];
+    return roles.value.filter(r => !restricted.includes(r.name));
 });
 
 const getRoleName = (roleCode: string | any) => {
   const code = typeof roleCode === 'object' ? roleCode?.name : roleCode;
-  return roleMap[code] || code || 'N/A';
+  const found = roles.value.find(r => r.name === code);
+  return found?.displayName || code || 'N/A';
 };
 
 // Trạng thái dữ liệu
@@ -232,6 +225,7 @@ const getDealerForUser = (user: any) => {
 onMounted(() => {
   fetchUsers();
   fetchFilterData();
+  fetchRoles();
   // Fetch dealers for column lookup
   dealerApi.getList().then(res => {
     dealers.value = res.data || [];
@@ -259,7 +253,7 @@ onMounted(() => {
         <div class="w-40">
           <label class="text-sm font-medium text-gray-700 block mb-1">Vai trò</label>
           <el-select v-model="filter.roleName" clearable placeholder="Tất cả" class="w-full">
-            <el-option v-for="(label, code) in roleMap" :key="code" :label="label" :value="code" />
+            <el-option v-for="r in roles" :key="r.name" :label="r.displayName || r.name" :value="r.name" />
           </el-select>
         </div>
         <div>
@@ -375,7 +369,7 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="Vai trò" required>
           <el-select v-model="userForm.role" placeholder="Chọn vai trò" class="w-full">
-            <el-option v-for="(label, code) in availableRoles" :key="code" :label="label" :value="code" />
+            <el-option v-for="r in availableRoles" :key="r.name" :label="r.displayName || r.name" :value="r.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="Doanh nghiệp" v-if="isSystemAdmin">
