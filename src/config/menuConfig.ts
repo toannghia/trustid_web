@@ -146,10 +146,10 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     ]
   },
   {
-    label: 'THIẾT LẬP HỆ THỐNG',
+    label: 'HỆ THỐNG',
     icon: Setting,
     items: [
-      { title: 'Quản lý Doanh nghiệp', path: '/tenants', permission: 'SYSTEM_TENANT_MANAGE', icon: Operation },
+      { title: 'Danh sách Doanh nghiệp', path: '/tenants', permission: 'SYSTEM_TENANT_MANAGE', icon: Operation },
       { title: 'NDA Gateway', path: '/gateway-dashboard', permission: 'SYSTEM_GATEWAY', icon: Connection },
       { title: 'Người dùng', path: '/users', permission: 'USER_VIEW', icon: User },
       { title: 'Gửi Thông báo', path: '/notifications/send', permission: 'SYSTEM_NOTIFICATION', icon: Bell },

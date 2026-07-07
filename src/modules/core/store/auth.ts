@@ -35,6 +35,8 @@ export const useAuthStore = defineStore('auth', {
         || userData.PERMISSIONS
         || [];
 
+      console.log('[AUTH] normalizeUser permissions:', permissions, '| hiddenMenus:', userData.hiddenMenus, '| globalHiddenMenus:', userData.globalHiddenMenus);
+
       return {
         id: userData.ID || userData.id,
         // Role phải là string (VD: "ADMIN") để khớp với Sidebar
@@ -61,9 +63,15 @@ export const useAuthStore = defineStore('auth', {
     },
 
     hasPermission(perm: string): boolean {
-      if (!this.user) return false;
-      if (this.user.permissions?.includes('ALL')) return true;
-      return this.user.permissions?.includes(perm) || false;
+      if (!this.user) {
+        console.warn('[AUTH] hasPermission called but user is null');
+        return false;
+      }
+      const result = this.user.permissions?.includes('ALL') || this.user.permissions?.includes(perm) || false;
+      if (!result) {
+        console.warn('[AUTH] Permission DENIED:', perm, '| user permissions:', this.user.permissions);
+      }
+      return result;
     },
 
     isMenuVisible(path: string): boolean {

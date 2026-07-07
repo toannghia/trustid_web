@@ -31,7 +31,8 @@ const filter = reactive({
   search: '',
   province: '',
   ward: '',
-  trustedOnly: false
+  trustedOnly: false,
+  type: 'main'
 });
 
 import { vietnamUnits } from '@/common/data/vietnam-units';
@@ -80,7 +81,7 @@ watch(() => filter.search, () => {
     }, 300);
 });
 
-watch([() => filter.province, () => filter.trustedOnly], () => {
+watch([() => filter.province, () => filter.trustedOnly, () => filter.type], () => {
     handleFilterChange();
 });
 
@@ -95,6 +96,7 @@ const fetchTenants = async () => {
         };
         if (filter.province) params.province = filter.province;
         if (filter.trustedOnly) params.isTrustedPartner = true;
+        if (filter.type) params.type = filter.type;
 
         const { data } = await tenantApi.getAll(params);
         if (data && data.data && Array.isArray(data.data)) {
@@ -184,6 +186,11 @@ onMounted(() => {
             <el-select v-model="filter.province" placeholder="Tỉnh/Thành" clearable @change="fetchTenants" style="width: 150px">
                 <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
             </el-select>
+            <el-select v-model="filter.type" placeholder="Loại doanh nghiệp" @change="fetchTenants" style="width: 180px">
+                <el-option label="Doanh nghiệp chính" value="main" />
+                <el-option label="Đại lý / Chi nhánh" value="dealer" />
+                <el-option label="Tất cả" value="all" />
+            </el-select>
             <el-switch
                 v-model="filter.trustedOnly"
                 active-text="Chỉ DN uy tín"
@@ -211,8 +218,14 @@ onMounted(() => {
                         <el-icon><User /></el-icon>
                     </div>
                     <div>
-                        <div class="font-bold text-blue-700 text-base leading-tight">{{ scope.row.name }}</div>
+                        <div class="font-bold text-blue-700 text-base leading-tight flex flex-wrap items-center gap-1.5">
+                            <span>{{ scope.row.name }}</span>
+                            <el-tag v-if="scope.row.isDealer" type="warning" size="small" effect="light">Đại lý</el-tag>
+                        </div>
                         <div class="text-xs text-gray-500 mt-1">MST: <span class="font-mono text-black">{{ scope.row.taxCode || scope.row.tax_code }}</span></div>
+                        <div v-if="scope.row.isDealer && scope.row.parentTenant" class="text-xs text-amber-600 mt-0.5">
+                            Thuộc DN: <span class="font-semibold">{{ scope.row.parentTenant.name }}</span>
+                        </div>
                     </div>
                 </div>
             </template>
