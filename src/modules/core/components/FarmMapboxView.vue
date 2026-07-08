@@ -143,7 +143,12 @@ const addCityMarkers = () => {
 
   const cities = [
     { lng: 105.8542, lat: 21.0285, text: 'Hà Nội' },
-    { lng: 108.2022, lat: 16.0544, text: 'Đà Nẵng' },
+    { lng: 106.698032, lat: 10.772113, text: 'TP. Hồ Chí Minh' },
+    { lng: 108.2022, lat: 16.0544, text: 'TP. Đà Nẵng' },
+    { lng: 106.6830291, lat: 20.777791, text: 'TP. Hải Phòng' },
+    { lng: 107.5789, lat: 16.4678, text: 'TP. Huế' },
+    { lng: 105.7469, lat: 10.0452, text: 'TP. Cần Thơ' },
+    { lng: 106.959600, lat: 11.694708, text: 'TP. Đồng Nai' },
     { lng: 105.8500, lat: 21.5833, text: 'Thái Nguyên' },
     { lng: 103.0189, lat: 21.3855, text: 'Điện Biên' },
     { lng: 105.1500, lat: 9.1769, text: 'Cà Mau' },
@@ -289,18 +294,29 @@ const setMapLanguageAndFilterVietnam = () => {
             ['==', ['get', 'iso_3166_1_alpha_3'], 'VNM']
           ];
 
+          const hcmcFilter = [
+            'any',
+            ['>=', ['zoom'], 5.5],
+            ['all',
+              ['!=', ['coalesce', ['get', 'name_vi'], ['get', 'name'], ''], 'Thành phố Hồ Chí Minh'],
+              ['!=', ['coalesce', ['get', 'name_vi'], ['get', 'name'], ''], 'TP. Hồ Chí Minh'],
+              ['!=', ['coalesce', ['get', 'name'], ''], 'Ho Chi Minh City'],
+              ['!=', ['coalesce', ['get', 'name'], ''], 'Ho Chi Minh']
+            ]
+          ];
+
           let finalFilter: any;
           if (originalFilter) {
             if (Array.isArray(originalFilter) && originalFilter[0] === 'all') {
               const alreadyFiltered = originalFilter.some(f => 
                 Array.isArray(f) && f[0] === 'any' && JSON.stringify(f).includes('iso_3166_1')
               );
-              finalFilter = alreadyFiltered ? originalFilter : [...originalFilter, countryFilter];
+              finalFilter = alreadyFiltered ? originalFilter : [...originalFilter, countryFilter, hcmcFilter];
             } else {
-              finalFilter = ['all', originalFilter, countryFilter];
+              finalFilter = ['all', originalFilter, countryFilter, hcmcFilter];
             }
           } else {
-            finalFilter = countryFilter;
+            finalFilter = ['all', countryFilter, hcmcFilter];
           }
 
           map!.setFilter(layer.id, finalFilter);
@@ -459,6 +475,8 @@ const renderLocations = () => {
 
   // Add Vietnam Provinces layer
   if (provincesGeoJson) {
+    const targetName = getGeoJsonProvinceName(props.selectedProvince);
+
     map!.addSource('vietnam-provinces-source', {
       type: 'geojson',
       data: provincesGeoJson,
@@ -471,13 +489,13 @@ const renderLocations = () => {
       paint: {
         'fill-color': [
           'case',
-          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           '#f39c12',
           '#3498db'
         ],
         'fill-opacity': [
           'case',
-          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           0.3,
           0.08
         ]
@@ -491,13 +509,13 @@ const renderLocations = () => {
       paint: {
         'line-color': [
           'case',
-          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           '#d35400',
           '#ffffff'
         ],
         'line-width': [
           'case',
-          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], props.selectedProvince || ''],
+          ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           2.5,
           1.0
         ]
@@ -745,12 +763,39 @@ const renderLocations = () => {
   }
 };
 
+/** Helper to map frontend selected province name (e.g. Thành phố Hồ Chí Minh, Thành phố Huế) to exact GeoJSON adm1_name1 property (e.g. TP. Hồ Chí Minh, Huế) */
+const getGeoJsonProvinceName = (selectedName: string | undefined | null): string => {
+  if (!selectedName || !provincesGeoJson) return '';
+  
+  const cleanName = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/^thành phố\s+/i, '')
+      .replace(/^tp\.\s*/i, '')
+      .trim();
+  };
+  
+  const targetClean = cleanName(selectedName);
+  
+  const feature = provincesGeoJson.features.find((f: any) => {
+    const name = f.properties?.adm1_name1 || f.properties?.adm1_name || '';
+    return cleanName(name) === targetClean;
+  });
+  
+  if (feature) {
+    return feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
+  }
+  
+  return selectedName;
+};
+
 /** Zoom the map to fit a province boundary within the visible frame. */
 const fitToProvince = (provinceName: string) => {
   if (!map || !provincesGeoJson) return;
+  const targetName = getGeoJsonProvinceName(provinceName);
   const feature = provincesGeoJson.features.find((f: any) => {
     const name = f.properties?.adm1_name1 || f.properties?.adm1_name || '';
-    return name.toLowerCase() === provinceName.toLowerCase();
+    return name.toLowerCase() === targetName.toLowerCase();
   });
   if (feature && feature.geometry) {
     const bounds = getFeatureBounds(feature.geometry.coordinates);
@@ -780,16 +825,18 @@ watch(() => [props.locations, props.scans, props.centerCoordinate], () => {
 watch(() => props.selectedProvince, (newProvince) => {
   if (!map || !map.isStyleLoaded()) return;
 
+  const targetName = getGeoJsonProvinceName(newProvince);
+
   if (map.getLayer('vietnam-provinces-fill')) {
     map.setPaintProperty('vietnam-provinces-fill', 'fill-color', [
       'case',
-      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
       '#f39c12',
       '#3498db'
     ]);
     map.setPaintProperty('vietnam-provinces-fill', 'fill-opacity', [
       'case',
-      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
       0.3,
       0.08
     ]);
@@ -797,13 +844,13 @@ watch(() => props.selectedProvince, (newProvince) => {
   if (map.getLayer('vietnam-provinces-outline')) {
     map.setPaintProperty('vietnam-provinces-outline', 'line-color', [
       'case',
-      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
       '#d35400',
       '#ffffff'
     ]);
     map.setPaintProperty('vietnam-provinces-outline', 'line-width', [
       'case',
-      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], newProvince || ''],
+      ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
       2.5,
       1.0
     ]);

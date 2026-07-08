@@ -31,6 +31,7 @@ export const provinceCoordinates: Record<string, { lat: number; lng: number }> =
     "Quảng Bình": { lat: 17.4725, lng: 106.5986 },
     "Quảng Trị": { lat: 16.7867, lng: 107.0867 },
     "Thừa Thiên Huế": { lat: 16.4678, lng: 107.5789 },
+    "Thành phố Huế": { lat: 16.4678, lng: 107.5789 },
     "Thành phố Đà Nẵng": { lat: 16.0544, lng: 108.2022 },
     "Quảng Nam": { lat: 15.5667, lng: 107.8286 },
     "Quảng Ngãi": { lat: 15.1167, lng: 108.8000 },
