@@ -61,6 +61,16 @@ export const recallApi = {
     return api.post('/supply/recalls/items/restock', payload);
   },
 
+  scanReceive(id: string, payload: {
+    code: string;
+    inspectionResult: string;
+    disposition: 'DISPOSE' | 'RESTOCK';
+    warehouseId: string;
+    notes?: string;
+  }) {
+    return api.post(`/supply/recalls/${id}/scan-receive`, payload);
+  },
+
   completeOrder(id: string) {
     return api.post(`/supply/recalls/${id}/complete`);
   },

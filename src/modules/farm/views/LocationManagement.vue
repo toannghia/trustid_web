@@ -426,7 +426,7 @@ const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number
       }
     });
     const polyCoords = data.coordinates[0].map((coord: number[]) => [coord[1], coord[0]]);
-    const polygon = L.polygon(polyCoords, { color: '#16a34a', fillOpacity: 0.2 });
+    const polygon = L.polygon(polyCoords as any, { color: '#16a34a', fillOpacity: 0.2 });
     polygon.addTo(map);
     map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
     if (marker) marker.setLatLng([form.lat, form.long]);
@@ -960,7 +960,7 @@ const loadData = async () => {
     if (filter.leaderId) params.leaderId = filter.leaderId;
     if (searchKeyword.value) params.search = searchKeyword.value;
     
-    const { data } = await farmApi.getLocations(params);
+    const { data } = (await farmApi.getLocations(params)) as any;
     if (data && typeof data === 'object' && 'data' in data) {
       locations.value = data.data || [];
       totalLocations.value = data.total || 0;

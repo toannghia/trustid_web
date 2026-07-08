@@ -11,6 +11,9 @@
         <el-button v-if="order?.status === 'DRAFT'" type="danger" @click="handleIssue" :loading="actionLoading">
           <el-icon class="mr-1"><Warning /></el-icon> Phát hành
         </el-button>
+        <el-button v-if="order?.status !== 'DRAFT' && order?.status !== 'COMPLETED'" type="warning" @click="openScanner">
+          📱 Quét nhận & xử lý
+        </el-button>
         <el-button v-if="order?.status === 'IN_PROGRESS'" type="success" @click="handleComplete" :loading="actionLoading">
           <el-icon class="mr-1"><Check /></el-icon> Hoàn tất
         </el-button>
@@ -99,9 +102,14 @@
               <span class="font-mono text-sm">{{ row.batch?.batchCode || '---' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Serial" width="150">
+          <el-table-column label="Mã QR" min-width="180">
             <template #default="{ row }">
-              <span class="font-mono text-xs">{{ row.productItem?.serialNumber || '---' }}</span>
+              <span class="font-mono text-sm text-gray-900 font-semibold">{{ row.qrCode || row.productItem?.fullQrCode || '---' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Serial" width="140">
+            <template #default="{ row }">
+              <span class="font-mono text-xs text-gray-600">{{ row.productItem?.serialNumber || '---' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="Trạng thái" width="140" align="center">
@@ -151,6 +159,87 @@
         <el-button type="primary" :disabled="!inspectForm.result" :loading="actionLoading" @click="submitInspect">Xác nhận</el-button>
       </template>
     </el-dialog>
+
+    <!-- Scanner Mode Dialog -->
+    <el-dialog v-model="showScannerDialog" title="📱 Quét nhận & xử lý sản phẩm thu hồi" width="700px" :close-on-click-modal="false" @close="scanHistory = []">
+      <div class="space-y-4">
+        <!-- Warehouse selector -->
+        <div>
+          <label class="block text-sm font-semibold mb-1">Kho nhận hàng <span class="text-red-500">*</span></label>
+          <el-select v-model="scanForm.warehouseId" placeholder="Chọn kho..." class="w-full" filterable>
+            <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
+          </el-select>
+        </div>
+
+        <!-- Scan input -->
+        <div>
+          <label class="block text-sm font-semibold mb-1">Quét mã QR / Serial</label>
+          <div class="flex gap-2">
+            <el-input ref="scanInputRef" v-model="scanForm.code" placeholder="Quét hoặc nhập mã..." @keyup.enter="doScanReceive" clearable :disabled="!scanForm.warehouseId" />
+            <el-button type="primary" @click="doScanReceive" :loading="scanLoading" :disabled="!scanForm.code.trim() || !scanForm.warehouseId">Quét</el-button>
+          </div>
+        </div>
+
+        <!-- Inspection + Disposition -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1">Kết quả kiểm tra</label>
+            <el-radio-group v-model="scanForm.inspectionResult" class="w-full">
+              <el-radio-button value="GOOD">✅ Tốt</el-radio-button>
+              <el-radio-button value="DEFECTIVE">⚠️ Lỗi</el-radio-button>
+              <el-radio-button value="HAZARDOUS">🚨 Nguy hiểm</el-radio-button>
+            </el-radio-group>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">Phương án xử lý</label>
+            <el-radio-group v-model="scanForm.disposition" class="w-full">
+              <el-radio-button value="RESTOCK">📦 Nhập lại kho</el-radio-button>
+              <el-radio-button value="DISPOSE">🗑️ Tiêu hủy</el-radio-button>
+            </el-radio-group>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-1">Ghi chú</label>
+          <el-input v-model="scanForm.notes" placeholder="Ghi chú kiểm tra..." />
+        </div>
+
+        <!-- Scan History -->
+        <div v-if="scanHistory.length > 0" class="border-t pt-3">
+          <div class="text-sm font-bold text-gray-700 mb-2">Lịch sử quét ({{ scanHistory.length }} sản phẩm)</div>
+          <el-table :data="scanHistory" max-height="200" stripe size="small">
+            <el-table-column label="Mã QR" min-width="160">
+              <template #default="{ row }">
+                <span class="font-mono text-xs text-gray-900 font-semibold">{{ row.qrCode || '---' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Serial" width="120">
+              <template #default="{ row }">
+                <span class="font-mono text-xs text-gray-600">{{ row.serial }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Lô" prop="batchCode" width="140" />
+            <el-table-column label="Kiểm tra" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.inspectionResult === 'GOOD' ? 'success' : row.inspectionResult === 'DEFECTIVE' ? 'warning' : 'danger'" size="small">
+                  {{ ({ GOOD: 'Tốt', DEFECTIVE: 'Lỗi', HAZARDOUS: 'Nguy hiểm' } as any)[row.inspectionResult] || row.inspectionResult }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="Xử lý" width="120" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.disposition === 'RESTOCK' ? 'success' : 'danger'" size="small" effect="dark">
+                  {{ row.disposition === 'RESTOCK' ? '📦 Nhập kho' : '🗑️ Tiêu hủy' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showScannerDialog = false">Đóng</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -160,6 +249,7 @@ import { useRoute } from 'vue-router';
 import { Back, Warning, Check, Refresh, Download, Search, Delete, RefreshRight } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { recallApi } from '../api/recallApi';
+import { transportApi } from '../api/transportApi';
 
 const route = useRoute();
 const orderId = route.params.id as string;
@@ -172,6 +262,48 @@ const progress = ref({ total: 0, notified: 0, confirmed: 0, returning: 0, return
 const selectedItems = ref<any[]>([]);
 const showInspectDialog = ref(false);
 const inspectForm = ref({ result: '', notes: '' });
+
+// Scanner Mode state
+const showScannerDialog = ref(false);
+const scanLoading = ref(false);
+const scanInputRef = ref<any>(null);
+const warehouses = ref<any[]>([]);
+const scanForm = ref({ code: '', inspectionResult: 'GOOD', disposition: 'RESTOCK' as 'DISPOSE' | 'RESTOCK', warehouseId: '', notes: '' });
+const scanHistory = ref<any[]>([]);
+
+const openScanner = async () => {
+  showScannerDialog.value = true;
+  if (!warehouses.value.length) {
+    try {
+      const { data } = await transportApi.getWarehouses();
+      warehouses.value = data.data || data || [];
+    } catch { /* ignore */ }
+  }
+  setTimeout(() => scanInputRef.value?.focus(), 300);
+};
+
+const doScanReceive = async () => {
+  if (!scanForm.value.code.trim() || !scanForm.value.warehouseId) return;
+  scanLoading.value = true;
+  try {
+    const { data } = await recallApi.scanReceive(orderId, {
+      code: scanForm.value.code.trim(),
+      inspectionResult: scanForm.value.inspectionResult,
+      disposition: scanForm.value.disposition,
+      warehouseId: scanForm.value.warehouseId,
+      notes: scanForm.value.notes || undefined,
+    });
+    scanHistory.value.unshift(data);
+    ElMessage.success(`✅ ${data.serial} → ${data.disposition === 'RESTOCK' ? 'Nhập kho' : 'Tiêu hủy'}`);
+    scanForm.value.code = '';
+    fetchDetail();
+    setTimeout(() => scanInputRef.value?.focus(), 100);
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Lỗi quét');
+  } finally {
+    scanLoading.value = false;
+  }
+};
 
 const hasReturningItems = computed(() => selectedItems.value.some(i => i.status === 'RETURNING'));
 const hasReturnedItems = computed(() => selectedItems.value.some(i => i.status === 'RETURNED'));

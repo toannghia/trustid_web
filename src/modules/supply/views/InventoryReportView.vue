@@ -104,6 +104,13 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="Đang thu hồi" prop="recalledCount" width="140" align="right">
+          <template #default="{ row }">
+            <span v-if="row.recalledCount > 0" class="text-yellow-600 font-bold">⚠ {{ formatNumber(row.recalledCount) }}</span>
+            <span v-else class="text-gray-300">0</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="Tồn cuối kỳ" prop="closingBalance" width="140" align="right" class-name="bg-blue-50">
           <template #default="{ row }">
             <span class="text-blue-700 font-bold text-base">{{ formatNumber(row.closingBalance) }}</span>
@@ -186,7 +193,7 @@ const getSummaries = (param: { columns: TableColumnCtx<any>[]; data: any[] }) =>
     }
     
     // summable columns
-    if (['openingBalance', 'inbound', 'outbound', 'recallInbound', 'disposed', 'closingBalance'].includes(column.property)) {
+    if (['openingBalance', 'inbound', 'outbound', 'recallInbound', 'disposed', 'recalledCount', 'closingBalance'].includes(column.property)) {
       const values = data.map(item => Number(item[column.property]));
       if (!values.every(value => Number.isNaN(value))) {
         const sum = values.reduce((prev, curr) => {
