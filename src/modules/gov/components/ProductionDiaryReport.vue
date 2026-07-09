@@ -131,8 +131,10 @@ watch(() => [props.province, props.tenantId], fetchData);
 }
 .kpi-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  text-align: center;
+  gap: 8px;
   padding: 12px;
   background: #f9fafb;
   border-radius: 10px;

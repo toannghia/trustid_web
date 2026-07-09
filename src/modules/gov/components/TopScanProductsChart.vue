@@ -50,11 +50,13 @@ const renderChart = () => {
     },
     yAxis: {
       type: 'category',
-      data: items.map(i => {
-        const name = i.productName || 'N/A';
-        return name.length > 20 ? name.slice(0, 18) + '...' : name;
-      }),
-      axisLabel: { fontSize: 11 },
+      data: items.map(i => i.productName || 'N/A'),
+      axisLabel: {
+        fontSize: 11,
+        formatter: (value: string) => {
+          return value.length > 20 ? value.slice(0, 18) + '...' : value;
+        }
+      },
     },
     series: [{
       type: 'bar',

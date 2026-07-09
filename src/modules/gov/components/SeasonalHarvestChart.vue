@@ -1,7 +1,7 @@
 <template>
   <div class="seasonal-harvest">
     <div class="harvest-header">
-      <h3 class="section-title"><span>🌾</span> Sản lượng theo mùa vụ</h3>
+      <h3 class="section-title"><span>🌾</span> Sản lượng theo tháng</h3>
       <el-date-picker v-model="selectedYear" type="year" placeholder="Năm" size="small" format="YYYY" value-format="YYYY" @change="fetchData" style="width:110px" />
     </div>
     <div ref="chartRef" class="chart-area"></div>
@@ -40,9 +40,9 @@ const renderChart = () => {
   chart.setOption({
     tooltip: { trigger: 'axis' },
     grid: { top: 20, right: 16, bottom: 28, left: 56 },
-    xAxis: { type: 'category', data: names, axisLabel: { color: '#6b7280' } },
+    xAxis: { type: 'category', data: names, axisLabel: { color: '#6b7280', fontSize: 10 } },
     yAxis: { type: 'value', name: 'kg', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { color: '#6b7280', formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'T' : String(v) } },
-    series: [{ type: 'bar', barWidth: '40%', data: values.map((v, i) => ({ value: v, itemStyle: { color: colors[i], borderRadius: [6,6,0,0] } })) }],
+    series: [{ type: 'bar', barWidth: '50%', data: values.map((v, i) => ({ value: v, itemStyle: { color: colors[i % colors.length], borderRadius: [6,6,0,0] } })) }],
   });
 };
 

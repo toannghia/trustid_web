@@ -25,11 +25,11 @@
       </div>
       <div class="kpi-item">
         <div class="kpi-value text-yellow">{{ data.queuedCount }}</div>
-        <div class="kpi-label">Chờ băm</div>
+        <div class="kpi-label">Lô chờ đóng dấu</div>
       </div>
       <div class="kpi-item">
         <div class="kpi-value text-green">{{ data.stampedCount }}</div>
-        <div class="kpi-label">Đã băm</div>
+        <div class="kpi-label">Lô đã đóng dấu</div>
       </div>
     </div>
     <div ref="chartRef" class="chart-area"></div>
@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
@@ -110,7 +110,14 @@ const renderChart = () => {
   });
 };
 
-onMounted(fetchData);
+const handleResize = () => {
+  if (chart) chart.resize();
+};
+
+onMounted(() => {
+  fetchData();
+  window.addEventListener('resize', handleResize);
+});
 
 const openPolygon = () => {
   window.open('https://polygonscan.com/address/0x8a6433A30abF6bE87382615cb82289a0D31E444b', '_blank');
@@ -118,6 +125,14 @@ const openPolygon = () => {
 
 watch(() => chartRef.value, () => {
   if (chartRef.value && data.value.weekly.days.length) renderChart();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+  if (chart) {
+    chart.dispose();
+    chart = null;
+  }
 });
 </script>
 
@@ -127,6 +142,8 @@ watch(() => chartRef.value, () => {
   border-radius: 12px;
   padding: 20px 24px;
   color: #e2e8f0;
+  min-width: 0;
+  overflow: hidden;
 }
 .card-header {
   display: flex;

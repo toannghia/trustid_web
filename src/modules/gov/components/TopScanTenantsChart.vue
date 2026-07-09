@@ -46,11 +46,13 @@ const renderChart = () => {
     },
     yAxis: {
       type: 'category',
-      data: items.map(i => {
-        const name = i.tenantName || 'N/A';
-        return name.length > 22 ? name.slice(0, 20) + '...' : name;
-      }),
-      axisLabel: { fontSize: 11 },
+      data: items.map(i => i.tenantName || 'N/A'),
+      axisLabel: {
+        fontSize: 11,
+        formatter: (value: string) => {
+          return value.length > 22 ? value.slice(0, 20) + '...' : value;
+        }
+      },
     },
     series: [{
       type: 'bar',
