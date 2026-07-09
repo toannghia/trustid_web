@@ -148,17 +148,17 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('../modules/core/views/SupplierManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
       },
-      // QUẢN LÝ KHO MÃ
+      // QUẢN LÝ MÃ (Restructured)
       {
-        path: 'codes/generate',
-        name: 'code-generate',
-        component: () => import('@/modules/core/views/StampManagement.vue'),
+        path: 'codes/manage',
+        name: 'code-management',
+        component: () => import('@/modules/core/views/CodePoolManagement.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
       },
       {
-        path: 'codes/pools',
-        name: 'code-pools',
-        component: () => import('../modules/core/views/CodePools.vue'),
+        path: 'codes/report',
+        name: 'code-report',
+        component: () => import('@/modules/core/views/CodeReportView.vue'),
         meta: { roles: ['ADMIN', 'TENANT_ADMIN'] }
       },
       {

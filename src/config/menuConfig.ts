@@ -111,8 +111,8 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     label: 'CẤP MÃ',
     icon: Tickets,
     items: [
-      { title: 'Cấp mã nội bộ', path: '/codes/generate', permission: 'CODE_GENERATE', icon: Connection },
-      { title: 'Kho lô tem', path: '/codes/pools', permission: 'CODE_POOL_MANAGE', icon: Collection },
+      { title: 'Quản lý lô mã', path: '/codes/manage', permission: 'CODE_GENERATE', icon: Connection },
+      { title: 'Thống kê', path: '/codes/report', permission: 'CODE_VIEW', icon: DataLine },
       { title: 'Đồng bộ Lô (NDA)', path: '/codes/batch-sync', permission: 'CODE_BATCH_SYNC', icon: DataLine },
       { title: 'Tra cứu Audit', path: '/traceability/audit', permission: 'TRACE_AUDIT', icon: View },
     ]

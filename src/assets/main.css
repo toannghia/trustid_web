@@ -18,7 +18,7 @@
 }
 
 /* Ensure all primary buttons match the brand green */
-.el-button--primary {
+.el-button--primary:not(.is-plain):not(.is-link):not(.is-text) {
   --el-button-bg-color: #00875A !important;
   --el-button-border-color: #00875A !important;
   --el-button-hover-bg-color: #00a36c !important;
@@ -54,4 +54,13 @@ body {
 .leaflet-control-attribution,
 .mapboxgl-ctrl-attrib {
   display: none !important;
+}
+
+/* Make custom dialog close buttons on dark blue headers larger */
+.el-dialog__header div[style*="width: 24px"][style*="height: 24px"][style*="border-radius: 50%"] {
+  width: 32px !important;
+  height: 32px !important;
+}
+.el-dialog__header div[style*="width: 24px"][style*="height: 24px"][style*="border-radius: 50%"] span {
+  font-size: 22px !important;
 }
