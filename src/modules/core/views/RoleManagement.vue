@@ -225,14 +225,12 @@ const toggleGlobalHideForAll = (path: string) => {
 const saveGlobalMenuConfigs = async () => {
     globalConfigSaving.value = true;
     try {
-        const configs = allMenuItems.value
-            .filter(m => m.hideForAll || m.hiddenForRoles.length > 0)
-            .map(m => ({
-                menuPath: m.path,
-                menuLabel: m.label,
-                hideForAll: m.hideForAll,
-                hiddenForRoles: m.hiddenForRoles
-            }));
+        const configs = allMenuItems.value.map(m => ({
+            menuPath: m.path,
+            menuLabel: m.label,
+            hideForAll: m.hideForAll,
+            hiddenForRoles: m.hiddenForRoles
+        }));
         await api.put('/admin/menu-configs', { configs });
         ElMessage.success('Đã lưu cấu hình menu hệ thống');
         fetchGlobalMenuConfigs();
