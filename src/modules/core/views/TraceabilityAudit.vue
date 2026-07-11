@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Search, Monitor, Collection, Finished, Connection, Van, View, MapLocation } from '@element-plus/icons-vue';
+import { Search, Monitor, Collection, Finished, Connection, Van, View, MapLocation, ShoppingCart } from '@element-plus/icons-vue';
 import { traceabilityApi } from '../api/traceability';
 import { ElMessage } from 'element-plus';
 
@@ -13,7 +13,8 @@ const getBatchTypeLabel = (type: string) => {
     'CROSS_TENANT': 'Lô nhập từ đối tác',
     'EXTERNAL': 'Lô nhập ngoài',
     'LEGACY': 'Lô hệ thống cũ',
-    'EXPORTED': 'Lô đã xuất khẩu'
+    'EXPORTED': 'Lô đã xuất khẩu',
+    'BAG_PACKAGING': 'Lô đóng gói bao'
   };
   return labels[type] || type;
 };
@@ -22,11 +23,17 @@ const getStatusLabel = (status: string) => {
   const labels: any = {
     'AVAILABLE': 'Sẵn sàng',
     'ACTIVE': 'Đã kích hoạt',
+    'ACTIVATED': 'Đã kích hoạt',
     'INACTIVE': 'Chưa kích hoạt',
+    'UNACTIVATED': 'Chưa kích hoạt',
     'EXPORTED': 'Đã xuất file',
+    'SHIPPED': 'Đã xuất cho đại lý',
     'SOLD': 'Đã bán',
     'AT_DEALER': 'Tại đại lý',
-    'LOST': 'Thất lạc'
+    'LOST': 'Thất lạc',
+    'DAMAGED': 'Hư hỏng / Thất lạc',
+    'LINKED': 'Đã liên kết',
+    'PACKAGED': 'Đã đóng gói'
   };
   return labels[status] || status;
 };
@@ -34,9 +41,15 @@ const getStatusLabel = (status: string) => {
 const getStatusType = (status: string) => {
   const types: any = {
     'ACTIVE': 'success',
+    'ACTIVATED': 'success',
+    'SHIPPED': '',
     'SOLD': 'warning',
+    'AT_DEALER': 'primary',
     'LOST': 'danger',
-    'AT_DEALER': 'primary'
+    'DAMAGED': 'danger',
+    'UNACTIVATED': 'info',
+    'LINKED': 'success',
+    'PACKAGED': 'success'
   };
   return types[status] || 'info';
 };
@@ -50,7 +63,27 @@ const getMovementTypeLabel = (type: string) => {
   return labels[type] || type;
 };
 
+const getTransferStatusLabel = (status: string) => {
+  const labels: any = {
+    'PENDING': 'Chờ xử lý',
+    'DRAFT': 'Nháp',
+    'EXPORTED': 'Đã xuất',
+    'IMPORTING': 'Đang nhập',
+    'COMPLETED': 'Hoàn tất',
+    'PARTIAL_COMPLETED': 'Nhập một phần',
+    'CANCELLED': 'Đã hủy'
+  };
+  return labels[status] || status;
+};
+
 const auditData = ref<any>(null);
+const showPacketsDialog = ref(false);
+
+const handleAuditPacket = async (packetCode: string) => {
+  showPacketsDialog.value = false;
+  searchCode.value = packetCode;
+  await handleSearch();
+};
 
 const handleSearch = async () => {
   if (!searchCode.value) return;
@@ -59,7 +92,14 @@ const handleSearch = async () => {
   try {
     auditData.value = await traceabilityApi.auditCode(searchCode.value);
   } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Không tìm thấy thông tin mã');
+    const status = err.response?.status;
+    const message = err.response?.data?.message;
+    
+    if (status === 403) {
+      ElMessage.warning(message || 'Bạn không có quyền xem mã này');
+    } else {
+      ElMessage.error(message || 'Không tìm thấy thông tin mã');
+    }
     auditData.value = null;
   } finally {
     loading.value = false;
@@ -84,7 +124,7 @@ const formatDate = (dateStr: string) => {
       <div class="search-box">
         <el-input
           v-model="searchCode"
-          placeholder="Nhập Serial hoặc mã QR (TrustID)..."
+          placeholder="Nhập mã QR TrustID..."
           class="audit-input"
           @keyup.enter="handleSearch"
         >
@@ -106,16 +146,16 @@ const formatDate = (dateStr: string) => {
             <template #header>
               <div class="card-header">
                 <span>Thông tin mã</span>
-                <el-tag :type="getStatusType(auditData.code_info.status)">{{ auditData.code_info.status }}</el-tag>
+                <el-tag :type="getStatusType(auditData.code_info.status)">{{ getStatusLabel(auditData.code_info.status) }}</el-tag>
               </div>
             </template>
             <div class="info-item">
-              <label>Serial:</label>
-              <strong>{{ auditData.code_info.serial || 'N/A' }}</strong>
+              <label>Mã QR TrustID:</label>
+              <code class="code-string-prominent">{{ auditData.code_info.code_string }}</code>
             </div>
             <div class="info-item">
-              <label>Mã QR TrustID:</label>
-              <code class="code-string">{{ auditData.code_info.code_string }}</code>
+              <label>Serial:</label>
+              <span class="serial-text">{{ auditData.code_info.serial || 'N/A' }}</span>
             </div>
             <div class="info-item">
               <label>Ngày tạo mã:</label>
@@ -157,12 +197,21 @@ const formatDate = (dateStr: string) => {
               <label>Kích hoạt lúc:</label>
               <span>{{ formatDate(auditData.production_info.activated_at) }}</span>
             </div>
+            <div class="info-item" v-if="auditData.bag_info && auditData.bag_info.is_bag">
+              <label>Số gói trong bao:</label>
+              <strong>
+                {{ auditData.bag_info.packet_count }} gói
+                <el-button type="primary" link size="small" @click="showPacketsDialog = true" style="margin-left: 8px;">
+                  (Xem danh sách)
+                </el-button>
+              </strong>
+            </div>
           </el-card>
 
           <el-card class="info-card mt-4">
             <template #header>
               <div class="card-header">
-                <span>Thống kê quét (Consumer)</span>
+                <span>Thống kê quét</span>
               </div>
             </template>
             <div class="scan-stats">
@@ -224,15 +273,33 @@ const formatDate = (dateStr: string) => {
                   type="success"
                 >
                   <div class="timeline-content">
-                    <h3>{{ auditData.production_info.batch_type === 'SEMI_FINISHED' ? 'Đóng gói Bán thành phẩm' : 'Đóng gói Thành phẩm' }}</h3>
+                    <h3>{{ auditData.production_info.batch_type === 'SEMI_FINISHED' ? 'Đóng gói Bán thành phẩm' : auditData.production_info.batch_type === 'BAG_PACKAGING' ? 'Đóng gói Bao' : 'Đóng gói Thành phẩm' }}</h3>
                     <p>Gắn vào sản phẩm <strong>{{ auditData.production_info.product_name }}</strong></p>
                     <div class="meta-info">
                       <span>Lô: {{ auditData.production_info.batch_code }}</span>
-                      <span>Bởi: {{ auditData.production_info.activated_by_name }}</span>
+                      <span v-if="auditData.production_info.activated_by_name">Bởi: {{ auditData.production_info.activated_by_name }}</span>
                       <span>Tại: {{ auditData.production_info.tenant_name }}</span>
                     </div>
                     <div class="meta-info mt-1">
-                      <span>Trạng thái: {{ auditData.production_info.status }}</span>
+                      <span>Trạng thái: {{ getStatusLabel(auditData.production_info.status) }}</span>
+                    </div>
+                  </div>
+                </el-timeline-item>
+
+                <!-- Stage 3b: Bag Mapping -->
+                <el-timeline-item
+                  v-if="auditData.bag_info"
+                  :timestamp="auditData.bag_info.linked_at ? formatDate(auditData.bag_info.linked_at) : 'Đã liên kết'"
+                  placement="top"
+                  type="warning"
+                >
+                  <div class="timeline-content">
+                    <h3>Liên kết Bao</h3>
+                    <p>Thuộc bao <strong>{{ auditData.bag_info.bag_qr_code ? `${auditData.bag_info.bag_qr_code} (${auditData.bag_info.bag_serial})` : auditData.bag_info.bag_serial }}</strong></p>
+                    <div class="meta-info">
+                      <span>Nhóm lô: {{ auditData.bag_info.group_index }}</span>
+                      <span>Số gói trong bao: {{ auditData.bag_info.packet_count }}</span>
+                      <span>Trạng thái lô: {{ getStatusLabel(auditData.bag_info.lot_status) }}</span>
                     </div>
                   </div>
                 </el-timeline-item>
@@ -252,7 +319,98 @@ const formatDate = (dateStr: string) => {
                       <span>Người thực hiện: {{ move.performed_by }}</span>
                       <span v-if="move.reference_code" class="ml-2">| Phiếu: <strong>{{ move.reference_code }}</strong></span>
                     </div>
+                    <div class="meta-info mb-1" v-if="move.transfer_from || move.transfer_to">
+                      <span>📦 Từ: <strong>{{ move.transfer_from }}</strong> → <strong>{{ move.transfer_to }}</strong></span>
+                      <span v-if="move.transfer_status">Trạng thái: {{ getTransferStatusLabel(move.transfer_status) }}</span>
+                    </div>
+                    <div class="meta-info mb-1" v-if="move.vehicle_plate || move.driver_name">
+                      <span v-if="move.vehicle_plate">🚛 Xe: <strong>{{ move.vehicle_plate }}</strong></span>
+                      <span v-if="move.driver_name">Tài xế: {{ move.driver_name }}<template v-if="move.driver_phone"> ({{ move.driver_phone }})</template></span>
+                    </div>
                     <p class="notes" v-if="move.notes">{{ move.notes }}</p>
+                  </div>
+                </el-timeline-item>
+
+                <!-- Stage 4a: B2B Transfer (Phiếu xuất bán thành phẩm) -->
+                <el-timeline-item
+                  v-if="auditData.b2b_transfer_info"
+                  :timestamp="formatDate(auditData.b2b_transfer_info.exported_at)"
+                  placement="top"
+                  type="warning"
+                >
+                  <div class="timeline-content">
+                    <h3>Xuất bán thành phẩm (B2B)</h3>
+                    <p>Phiếu: <strong>{{ auditData.b2b_transfer_info.transfer_code }}</strong>
+                      <el-tag size="small" :type="auditData.b2b_transfer_info.status === 'COMPLETED' ? 'success' : auditData.b2b_transfer_info.status === 'EXPORTED' ? '' : 'info'" class="ml-2">
+                        {{ getTransferStatusLabel(auditData.b2b_transfer_info.status) }}
+                      </el-tag>
+                    </p>
+                    <div class="meta-info mb-1">
+                      <span>📦 Từ: <strong>{{ auditData.b2b_transfer_info.from_tenant }}</strong> → <strong>{{ auditData.b2b_transfer_info.to_tenant }}</strong></span>
+                    </div>
+                    <div class="meta-info mb-1">
+                      <span>K.lượng xuất: {{ auditData.b2b_transfer_info.expected_quantity }} kg</span>
+                      <span v-if="auditData.b2b_transfer_info.received_quantity">K.lượng nhận: {{ auditData.b2b_transfer_info.received_quantity }} kg</span>
+                      <span v-if="auditData.b2b_transfer_info.exported_by">Người xuất: {{ auditData.b2b_transfer_info.exported_by }}</span>
+                    </div>
+                    <div class="meta-info" v-if="auditData.b2b_transfer_info.imported_at">
+                      <span>Ngày nhập: {{ formatDate(auditData.b2b_transfer_info.imported_at) }}</span>
+                    </div>
+                  </div>
+                </el-timeline-item>
+
+                <!-- Stage 4b: Distribution (Export to Dealer) -->
+                <el-timeline-item
+                  v-if="auditData.distribution_info"
+                  :timestamp="formatDate(auditData.distribution_info.scanned_at)"
+                  placement="top"
+                  type="primary"
+                >
+                  <div class="timeline-content">
+                    <h3>Xuất kho cho Đại lý</h3>
+                    <p>Đại lý: <strong>{{ auditData.distribution_info.dealer_name || 'N/A' }}</strong></p>
+                    <div class="meta-info">
+                      <span>Phiếu xuất: {{ auditData.distribution_info.export_order_code }}</span>
+                      <span>Trạng thái: {{ auditData.distribution_info.export_status }}</span>
+                      <span>Phương thức: {{ auditData.distribution_info.scan_method === 'BOX' ? 'Quét bao' : 'Quét lẻ' }}</span>
+                    </div>
+                  </div>
+                </el-timeline-item>
+
+                <!-- Stage 4b-2: Dealer Receive Confirmation -->
+                <el-timeline-item
+                  v-if="auditData.dealer_receive_info"
+                  :timestamp="formatDate(auditData.dealer_receive_info.received_at)"
+                  placement="top"
+                  type="primary"
+                >
+                  <div class="timeline-content">
+                    <h3>Đại lý nhận hàng</h3>
+                    <p>Người nhận: <strong>{{ auditData.dealer_receive_info.receiver_name || 'N/A' }}</strong></p>
+                    <div class="meta-info">
+                      <span>Phiếu giao hàng: {{ auditData.dealer_receive_info.tracking_code }}</span>
+                    </div>
+                  </div>
+                </el-timeline-item>
+
+                <!-- Stage 4c: Dealer Sale to End Customer -->
+                <el-timeline-item
+                  v-if="auditData.sale_info"
+                  :timestamp="formatDate(auditData.sale_info.sale_date)"
+                  placement="top"
+                  type="warning"
+                >
+                  <div class="timeline-content">
+                    <h3>Đại lý bán cho khách hàng</h3>
+                    <p>Khách hàng: <strong>{{ auditData.sale_info.customer_name || 'Khách lẻ' }}</strong></p>
+                    <div class="meta-info">
+                      <span>Hóa đơn: {{ auditData.sale_info.receipt_number }}</span>
+                      <span v-if="auditData.sale_info.customer_phone">SĐT: {{ auditData.sale_info.customer_phone }}</span>
+                      <span>Thanh toán: {{ auditData.sale_info.payment_method === 'cash' ? 'Tiền mặt' : auditData.sale_info.payment_method === 'transfer' ? 'Chuyển khoản' : auditData.sale_info.payment_method || 'N/A' }}</span>
+                    </div>
+                    <div class="meta-info mt-1" v-if="auditData.sale_info.item_price">
+                      <span>Đơn giá: {{ Number(auditData.sale_info.item_price).toLocaleString('vi-VN') }}đ</span>
+                    </div>
                   </div>
                 </el-timeline-item>
 
@@ -265,7 +423,7 @@ const formatDate = (dateStr: string) => {
                   type="danger"
                 >
                   <div class="timeline-content">
-                    <h3>Tương tác người tiêu dùng</h3>
+                    <h3>Người dùng quét</h3>
                     <p>Được quét tại: <strong>{{ scan.location }}</strong></p>
                     <p class="meta-info">Thiết bị: {{ scan.device }}</p>
                   </div>
@@ -298,6 +456,39 @@ const formatDate = (dateStr: string) => {
     <div v-else-if="!loading" class="empty-state">
       <el-empty description="Nhập mã Serial hoặc quét QR để bắt đầu kiểm tra" />
     </div>
+
+    <!-- Dialog hiển thị danh sách mã gói trong bao -->
+    <el-dialog
+      v-if="auditData && auditData.bag_info"
+      v-model="showPacketsDialog"
+      title="Danh sách mã gói trong bao"
+      width="650px"
+      destroy-on-close
+    >
+      <div style="margin-bottom: 16px; font-size: 14px;">
+        <span>Bao: </span>
+        <strong style="color: var(--el-color-primary);">{{ auditData.bag_info.bag_qr_code }} ({{ auditData.bag_info.bag_serial }})</strong>
+      </div>
+      
+      <el-table :data="auditData.bag_info.packets || []" stripe style="width: 100%" max-height="400">
+        <el-table-column type="index" label="STT" width="60" align="center" />
+        <el-table-column prop="code_string" label="Mã QR Gói" />
+        <el-table-column prop="serial" label="Serial" width="120" />
+        <el-table-column label="Hành động" width="120" align="center">
+          <template #default="scope">
+            <el-button type="primary" link size="small" @click="handleAuditPacket(scope.row.code_string)">
+              Audit mã này
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showPacketsDialog = false">Đóng</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -382,6 +573,25 @@ const formatDate = (dateStr: string) => {
   border-radius: 4px;
   font-family: monospace;
   word-break: break-all;
+}
+
+.code-string-prominent {
+  background: #f0f2f5;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  word-break: break-all;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c3e50;
+  border: 1px solid #dcdfe6;
+  display: inline-block;
+}
+
+.serial-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
 }
 
 .stat-box {

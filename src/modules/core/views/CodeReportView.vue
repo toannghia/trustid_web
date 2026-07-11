@@ -20,6 +20,7 @@ const stats = ref({
   activated: 0,
   shipped: 0,
   atDealer: 0,
+  sold: 0,
   damaged: 0,
 });
 const statsLoading = ref(false);
@@ -58,12 +59,13 @@ const getStatusType = (status: string) => statusMap[status]?.type || 'info';
 
 // --- STAT CARDS ---
 const statCards = computed(() => [
-  { label: 'Tổng mã', value: stats.value.total, color: '#0F2B46', icon: '📊' },
-  { label: 'Chưa kích hoạt', value: stats.value.unactivated, color: '#909399', icon: '⚪', filterValue: 'UNACTIVATED' },
-  { label: 'Đã kích hoạt', value: stats.value.activated, color: '#00875A', icon: '🟢', filterValue: 'ACTIVATED' },
-  { label: 'Đã xuất kho', value: stats.value.shipped, color: '#409EFF', icon: '🔵', filterValue: 'SHIPPED' },
-  { label: 'Tại đại lý', value: stats.value.atDealer, color: '#E6A23C', icon: '🟡', filterValue: 'AT_DEALER' },
-  { label: 'Hư hỏng', value: stats.value.damaged, color: '#F56C6C', icon: '🔴', filterValue: 'DAMAGED' },
+  { label: 'Tổng mã', value: stats.value.total, color: '#0F2B46', icon: '📊', desc: 'Tổng số mã đã được tạo trong hệ thống' },
+  { label: 'Chưa kích hoạt', value: stats.value.unactivated, color: '#909399', icon: '⚪', filterValue: 'UNACTIVATED', desc: 'Mã chưa được gắn vào sản phẩm hoặc lệnh sản xuất nào' },
+  { label: 'Đã kích hoạt', value: stats.value.activated, color: '#00875A', icon: '🟢', filterValue: 'ACTIVATED', desc: 'Mã đã gắn vào sản phẩm (qua sản xuất hoặc đóng bao) nhưng chưa xuất kho' },
+  { label: 'Đã xuất kho', value: stats.value.shipped, color: '#409EFF', icon: '📦', filterValue: 'SHIPPED', desc: 'Sản phẩm đã được quét xuất kho cho đại lý' },
+  { label: 'Tại đại lý', value: stats.value.atDealer, color: '#E6A23C', icon: '🏪', filterValue: 'AT_DEALER', desc: 'Sản phẩm đã đến đại lý, chờ bán' },
+  { label: 'Đã bán', value: stats.value.sold, color: '#8B5CF6', icon: '✅', filterValue: 'SOLD', desc: 'Sản phẩm đã bán cho người tiêu dùng' },
+  { label: 'Hư hỏng / Mất', value: stats.value.damaged, color: '#F56C6C', icon: '🔴', filterValue: 'DAMAGED', desc: 'Sản phẩm bị hư hỏng hoặc mất trong quá trình vận chuyển' },
 ]);
 
 // --- FUNCTIONS ---
@@ -160,25 +162,31 @@ onMounted(() => {
 
     <div class="p-4">
       <!-- SUMMARY CARDS -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        <div
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
+        <el-tooltip
           v-for="card in statCards"
           :key="card.label"
-          class="stat-card rounded-lg p-4 cursor-pointer transition-all hover:shadow-md border"
-          :class="{ 'ring-2 ring-offset-1': filter.productStatus === card.filterValue }"
-          :style="{ borderLeftColor: card.color, borderLeftWidth: '4px', '--ring-color': card.color }"
-          @click="handleStatCardClick(card.filterValue)"
+          :content="card.desc"
+          placement="bottom"
+          :show-after="300"
         >
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-xs text-gray-500 mb-1">{{ card.label }}</div>
-              <div class="text-2xl font-bold" :style="{ color: card.color }">
-                {{ card.value.toLocaleString() }}
+          <div
+            class="stat-card rounded-lg p-4 cursor-pointer transition-all hover:shadow-md border"
+            :class="{ 'ring-2 ring-offset-1': filter.productStatus === card.filterValue }"
+            :style="{ borderLeftColor: card.color, borderLeftWidth: '4px', '--ring-color': card.color }"
+            @click="handleStatCardClick(card.filterValue)"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs text-gray-500 mb-1">{{ card.label }}</div>
+                <div class="text-2xl font-bold" :style="{ color: card.color }">
+                  {{ card.value.toLocaleString() }}
+                </div>
               </div>
+              <span class="text-2xl">{{ card.icon }}</span>
             </div>
-            <span class="text-2xl">{{ card.icon }}</span>
           </div>
-        </div>
+        </el-tooltip>
       </div>
 
       <!-- FILTER BAR -->
@@ -196,7 +204,7 @@ onMounted(() => {
             <el-option label="Đã xuất kho" value="SHIPPED" />
             <el-option label="Tại đại lý" value="AT_DEALER" />
             <el-option label="Đã bán" value="SOLD" />
-            <el-option label="Hư hỏng" value="DAMAGED" />
+            <el-option label="Hư hỏng / Mất" value="DAMAGED" />
           </el-select>
         </div>
 
