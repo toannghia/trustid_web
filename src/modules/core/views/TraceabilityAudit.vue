@@ -77,6 +77,85 @@ const getTransferStatusLabel = (status: string) => {
 };
 
 const auditData = ref<any>(null);
+
+const unifiedTimeline = computed(() => {
+  if (!auditData.value) return [];
+  const events: any[] = [];
+
+  // Logistics movements
+  if (auditData.value.logistics_info?.movements) {
+    for (const move of auditData.value.logistics_info.movements) {
+      events.push({
+        eventType: 'logistics',
+        timestamp: new Date(move.time),
+        data: move,
+      });
+    }
+  }
+
+  // B2B Transfer
+  if (auditData.value.b2b_transfer_info) {
+    events.push({
+      eventType: 'b2b_transfer',
+      timestamp: new Date(auditData.value.b2b_transfer_info.exported_at || auditData.value.b2b_transfer_info.imported_at || 0),
+      data: auditData.value.b2b_transfer_info,
+    });
+  }
+
+  // Distribution (Export to Dealer)
+  if (auditData.value.distribution_info) {
+    events.push({
+      eventType: 'distribution',
+      timestamp: new Date(auditData.value.distribution_info.scanned_at),
+      data: auditData.value.distribution_info,
+    });
+  }
+
+  // Dealer Receive
+  if (auditData.value.dealer_receive_info) {
+    events.push({
+      eventType: 'dealer_receive',
+      timestamp: new Date(auditData.value.dealer_receive_info.received_at),
+      data: auditData.value.dealer_receive_info,
+    });
+  }
+
+  // Dealer Sale
+  if (auditData.value.sale_info) {
+    events.push({
+      eventType: 'sale',
+      timestamp: new Date(auditData.value.sale_info.sale_date),
+      data: auditData.value.sale_info,
+    });
+  }
+
+  // Consumer Scans
+  if (auditData.value.scan_info?.history) {
+    for (const scan of auditData.value.scan_info.history) {
+      events.push({
+        eventType: 'scan',
+        timestamp: new Date(scan.time),
+        data: scan,
+      });
+    }
+  }
+
+  // Sort chronologically; when same time, use logical priority
+  const priority: Record<string, number> = {
+    distribution: 1,
+    dealer_receive: 2,
+    b2b_transfer: 3,
+    logistics: 4,
+    sale: 5,
+    scan: 6,
+  };
+  events.sort((a, b) => {
+    const diff = a.timestamp.getTime() - b.timestamp.getTime();
+    if (diff !== 0) return diff;
+    return (priority[a.eventType] || 99) - (priority[b.eventType] || 99);
+  });
+  return events;
+});
 const showPacketsDialog = ref(false);
 
 const handleAuditPacket = async (packetCode: string) => {
@@ -304,128 +383,95 @@ const formatDate = (dateStr: string) => {
                   </div>
                 </el-timeline-item>
 
-                <!-- Stage 4: Logistics -->
+                <!-- Unified Timeline: all events sorted by timestamp -->
                 <el-timeline-item
-                  v-for="(move, idx) in auditData.logistics_info.movements"
-                  :key="'move-' + idx"
-                  :timestamp="formatDate(move.time)"
+                  v-for="(evt, idx) in unifiedTimeline"
+                  :key="'evt-' + idx"
+                  :timestamp="formatDate(evt.timestamp)"
                   placement="top"
-                  :type="move.type === 'INBOUND' ? 'success' : 'info'"
+                  :type="evt.eventType === 'logistics' ? (evt.data.type === 'INBOUND' ? 'success' : 'info') : evt.eventType === 'b2b_transfer' ? 'warning' : evt.eventType === 'distribution' ? 'primary' : evt.eventType === 'dealer_receive' ? 'primary' : evt.eventType === 'sale' ? 'warning' : 'danger'"
                 >
                   <div class="timeline-content">
-                    <h3>{{ getMovementTypeLabel(move.type) }}</h3>
-                    <p>Tại: <strong>{{ move.warehouse }}</strong></p>
-                    <div class="meta-info mb-1">
-                      <span>Người thực hiện: {{ move.performed_by }}</span>
-                      <span v-if="move.reference_code" class="ml-2">| Phiếu: <strong>{{ move.reference_code }}</strong></span>
-                    </div>
-                    <div class="meta-info mb-1" v-if="move.transfer_from || move.transfer_to">
-                      <span>📦 Từ: <strong>{{ move.transfer_from }}</strong> → <strong>{{ move.transfer_to }}</strong></span>
-                      <span v-if="move.transfer_status">Trạng thái: {{ getTransferStatusLabel(move.transfer_status) }}</span>
-                    </div>
-                    <div class="meta-info mb-1" v-if="move.vehicle_plate || move.driver_name">
-                      <span v-if="move.vehicle_plate">🚛 Xe: <strong>{{ move.vehicle_plate }}</strong></span>
-                      <span v-if="move.driver_name">Tài xế: {{ move.driver_name }}<template v-if="move.driver_phone"> ({{ move.driver_phone }})</template></span>
-                    </div>
-                    <p class="notes" v-if="move.notes">{{ move.notes }}</p>
-                  </div>
-                </el-timeline-item>
+                    <!-- Logistics Movement -->
+                    <template v-if="evt.eventType === 'logistics'">
+                      <h3>{{ getMovementTypeLabel(evt.data.type) }}</h3>
+                      <p>Tại: <strong>{{ evt.data.warehouse }}</strong></p>
+                      <div class="meta-info mb-1">
+                        <span>Người thực hiện: {{ evt.data.performed_by }}</span>
+                        <span v-if="evt.data.reference_code" class="ml-2">| Phiếu: <strong>{{ evt.data.reference_code }}</strong></span>
+                      </div>
+                      <div class="meta-info mb-1" v-if="evt.data.transfer_from || evt.data.transfer_to">
+                        <span>📦 Từ: <strong>{{ evt.data.transfer_from }}</strong> → <strong>{{ evt.data.transfer_to }}</strong></span>
+                        <span v-if="evt.data.transfer_status">Trạng thái: {{ getTransferStatusLabel(evt.data.transfer_status) }}</span>
+                      </div>
+                      <div class="meta-info mb-1" v-if="evt.data.vehicle_plate || evt.data.driver_name">
+                        <span v-if="evt.data.vehicle_plate">🚛 Xe: <strong>{{ evt.data.vehicle_plate }}</strong></span>
+                        <span v-if="evt.data.driver_name">Tài xế: {{ evt.data.driver_name }}<template v-if="evt.data.driver_phone"> ({{ evt.data.driver_phone }})</template></span>
+                      </div>
+                      <p class="notes" v-if="evt.data.notes">{{ evt.data.notes }}</p>
+                    </template>
 
-                <!-- Stage 4a: B2B Transfer (Phiếu xuất bán thành phẩm) -->
-                <el-timeline-item
-                  v-if="auditData.b2b_transfer_info"
-                  :timestamp="formatDate(auditData.b2b_transfer_info.exported_at)"
-                  placement="top"
-                  type="warning"
-                >
-                  <div class="timeline-content">
-                    <h3>Xuất bán thành phẩm (B2B)</h3>
-                    <p>Phiếu: <strong>{{ auditData.b2b_transfer_info.transfer_code }}</strong>
-                      <el-tag size="small" :type="auditData.b2b_transfer_info.status === 'COMPLETED' ? 'success' : auditData.b2b_transfer_info.status === 'EXPORTED' ? '' : 'info'" class="ml-2">
-                        {{ getTransferStatusLabel(auditData.b2b_transfer_info.status) }}
-                      </el-tag>
-                    </p>
-                    <div class="meta-info mb-1">
-                      <span>📦 Từ: <strong>{{ auditData.b2b_transfer_info.from_tenant }}</strong> → <strong>{{ auditData.b2b_transfer_info.to_tenant }}</strong></span>
-                    </div>
-                    <div class="meta-info mb-1">
-                      <span>K.lượng xuất: {{ auditData.b2b_transfer_info.expected_quantity }} kg</span>
-                      <span v-if="auditData.b2b_transfer_info.received_quantity">K.lượng nhận: {{ auditData.b2b_transfer_info.received_quantity }} kg</span>
-                      <span v-if="auditData.b2b_transfer_info.exported_by">Người xuất: {{ auditData.b2b_transfer_info.exported_by }}</span>
-                    </div>
-                    <div class="meta-info" v-if="auditData.b2b_transfer_info.imported_at">
-                      <span>Ngày nhập: {{ formatDate(auditData.b2b_transfer_info.imported_at) }}</span>
-                    </div>
-                  </div>
-                </el-timeline-item>
+                    <!-- B2B Transfer -->
+                    <template v-else-if="evt.eventType === 'b2b_transfer'">
+                      <h3>Xuất bán thành phẩm (B2B)</h3>
+                      <p>Phiếu: <strong>{{ evt.data.transfer_code }}</strong>
+                        <el-tag size="small" :type="evt.data.status === 'COMPLETED' ? 'success' : evt.data.status === 'EXPORTED' ? '' : 'info'" class="ml-2">
+                          {{ getTransferStatusLabel(evt.data.status) }}
+                        </el-tag>
+                      </p>
+                      <div class="meta-info mb-1">
+                        <span>📦 Từ: <strong>{{ evt.data.from_tenant }}</strong> → <strong>{{ evt.data.to_tenant }}</strong></span>
+                      </div>
+                      <div class="meta-info mb-1">
+                        <span>K.lượng xuất: {{ evt.data.expected_quantity }} kg</span>
+                        <span v-if="evt.data.received_quantity">K.lượng nhận: {{ evt.data.received_quantity }} kg</span>
+                        <span v-if="evt.data.exported_by">Người xuất: {{ evt.data.exported_by }}</span>
+                      </div>
+                      <div class="meta-info" v-if="evt.data.imported_at">
+                        <span>Ngày nhập: {{ formatDate(evt.data.imported_at) }}</span>
+                      </div>
+                    </template>
 
-                <!-- Stage 4b: Distribution (Export to Dealer) -->
-                <el-timeline-item
-                  v-if="auditData.distribution_info"
-                  :timestamp="formatDate(auditData.distribution_info.scanned_at)"
-                  placement="top"
-                  type="primary"
-                >
-                  <div class="timeline-content">
-                    <h3>Xuất kho cho Đại lý</h3>
-                    <p>Đại lý: <strong>{{ auditData.distribution_info.dealer_name || 'N/A' }}</strong></p>
-                    <div class="meta-info">
-                      <span>Phiếu xuất: {{ auditData.distribution_info.export_order_code }}</span>
-                      <span>Trạng thái: {{ auditData.distribution_info.export_status }}</span>
-                      <span>Phương thức: {{ auditData.distribution_info.scan_method === 'BOX' ? 'Quét bao' : 'Quét lẻ' }}</span>
-                    </div>
-                  </div>
-                </el-timeline-item>
+                    <!-- Distribution (Export to Dealer) -->
+                    <template v-else-if="evt.eventType === 'distribution'">
+                      <h3>Xuất kho cho Đại lý</h3>
+                      <p>Đại lý: <strong>{{ evt.data.dealer_name || 'N/A' }}</strong></p>
+                      <div class="meta-info">
+                        <span>Phiếu xuất: {{ evt.data.export_order_code }}</span>
+                        <span>Trạng thái: {{ evt.data.export_status }}</span>
+                        <span>Phương thức: {{ evt.data.scan_method === 'BOX' ? 'Quét bao' : 'Quét lẻ' }}</span>
+                      </div>
+                    </template>
 
-                <!-- Stage 4b-2: Dealer Receive Confirmation -->
-                <el-timeline-item
-                  v-if="auditData.dealer_receive_info"
-                  :timestamp="formatDate(auditData.dealer_receive_info.received_at)"
-                  placement="top"
-                  type="primary"
-                >
-                  <div class="timeline-content">
-                    <h3>Đại lý nhận hàng</h3>
-                    <p>Người nhận: <strong>{{ auditData.dealer_receive_info.receiver_name || 'N/A' }}</strong></p>
-                    <div class="meta-info">
-                      <span>Phiếu giao hàng: {{ auditData.dealer_receive_info.tracking_code }}</span>
-                    </div>
-                  </div>
-                </el-timeline-item>
+                    <!-- Dealer Receive -->
+                    <template v-else-if="evt.eventType === 'dealer_receive'">
+                      <h3>Đại lý nhận hàng</h3>
+                      <p>Người nhận: <strong>{{ evt.data.receiver_name || 'N/A' }}</strong></p>
+                      <div class="meta-info">
+                        <span>Phiếu giao hàng: {{ evt.data.tracking_code }}</span>
+                      </div>
+                    </template>
 
-                <!-- Stage 4c: Dealer Sale to End Customer -->
-                <el-timeline-item
-                  v-if="auditData.sale_info"
-                  :timestamp="formatDate(auditData.sale_info.sale_date)"
-                  placement="top"
-                  type="warning"
-                >
-                  <div class="timeline-content">
-                    <h3>Đại lý bán cho khách hàng</h3>
-                    <p>Khách hàng: <strong>{{ auditData.sale_info.customer_name || 'Khách lẻ' }}</strong></p>
-                    <div class="meta-info">
-                      <span>Hóa đơn: {{ auditData.sale_info.receipt_number }}</span>
-                      <span v-if="auditData.sale_info.customer_phone">SĐT: {{ auditData.sale_info.customer_phone }}</span>
-                      <span>Thanh toán: {{ auditData.sale_info.payment_method === 'cash' ? 'Tiền mặt' : auditData.sale_info.payment_method === 'transfer' ? 'Chuyển khoản' : auditData.sale_info.payment_method || 'N/A' }}</span>
-                    </div>
-                    <div class="meta-info mt-1" v-if="auditData.sale_info.item_price">
-                      <span>Đơn giá: {{ Number(auditData.sale_info.item_price).toLocaleString('vi-VN') }}đ</span>
-                    </div>
-                  </div>
-                </el-timeline-item>
+                    <!-- Dealer Sale -->
+                    <template v-else-if="evt.eventType === 'sale'">
+                      <h3>Đại lý bán cho khách hàng</h3>
+                      <p>Khách hàng: <strong>{{ evt.data.customer_name || 'Khách lẻ' }}</strong></p>
+                      <div class="meta-info">
+                        <span>Hóa đơn: {{ evt.data.receipt_number }}</span>
+                        <span v-if="evt.data.customer_phone">SĐT: {{ evt.data.customer_phone }}</span>
+                        <span>Thanh toán: {{ evt.data.payment_method === 'cash' ? 'Tiền mặt' : evt.data.payment_method === 'transfer' ? 'Chuyển khoản' : evt.data.payment_method || 'N/A' }}</span>
+                      </div>
+                      <div class="meta-info mt-1" v-if="evt.data.item_price">
+                        <span>Đơn giá: {{ Number(evt.data.item_price).toLocaleString('vi-VN') }}đ</span>
+                      </div>
+                    </template>
 
-                <!-- Stage 5: Consumer Scans -->
-                <el-timeline-item
-                  v-for="(scan, idx) in auditData.scan_info.history"
-                  :key="'scan-' + idx"
-                  :timestamp="formatDate(scan.time)"
-                  placement="top"
-                  type="danger"
-                >
-                  <div class="timeline-content">
-                    <h3>Người dùng quét</h3>
-                    <p>Được quét tại: <strong>{{ scan.location }}</strong></p>
-                    <p class="meta-info">Thiết bị: {{ scan.device }}</p>
+                    <!-- Consumer Scan -->
+                    <template v-else-if="evt.eventType === 'scan'">
+                      <h3>Người dùng quét</h3>
+                      <p>Được quét tại: <strong>{{ evt.data.location }}</strong></p>
+                      <p class="meta-info">Thiết bị: {{ evt.data.device }}</p>
+                    </template>
                   </div>
                 </el-timeline-item>
               </el-timeline>
