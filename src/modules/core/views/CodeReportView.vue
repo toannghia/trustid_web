@@ -96,7 +96,7 @@ const fetchItems = async () => {
 
 const fetchTenants = async () => {
   try {
-    const { data } = await tenantApi.getAll({});
+    const { data } = await tenantApi.getAll({ limit: 999, type: 'main' });
     tenants.value = data.data || (Array.isArray(data) ? data : []);
   } catch (e) { console.error(e); }
 };
