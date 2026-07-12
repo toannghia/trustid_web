@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Search, Monitor, Collection, Finished, Connection, Van, View, MapLocation, ShoppingCart } from '@element-plus/icons-vue';
 import { traceabilityApi } from '../api/traceability';
 import { ElMessage } from 'element-plus';
