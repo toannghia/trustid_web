@@ -72,7 +72,14 @@ const statCards = computed(() => [
 const fetchStats = async () => {
   statsLoading.value = true;
   try {
-    const { data } = await codeApi.getStats();
+    const params: any = { ...filter };
+    delete params.page;
+    delete params.limit;
+    delete params.productStatus;
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === null) delete params[key];
+    });
+    const { data } = await codeApi.getStats(params);
     stats.value = data;
   } catch (e) { console.error(e); }
   finally { statsLoading.value = false; }
@@ -112,7 +119,11 @@ const fetchPools = async () => {
   } catch (e) { console.error(e); }
 };
 
-const handleFilter = () => { filter.page = 1; fetchItems(); };
+const handleFilter = () => {
+  filter.page = 1;
+  fetchItems();
+  fetchStats();
+};
 const handleResetFilter = () => {
   filter.search = '';
   filter.productStatus = '';
@@ -141,7 +152,11 @@ const handleStatCardClick = (filterValue?: string) => {
 let searchTimeout: any = null;
 watch(() => filter.search, () => {
   if (searchTimeout) clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => { filter.page = 1; fetchItems(); }, 400);
+  searchTimeout = setTimeout(() => {
+    filter.page = 1;
+    fetchItems();
+    fetchStats();
+  }, 400);
 });
 
 onMounted(() => {

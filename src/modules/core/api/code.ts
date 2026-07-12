@@ -17,7 +17,7 @@ export const codeApi = {
   getStampItems: (params: any) => api.get('/codes/items', { params }),
 
   // thống kê tổng quan mã
-  getStats: () => api.get('/codes/stats'),
+  getStats: (params?: any) => api.get('/codes/stats', { params }),
 
   // xuất file excel cho nhà in
   exportExcel: (poolId: string) =>
