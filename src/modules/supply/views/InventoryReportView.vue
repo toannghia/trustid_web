@@ -67,7 +67,8 @@
     <!-- Data Table -->
     <el-card shadow="never" class="!border-gray-200 !rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-500" body-style="padding: 0;">
       <el-table 
-        :data="groupedTableData" 
+        ref="reportTableRef"
+        :data="paginatedTableData" 
         row-key="id"
         style="width: 100%" 
         v-loading="loading"
@@ -76,10 +77,16 @@
         show-summary
         :summary-method="getSummaries"
         :row-class-name="tableRowClassName"
-        default-expand-all
+        @row-click="handleRowClick"
         size="small"
       >
-        <el-table-column type="index" label="STT" width="45" align="center" />
+        <el-table-column type="index" label="STT" width="45" align="center">
+          <template #default="{ row }">
+            <span :class="row.isProductGroup ? 'font-bold text-xs' : 'text-slate-500 font-mono text-[10px]'">
+              {{ row.isProductGroup ? row.stt : '' }}
+            </span>
+          </template>
+        </el-table-column>
         
         <el-table-column label="Sản phẩm / Lô" min-width="180">
           <template #default="{ row }">
@@ -156,6 +163,24 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination -->
+      <div v-if="totalProducts > 0" class="flex flex-col sm:flex-row justify-between items-center gap-3 p-3 bg-white border-t border-gray-100 rounded-b-xl">
+        <div class="text-xs text-gray-500">
+          Hiển thị từ {{ (currentPage - 1) * pageSize + 1 }} đến {{ Math.min(currentPage * pageSize, totalProducts) }} trong tổng số {{ totalProducts }} sản phẩm
+        </div>
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalProducts"
+          size="small"
+          background
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
+        />
+      </div>
     </el-card>
 
     <InventoryLedgerDialog ref="ledgerDialogRef" />
@@ -211,7 +236,7 @@
               </thead>
               <tbody>
                 <tr v-for="(row, idx) in pageRows" :key="row.id" :class="{'font-bold bg-slate-50': row.isProductGroup, 'total-row bg-slate-100 font-bold': row.isTotalRow}">
-                  <td class="text-center">{{ row.isProductGroup || row.isTotalRow ? '' : row.displayIndex }}</td>
+                  <td class="text-center">{{ row.isProductGroup ? row.stt : '' }}</td>
                   <td :class="{'pl-3': !row.isProductGroup && !row.isTotalRow, 'text-bold': row.isProductGroup || row.isTotalRow}">
                     <div v-if="row.isProductGroup">
                       {{ row.productName }} <span v-if="row.gtinCode" class="text-slate-500 font-normal font-mono text-[9px]">({{ row.gtinCode }})</span>
@@ -271,7 +296,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { DataLine, Search, Download, Box, House, Document, Collection } from '@element-plus/icons-vue';
 import { reportApi } from '../api/reportApi';
 import { transportApi } from '../api/transportApi';
@@ -291,6 +316,7 @@ const tableData = ref<any[]>([]);
 const printPages = ref<any[][]>([]);
 const printPageRefs = ref<HTMLElement[]>([]);
 const hideZeroRows = ref(true);
+
 
 const authStore = useAuthStore();
 
@@ -333,7 +359,7 @@ const getWarehouseName = (id: string) => {
 // Row styling function to highlight and make product summary rows bold
 const tableRowClassName = ({ row }: { row: any }) => {
   if (row.isProductGroup) {
-    return 'product-group-row';
+    return 'product-group-row cursor-pointer';
   }
   return '';
 };
@@ -421,8 +447,47 @@ const groupedTableData = computed(() => {
     });
   });
   
-  return Object.values(groups);
+  const result = Object.values(groups);
+  result.forEach((group: any, groupIdx: number) => {
+    group.stt = groupIdx + 1;
+  });
+  return result;
 });
+
+// Pagination State
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+const totalProducts = computed(() => groupedTableData.value.length);
+
+const paginatedTableData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return groupedTableData.value.slice(start, end);
+});
+
+const handlePageChange = (val: number) => {
+  currentPage.value = val;
+};
+
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+};
+
+// Reset page when dataset changes
+watch(groupedTableData, () => {
+  currentPage.value = 1;
+});
+
+const reportTableRef = ref<any>(null);
+
+const handleRowClick = (row: any) => {
+  if (row.isProductGroup && reportTableRef.value) {
+    reportTableRef.value.toggleRowExpansion(row);
+  }
+};
+
 
 // Calculate summaries dynamically over currently visible (filtered) rows
 const getSummaries = (param: { columns: TableColumnCtx<any>[]; data: any[] }) => {
@@ -509,12 +574,12 @@ const viewLedger = (row: any) => {
 // Prepare flat data chunked into pages for printing/PDF using filtered visible set
 const preparePrintData = () => {
   const flatRows: any[] = [];
-  let displayIndex = 1;
   
   groupedTableData.value.forEach(prodGroup => {
     flatRows.push({
       id: prodGroup.id,
       isProductGroup: true,
+      stt: prodGroup.stt,
       productName: prodGroup.productName,
       gtinCode: prodGroup.gtinCode,
       openingBalance: prodGroup.openingBalance,
@@ -526,11 +591,11 @@ const preparePrintData = () => {
       closingBalance: prodGroup.closingBalance
     });
     
-    prodGroup.children.forEach(child => {
+    prodGroup.children.forEach((child: any) => {
       flatRows.push({
         id: child.id,
         isProductGroup: false,
-        displayIndex: displayIndex++,
+        stt: '',
         batchCode: child.batchCode,
         warehouseName: child.warehouseName,
         openingBalance: child.openingBalance,
@@ -663,10 +728,10 @@ const exportExcel = async () => {
     const fontTimesBold = { name: 'Times New Roman', size: 11, bold: true };
     const fontTitle = { name: 'Times New Roman', size: 16, bold: true };
     const borderThin = {
-      top: { style: 'thin', color: { argb: 'D1D5DB' } },
-      left: { style: 'thin', color: { argb: 'D1D5DB' } },
-      bottom: { style: 'thin', color: { argb: 'D1D5DB' } },
-      right: { style: 'thin', color: { argb: 'D1D5DB' } }
+      top: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+      left: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+      bottom: { style: 'thin' as const, color: { argb: 'D1D5DB' } },
+      right: { style: 'thin' as const, color: { argb: 'D1D5DB' } }
     };
 
     // Row 1: ĐƠN VỊ
@@ -729,12 +794,10 @@ const exportExcel = async () => {
       cell.border = borderThin;
     });
 
-    let displayIndex = 1;
-
     groupedTableData.value.forEach(prodGroup => {
       // Product Summary Row
       const pRow = worksheet.addRow([
-        '',
+        prodGroup.stt,
         `${prodGroup.productName} ${prodGroup.gtinCode ? '(' + prodGroup.gtinCode + ')' : ''}`,
         '',
         prodGroup.openingBalance,
@@ -754,7 +817,9 @@ const exportExcel = async () => {
         };
         cell.border = borderThin;
         
-        if (colNumber >= 4) {
+        if (colNumber === 1) {
+          cell.alignment = { horizontal: 'center' };
+        } else if (colNumber >= 4) {
           cell.alignment = { horizontal: 'right' };
           cell.numFmt = '#,##0';
         } else if (colNumber === 2) {
@@ -763,9 +828,9 @@ const exportExcel = async () => {
       });
 
       // Children Detail Rows
-      prodGroup.children.forEach(child => {
+      prodGroup.children.forEach((child: any) => {
         const cRow = worksheet.addRow([
-          displayIndex++,
+          '',
           `Lô: ${child.batchCode}`,
           child.warehouseName,
           child.openingBalance,
