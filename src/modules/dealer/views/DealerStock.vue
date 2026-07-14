@@ -141,21 +141,30 @@
           header-cell-class-name="bg-gray-50 text-gray-700 font-semibold py-2.5 border-b text-xs"
           cell-class-name="py-2 text-xs"
         >
-          <el-table-column type="index" width="60" label="STT" align="center" />
+          <el-table-column type="index" width="50" label="STT" align="center" />
           
-          <el-table-column prop="fullQrCode" label="Mã QR" width="170" align="center">
+          <el-table-column prop="fullQrCode" label="Mã QR" width="140" align="center">
             <template #default="{ row }">
               <span class="font-mono text-gray-600 break-all select-all font-semibold">{{ row.fullQrCode || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="serialNumber" label="Serial" width="130" align="center">
+          <el-table-column prop="serialNumber" label="Serial" width="100" align="center">
             <template #default="{ row }">
               <span class="font-mono font-bold text-gray-800">{{ row.serialNumber }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="batchCode" label="Lô" width="140" align="center">
+          <el-table-column prop="parentBagSerial" label="Mã bao" width="175" align="center">
+            <template #default="{ row }">
+              <span v-if="row.parentBagSerial" class="font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                {{ row.parentBagSerial }}
+              </span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="batchCode" label="Lô" width="150" align="center">
             <template #default="{ row }">
               <span class="font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                 {{ row.batchCode || 'N/A' }}
@@ -163,7 +172,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" width="180" align="center">
+          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" width="150" align="center">
             <template #default="{ row }">
               <el-tag v-if="row.trackingCode && row.trackingCode !== 'N/A'" type="info" effect="plain" class="font-mono font-bold border-gray-200 text-gray-700">
                 {{ row.trackingCode }}
@@ -172,13 +181,13 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="180">
+          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="150">
             <template #default="{ row }">
               <span class="font-medium text-gray-700">{{ row.sourceUnit || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="importDate" label="Ngày nhập" width="160" align="center">
+          <el-table-column prop="importDate" label="Ngày nhập" width="140" align="center">
             <template #default="{ row }">
               <span class="text-gray-600">{{ formatDateDisplay(row.importDate) }}</span>
             </template>
