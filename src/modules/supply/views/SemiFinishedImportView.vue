@@ -65,7 +65,7 @@
           <div class="flex items-center gap-2 font-bold text-gray-700">
             <el-icon><List /></el-icon> 2. Thông tin tiếp nhận
           </div>
-          <el-tag effect="dark" type="warning" size="small">{{ selectedTransfer.status }}</el-tag>
+          <el-tag effect="dark" :type="getTransferStatusType(selectedTransfer.status)" size="small">{{ getTransferStatusLabel(selectedTransfer.status) }}</el-tag>
         </div>
       </template>
 
@@ -207,7 +207,7 @@
         </el-table-column>
         <el-table-column label="Trạng thái" width="140" align="center">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.status === 'COMPLETED' ? 'success' : 'warning'">{{ row.status === 'COMPLETED' ? 'Hoàn thành' : row.status === 'PENDING' ? 'Chờ xử lý' : row.status === 'PROCESSING' ? 'Đang xử lý' : row.status }}</el-tag>
+            <el-tag size="small" :type="getTransferStatusType(row.status)">{{ getTransferStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Ghi chú" min-width="150" show-overflow-tooltip>
@@ -241,7 +241,7 @@
           </div>
           <div>
             <div class="text-gray-400 text-[10px] uppercase font-bold">Trạng thái</div>
-            <el-tag size="small" type="success">{{ detailRow.status }}</el-tag>
+            <el-tag size="small" :type="getTransferStatusType(detailRow.status)">{{ getTransferStatusLabel(detailRow.status) }}</el-tag>
           </div>
         </div>
 
@@ -582,6 +582,32 @@ const getTenantName = (id: string) => {
 const formatDate = (date: any) => {
   if (!date) return '-';
   return dayjs(date).format('DD/MM/YYYY HH:mm');
+};
+
+const getTransferStatusLabel = (s: string) => {
+  const map: Record<string, string> = {
+    DRAFT: 'Nháp',
+    PENDING: 'Chờ xử lý',
+    EXPORTED: 'Đã xuất',
+    IMPORTING: 'Đang nhập',
+    COMPLETED: 'Hoàn thành',
+    PARTIAL_COMPLETED: 'Hoàn thành một phần',
+    CANCELLED: 'Đã hủy'
+  };
+  return map[s] || s;
+};
+
+const getTransferStatusType = (s: string) => {
+  const map: Record<string, string> = {
+    DRAFT: 'info',
+    PENDING: 'warning',
+    EXPORTED: '',
+    IMPORTING: 'warning',
+    COMPLETED: 'success',
+    PARTIAL_COMPLETED: 'success',
+    CANCELLED: 'danger'
+  };
+  return map[s] || 'info';
 };
 
 onMounted(() => {

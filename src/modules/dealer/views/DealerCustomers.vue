@@ -3,6 +3,9 @@
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-gray-800">Quản lý Khách hàng</h2>
       <div class="flex gap-2">
+        <el-button @click="$router.push('/dealer/customer-groups')" plain>
+          <el-icon class="mr-1"><Collection /></el-icon>Nhóm KH
+        </el-button>
         <el-input
           v-model="searchQuery"
           placeholder="Tìm tên hoặc SĐT..."
@@ -40,6 +43,18 @@
           <template #default="{ row }">
             <el-tag type="success" v-if="row.totalPurchases > 0">{{ row.totalPurchases }} lần</el-tag>
             <span v-else class="text-gray-400">0</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Nhóm KH" width="140" align="center">
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.group"
+              :color="row.group.color"
+              effect="dark"
+              size="small"
+              style="border: none;"
+            >{{ row.group.name }}</el-tag>
+            <span v-else class="text-gray-400 text-xs">—</span>
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="Ngày Tảo" width="160">
@@ -107,6 +122,22 @@
         <el-form-item label="Địa chỉ">
           <el-input v-model="form.address" type="textarea" placeholder="Số nhà, đường, phường, quận..." />
         </el-form-item>
+        <el-form-item label="Nhóm khách hàng">
+          <el-select v-model="form.groupId" placeholder="Chọn nhóm (tùy chọn)" clearable class="w-full">
+            <el-option
+              v-for="g in customerGroups"
+              :key="g.id"
+              :label="g.name"
+              :value="g.id"
+            >
+              <span class="flex items-center gap-2">
+                <span :style="{ background: g.color, width: '12px', height: '12px', borderRadius: '3px', display: 'inline-block' }"></span>
+                {{ g.name }}
+                <span v-if="Number(g.discountPercent) > 0" class="text-gray-400 text-xs ml-auto">-{{ g.discountPercent }}%</span>
+              </span>
+            </el-option>
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
@@ -122,7 +153,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Search, Plus } from '@element-plus/icons-vue';
+import { Search, Plus, Collection } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
 import dayjs from 'dayjs';
@@ -137,7 +168,8 @@ const searchQuery = ref('');
 
 const dialogVisible = ref(false);
 const saving = ref(false);
-const form = ref({ id: '', name: '', phone: '', address: '' });
+const form = ref({ id: '', name: '', phone: '', address: '', groupId: '' });
+const customerGroups = ref<any[]>([]);
 
 const formatDate = (val: string) => {
   if (!val) return '';
@@ -162,9 +194,9 @@ const loadData = async (page = currentPage.value) => {
 
 const showForm = (row?: any) => {
   if (row) {
-    form.value = { id: row.id, name: row.name, phone: row.phone, address: row.address };
+    form.value = { id: row.id, name: row.name, phone: row.phone, address: row.address, groupId: row.groupId || '' };
   } else {
-    form.value = { id: '', name: '', phone: '', address: '' };
+    form.value = { id: '', name: '', phone: '', address: '', groupId: '' };
   }
   dialogVisible.value = true;
 };
@@ -177,10 +209,11 @@ const save = async () => {
 
   saving.value = true;
   try {
+    const payload = { ...form.value, groupId: form.value.groupId || null };
     if (form.value.id) {
-      await api.put(`/dealer-customers/${form.value.id}`, form.value);
+      await api.put(`/dealer-customers/${form.value.id}`, payload);
     } else {
-      await api.post('/dealer-customers', form.value);
+      await api.post('/dealer-customers', payload);
     }
     ElMessage.success('Lưu thành công');
     dialogVisible.value = false;
@@ -193,8 +226,12 @@ const save = async () => {
 };
 
 // Phân quyền cho dealer: Admin doanh nghiệp có xem được không? => Theo spec thì API yêu cầu Role DEALER.
-onMounted(() => {
+onMounted(async () => {
   loadData();
+  try {
+    const { data } = await api.get('/customer-groups');
+    customerGroups.value = data;
+  } catch { /* silent */ }
 });
 </script>
 

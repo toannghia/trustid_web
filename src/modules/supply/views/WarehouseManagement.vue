@@ -33,7 +33,7 @@
         <el-table-column prop="name" label="Tên kho" min-width="180" />
         <el-table-column prop="type" label="Phân loại" width="130">
             <template #default="{ row }">
-                <el-tag size="small" :type="row.type === 'PRODUCTION' ? 'warning' : 'success'">{{ row.type === 'PRODUCTION' ? 'Sản xuất' : row.type === 'STORAGE' ? 'Lưu kho' : row.type === 'FINISHED' ? 'Thành phẩm' : row.type === 'DISTRIBUTION' ? 'Phân phối' : row.type }}</el-tag>
+                <el-tag size="small" :type="getWarehouseTypeTag(row.type)">{{ getWarehouseTypeLabel(row.type) }}</el-tag>
             </template>
         </el-table-column>
         <el-table-column prop="isDefault" label="Mặc định" width="100" align="center">
@@ -226,6 +226,30 @@ import { provinceCoordinates } from '@/common/data/province-coordinates';
 
 const warehouses = ref<Warehouse[]>([]);
 const warehouseManagers = ref<any[]>([]); // List of potential managers
+
+const getWarehouseTypeLabel = (type: string) => {
+  const map: Record<string, string> = {
+    PRODUCTION: 'Kho Sản xuất',
+    FINISHED_GOODS: 'Kho Thành phẩm',
+    FINISHED: 'Kho Thành phẩm',
+    DISTRIBUTION: 'Kho Phân phối',
+    MATERIAL: 'Kho Nguyên liệu',
+    STORAGE: 'Kho Lưu trữ'
+  };
+  return map[type] || type;
+};
+
+const getWarehouseTypeTag = (type: string) => {
+  const map: Record<string, string> = {
+    PRODUCTION: 'warning',
+    MATERIAL: 'warning',
+    FINISHED_GOODS: 'success',
+    FINISHED: 'success',
+    DISTRIBUTION: 'primary',
+    STORAGE: 'info'
+  };
+  return map[type] || 'info';
+};
 const loading = ref(false);
 const showCreateModal = ref(false);
 const submitting = ref(false);

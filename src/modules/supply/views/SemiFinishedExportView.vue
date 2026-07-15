@@ -950,8 +950,8 @@ const getBatchCode = (id: string) => getBatchInfo(id)?.batchCode || id;
 const getBatchPackCount = (id: string) => getBatchInfo(id)?.packCount || 0;
 const formatDate = (d: any) => d ? dayjs(d).format('DD/MM/YYYY HH:mm') : '-';
 const formatDateSimple = (d: any) => d ? dayjs(d).format('DD/MM/YYYY') : '-';
-const getTransferStatusType = (s: string) => ({ DRAFT: 'info', PENDING: 'warning', EXPORTED: '', COMPLETED: 'success', CANCELLED: 'danger' }[s] || 'info');
-const getTransferStatusLabel = (s: string) => ({ DRAFT: 'Nháp', PENDING: 'Chờ xử lý', EXPORTED: 'Đã xuất', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy' }[s] || s);
+const getTransferStatusType = (s: string) => ({ DRAFT: 'info', PENDING: 'warning', EXPORTED: '', IMPORTING: 'warning', COMPLETED: 'success', PARTIAL_COMPLETED: 'success', CANCELLED: 'danger' }[s] || 'info');
+const getTransferStatusLabel = (s: string) => ({ DRAFT: 'Nháp', PENDING: 'Chờ xử lý', EXPORTED: 'Đã xuất', IMPORTING: 'Đang nhập', COMPLETED: 'Hoàn thành', PARTIAL_COMPLETED: 'Hoàn thành một phần', CANCELLED: 'Đã hủy' }[s] || s);
 
 const getSummary = ({ columns, data }: any) => {
   return columns.map((_: any, i: number) => {

@@ -326,6 +326,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('../modules/dealer/views/DealerCustomers.vue'),
         meta: { roles: ['DEALER'], title: 'Quản lý Khách hàng' }
       },
+      {
+        path: 'dealer/customer-groups',
+        name: 'dealer-customer-groups',
+        component: () => import('../modules/dealer/views/DealerCustomerGroups.vue'),
+        meta: { roles: ['DEALER'], title: 'Nhóm Khách Hàng' }
+      },
       // MODULE TÀI XẾ (DRIVER)
       {
         path: 'driver/dashboard',
