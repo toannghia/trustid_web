@@ -38,7 +38,7 @@
               :type="row.priority === 'HIGH' ? 'danger' : row.priority === 'MEDIUM' ? 'warning' : 'info'"
               size="small"
             >
-              {{ row.priority }}
+              {{ orderPriorityLabel(row.priority) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -158,7 +158,7 @@
                 <el-descriptions-item label="Kho xuất">{{ getWarehouseName(selectedOrder.sourceWarehouseId) }}</el-descriptions-item>
                 <el-descriptions-item label="Mức ưu tiên" :span="2">
                     <el-tag :type="selectedOrder.priority === 'HIGH' ? 'danger' : selectedOrder.priority === 'MEDIUM' ? 'warning' : 'info'" size="small">
-                      {{ selectedOrder.priority }}
+                      {{ orderPriorityLabel(selectedOrder.priority) }}
                     </el-tag>
                 </el-descriptions-item>
                 <el-descriptions-item label="Ghi chú" :span="2">{{ selectedOrder.notes || 'Không có ghi chú' }}</el-descriptions-item>
@@ -191,6 +191,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Check, Close, Right } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+import { orderPriorityLabel } from '@/common/utils/status-labels';
 
 const router = useRouter();
 const loading = ref(false);

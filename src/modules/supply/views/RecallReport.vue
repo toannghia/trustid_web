@@ -59,7 +59,7 @@
         </el-table-column>
         <el-table-column label="Mức độ" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="({ CLASS_I: 'danger', CLASS_II: 'warning', CLASS_III: 'info' } as Record<string, string>)[row.severity] || 'info'" size="small" effect="dark" round>{{ row.severity }}</el-tag>
+            <el-tag :type="recallSeverityType(row.severity)" size="small" effect="dark" round>{{ recallSeverityLabel(row.severity) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Trạng thái" width="120" align="center">
@@ -91,6 +91,7 @@ import { DataLine, Search } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { recallApi } from '../api/recallApi';
 import dayjs from 'dayjs';
+import { recallSeverityLabel, recallSeverityType } from '@/common/utils/status-labels';
 
 const loading = ref(false);
 const orders = ref<any[]>([]);

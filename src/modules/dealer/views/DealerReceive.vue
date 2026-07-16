@@ -276,7 +276,7 @@ const timelineEvents = computed(() => {
     events.push({
       time: new Date(currentDetail.value.createdAt),
       title: 'Khởi tạo phiếu',
-      description: `Tạo bởi: ${currentDetail.value.createdByRole || 'Hệ thống'}`,
+      description: `Tạo bởi: ${currentDetail.value.sender?.username || currentDetail.value.createdByRole || 'Hệ thống'}`,
       type: 'info'
     });
   }
@@ -433,6 +433,9 @@ const getItemStatusType = (status: string) => {
 
 const getShipmentTypeLabel = (type: string) => {
   switch (type) {
+    case 'INTERNAL_TRANSFER': return 'Chuyển kho nội bộ';
+    case 'DEALER_EXPORT': return 'Xuất bán Đại lý';
+    case 'RECALL_RETURN': return 'Trả hàng thu hồi';
     case 'OUTBOUND': return 'Xuất kho';
     case 'INBOUND': return 'Nhập kho';
     case 'TRANSFER': return 'Luân chuyển';

@@ -265,7 +265,7 @@ const transitList = computed(() => shipments.value.filter(s =>
   s.status === 'IN_TRANSIT' || s.status === 'PENDING_DEALER_CONFIRM'
 ));
 const deliveredList = computed(() => shipments.value.filter(s =>
-  s.status === 'DELIVERED'
+  s.status === 'DELIVERED' || s.status === 'AT_DEALER'
 ));
 
 const getStatusType = (status: string) => {
@@ -274,7 +274,8 @@ const getStatusType = (status: string) => {
     'READY_FOR_PICKUP': 'warning',
     'IN_TRANSIT': 'primary',
     'PENDING_DEALER_CONFIRM': 'info',
-    'DELIVERED': 'success'
+    'DELIVERED': 'success',
+    'AT_DEALER': 'success'
   };
   return map[status] || 'info';
 };
@@ -283,7 +284,7 @@ const getStatusBadgeClass = (status: string) => {
   const map: Record<string, string> = {
     'WAITING_DRIVER': 'waiting', 'READY_FOR_PICKUP': 'waiting',
     'IN_TRANSIT': 'transit', 'PENDING_DEALER_CONFIRM': 'pending',
-    'DELIVERED': 'done'
+    'DELIVERED': 'done', 'AT_DEALER': 'done'
   };
   return map[status] || 'waiting';
 };
@@ -294,7 +295,8 @@ const getStatusLabel = (status: string) => {
     'READY_FOR_PICKUP': 'Sẵn sàng giao (thuê ngoài)',
     'IN_TRANSIT': 'Đang giao hàng',
     'PENDING_DEALER_CONFIRM': 'Chờ đại lý xác nhận',
-    'DELIVERED': 'Đã giao thành công'
+    'DELIVERED': 'Đã giao thành công',
+    'AT_DEALER': 'Đã nhập kho đại lý'
   };
   return map[status] || status;
 };

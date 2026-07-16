@@ -20,7 +20,7 @@
                 <h3 class="text-2xl font-bold text-gray-800 font-mono">{{ order.orderCode }}</h3>
               </div>
               <el-tag :type="getStatusTagType(order.status)" size="large" class="uppercase">
-                {{ order.status }}
+                {{ productionOrderStatusMap[order.status] || order.status }}
               </el-tag>
             </div>
 
@@ -275,7 +275,7 @@
                 <span class="font-bold text-gray-700 font-mono text-sm">{{ ticket.ticketCode }}</span>
               </div>
               <el-tag :type="getTicketStatusTag(ticket.status)" size="small">
-                {{ ticket.status }}
+                {{ ticketStatusMap[ticket.status] || ticket.status }}
               </el-tag>
             </div>
 
@@ -417,6 +417,7 @@ import { ArrowLeft, InfoFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import dayjs from 'dayjs';
 import { productionOrderApi } from '../api/productionOrderApi';
+import { productionOrderStatusMap } from '@/common/utils/vi-labels';
 import ProductionTicketFormDialog from '../components/ProductionTicketFormDialog.vue';
 import ProductionTicketExecutionDialog from '../components/ProductionTicketExecutionDialog.vue';
 
@@ -531,6 +532,13 @@ const getTicketTypeLabel = (type: string) => {
     case 'PALLET': return 'Đóng Pallet';
     default: return type;
   }
+};
+
+const ticketStatusMap: Record<string, string> = {
+  OPEN: 'Chưa thực hiện',
+  IN_PROGRESS: 'Đang tiến hành',
+  COMPLETED: 'Đã hoàn thành',
+  REJECTED: 'Đã từ chối',
 };
 
 const getTicketStatusTag = (status: string) => {

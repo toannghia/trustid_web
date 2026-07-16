@@ -43,7 +43,7 @@
                                   :type="row.priority === 'HIGH' ? 'danger' : row.priority === 'MEDIUM' ? 'warning' : 'info'"
                                   size="small"
                               >
-                                  {{ row.priority }}
+                                  {{ orderPriorityLabel(row.priority) }}
                               </el-tag>
                           </template>
                      </el-table-column>
@@ -142,7 +142,7 @@
                                 >
                                     {{ shipmentsMap[row.id].trackingCode }}
                                 </el-tag>
-                                <div class="text-xs text-gray-400 mt-1">{{ ({'WAITING_DRIVER':'Chờ tài xế nhận','READY_FOR_PICKUP':'Sẵn sàng giao','IN_TRANSIT':'Đang giao','PENDING_DEALER_CONFIRM':'Chờ đại lý xác nhận','DELIVERED':'Đã giao'} as Record<string, string>)[shipmentsMap[row.id].status] || shipmentsMap[row.id].status }}</div>
+                                <div class="text-xs text-gray-400 mt-1">{{ ({'WAITING_DRIVER':'Chờ tài xế nhận','READY_FOR_PICKUP':'Sẵn sàng giao','IN_TRANSIT':'Đang giao','PENDING_DEALER_CONFIRM':'Chờ đại lý xác nhận','DELIVERED':'Đã giao','AT_DEALER':'Đã nhập kho đại lý'} as Record<string, string>)[shipmentsMap[row.id].status] || shipmentsMap[row.id].status }}</div>
                             </template>
                             <el-button v-else type="primary" size="small" @click="openManualDeliveryDialog(row)">
                                 <el-icon class="mr-1"><Van /></el-icon> Tạo PGH
@@ -590,6 +590,7 @@ import { Box, Van, Check, Search, Loading, Warning, Camera, Close, ArrowLeft, Pr
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/core/store/auth';
 import QRCode from 'qrcode';
+import { orderPriorityLabel } from '@/common/utils/status-labels';
 
 const authStore = useAuthStore();
 
@@ -666,6 +667,7 @@ const getShipmentStatusTag = (status: string) => {
         case 'IN_TRANSIT': return { type: 'primary', label: 'Đang vận chuyển' };
         case 'PENDING_DEALER_CONFIRM': return { type: 'info', label: 'Chờ đại lý xác nhận' };
         case 'DELIVERED': return { type: 'success', label: 'Đã hoàn thành' };
+        case 'AT_DEALER': return { type: 'success', label: 'Đã nhập kho đại lý' };
         case 'CANCELLED': return { type: 'danger', label: 'Đã hủy' };
         default: return { type: '', label: status };
     }

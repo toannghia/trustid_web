@@ -49,7 +49,7 @@
           </el-table-column>
           <el-table-column label="Thời gian kích hoạt" width="180">
                <template #default="{row}">
-                   {{ formatDate(row.activatedAt) }}
+                   {{ formatDate(row.activatedAt || row.createdAt) }}
                </template>
           </el-table-column>
           <el-table-column label="Trạng thái" width="100" align="center">
@@ -131,7 +131,11 @@ const handlePageChange = (val: number) => {
   loadItems();
 };
 
-const formatDate = (d: string) => dayjs(d).format('DD/MM/YYYY HH:mm');
+const formatDate = (d: any) => {
+  if (!d) return '---';
+  const parsed = dayjs(d);
+  return parsed.isValid() ? parsed.format('DD/MM/YYYY HH:mm') : '---';
+};
 
 onMounted(() => {
    loadItems(); 

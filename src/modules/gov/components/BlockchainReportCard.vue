@@ -83,7 +83,7 @@ const renderChart = () => {
     },
     series: [
       {
-        name: 'Confirmed',
+        name: 'Đã xác nhận',
         type: 'line',
         smooth: true,
         data: w.confirmed,
@@ -95,7 +95,7 @@ const renderChart = () => {
         ])},
       },
       {
-        name: 'Failed',
+        name: 'Thất bại',
         type: 'line',
         smooth: true,
         data: w.failed,

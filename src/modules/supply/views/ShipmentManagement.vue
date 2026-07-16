@@ -34,7 +34,7 @@ const timelineEvents = computed(() => {
         events.push({
             time: new Date(currentDetail.value.createdAt),
             title: 'Khởi tạo phiếu',
-            description: `Tạo bởi: ${currentDetail.value.createdByRole || 'Hệ thống'}`,
+            description: `Tạo bởi: ${currentDetail.value.sender?.username || currentDetail.value.createdByRole || 'Hệ thống'}`,
             type: 'info'
         });
     }
@@ -158,6 +158,7 @@ const getStatusType = (status: string) => {
         case 'IN_TRANSIT': return 'primary';
         case 'PENDING_DEALER_CONFIRM': return 'info';
         case 'DELIVERED': return 'success';
+        case 'AT_DEALER': return 'success';
         case 'CANCELLED': return 'danger';
         default: return '';
     }
@@ -171,6 +172,7 @@ const getStatusLabel = (status: string) => {
         case 'IN_TRANSIT': return 'Đang vận chuyển';
         case 'PENDING_DEALER_CONFIRM': return 'Chờ đại lý xác nhận';
         case 'DELIVERED': return 'Đã hoàn thành';
+        case 'AT_DEALER': return 'Đã nhập kho đại lý';
         case 'CANCELLED': return 'Đã hủy';
         default: return status;
     }
@@ -242,7 +244,7 @@ const receiverConfirm = async () => {
         <el-table-column label="Loại" width="140">
              <template #default="{row}">
                  <el-tag :type="row.type === 'DEALER_EXPORT' ? 'warning' : 'info'" size="small" effect="dark">
-                    {{ row.type === 'DEALER_EXPORT' ? 'Xuất Đại lý' : 'Nội bộ' }}
+                    {{ shipmentTypeLabel(row.type) }}
                  </el-tag>
              </template>
         </el-table-column>

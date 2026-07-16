@@ -118,10 +118,10 @@ const formatTime = (ts: any) => {
                             <h3 class="flex items-center gap-2 font-bold text-gray-700"><el-icon><DataLine /></el-icon> Thống kê Queue</h3>
                         </div>
                          <div v-if="stats" class="grid grid-cols-2 gap-4 p-4">
-                            <el-statistic title="Waiting" :value="stats.queue?.waiting" />
-                            <el-statistic title="Active" :value="stats.queue?.active" value-style="color: #409EFF" />
-                            <el-statistic title="Completed" :value="stats.queue?.completed" value-style="color: #67C23A" />
-                            <el-statistic title="Failed" :value="stats.queue?.failed" value-style="color: #F56C6C" />
+                            <el-statistic title="Đang chờ" :value="stats.queue?.waiting" />
+                            <el-statistic title="Đang chạy" :value="stats.queue?.active" value-style="color: #409EFF" />
+                            <el-statistic title="Hoàn thành" :value="stats.queue?.completed" value-style="color: #67C23A" />
+                            <el-statistic title="Thất bại" :value="stats.queue?.failed" value-style="color: #F56C6C" />
                          </div>
                     </LTECard>
 

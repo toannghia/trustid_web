@@ -8,6 +8,7 @@ import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { fileApi } from '../api/file';
+import { viLabel, roleNameMap } from '@/common/utils/vi-labels';
 
 const authStore = useAuthStore();
 const activeTab = ref('info');
@@ -62,7 +63,7 @@ onMounted(() => {
         userForm.id = user.id;
         userForm.fullName = user.fullName || user.full_name;
         userForm.username = user.username;
-        userForm.roleName = user.role;
+        userForm.roleName = viLabel(roleNameMap, user.role);
         userForm.tenantName = user.tenant_name;
         userForm.avatar = user.avatar || '';
     }

@@ -30,7 +30,7 @@
           <div class="space-y-3 text-sm">
             <div class="flex justify-between"><span class="text-gray-500">Mã lệnh</span><span class="font-mono font-bold">{{ order?.code }}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Trạng thái</span><el-tag :type="statusType(order?.status)" size="small" round>{{ statusLabel(order?.status) }}</el-tag></div>
-            <div class="flex justify-between"><span class="text-gray-500">Mức độ</span><el-tag :type="severityType(order?.severity)" size="small" effect="dark" round>{{ order?.severity }}</el-tag></div>
+            <div class="flex justify-between"><span class="text-gray-500">Mức độ</span><el-tag :type="recallSeverityType(order?.severity)" size="small" effect="dark" round>{{ recallSeverityLabel(order?.severity) }}</el-tag></div>
             <div class="flex justify-between"><span class="text-gray-500">Khởi tạo bởi</span><span>{{ order?.initiatedBy === 'GOV' ? 'Cơ quan quản lý' : 'Doanh nghiệp' }}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Ngày tạo</span><span>{{ formatDate(order?.createdAt) }}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Ngày phát hành</span><span>{{ formatDate(order?.issuedAt) }}</span></div>
@@ -250,6 +250,7 @@ import { Back, Warning, Check, Refresh, Download, Search, Delete, RefreshRight }
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { recallApi } from '../api/recallApi';
 import { transportApi } from '../api/transportApi';
+import { recallSeverityLabel, recallSeverityType } from '@/common/utils/status-labels';
 
 const route = useRoute();
 const orderId = route.params.id as string;
@@ -312,7 +313,6 @@ const hasGoodItems = computed(() => selectedItems.value.some(i => i.status === '
 
 const statusType = (s: string) => ({ DRAFT: 'info', ISSUED: 'warning', IN_PROGRESS: '', COMPLETED: 'success', CANCELLED: 'danger' }[s] || 'info');
 const statusLabel = (s: string) => ({ DRAFT: 'Nháp', ISSUED: 'Đã phát hành', IN_PROGRESS: 'Đang xử lý', COMPLETED: 'Hoàn tất', CANCELLED: 'Đã hủy' }[s] || s);
-const severityType = (s: string) => ({ CLASS_I: 'danger', CLASS_II: 'warning', CLASS_III: 'info' }[s] || 'info');
 const itemStatusType = (s: string) => ({ NOTIFIED: 'info', CONFIRMED: '', RETURNING: 'warning', RETURNED: '', INSPECTED: 'primary', DISPOSED: 'danger', RESTOCKED: 'success' }[s] || 'info');
 const itemStatusLabel = (s: string) => ({ NOTIFIED: 'Đã thông báo', CONFIRMED: 'Đã xác nhận', RETURNING: 'Đang trả', RETURNED: 'Đã nhận', INSPECTED: 'Đã kiểm tra', DISPOSED: 'Đã hủy', RESTOCKED: 'Tái nhập' }[s] || s);
 const inspectionType = (r: string) => ({ GOOD: 'success', DEFECTIVE: 'warning', HAZARDOUS: 'danger' }[r] || 'info');

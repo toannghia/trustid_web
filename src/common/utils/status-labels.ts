@@ -134,6 +134,9 @@ const SHIPMENT_TYPE_LABELS: Record<string, string> = {
   TRANSFER: 'Luân chuyển',
   DEALER_DELIVERY: 'Giao đại lý',
   RETURN: 'Trả hàng',
+  DEALER_EXPORT: 'Xuất bán Đại lý',
+  INTERNAL_TRANSFER: 'Chuyển kho nội bộ',
+  RECALL_RETURN: 'Trả hàng thu hồi',
 };
 
 export const shipmentTypeLabel = (type: string) => SHIPMENT_TYPE_LABELS[type] || type;
@@ -225,3 +228,28 @@ const GENERIC_STATUS_LABELS: Record<string, string> = {
 };
 
 export const genericStatusLabel = (status: string) => GENERIC_STATUS_LABELS[status] || status;
+
+// ==================== ORDER PRIORITY ====================
+const ORDER_PRIORITY_LABELS: Record<string, string> = {
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+};
+
+export const orderPriorityLabel = (priority: string) => ORDER_PRIORITY_LABELS[priority] || priority;
+
+// ==================== RECALL SEVERITY ====================
+const RECALL_SEVERITY_LABELS: Record<string, string> = {
+  CLASS_I: 'Cấp độ I',
+  CLASS_II: 'Cấp độ II',
+  CLASS_III: 'Cấp độ III',
+};
+
+const RECALL_SEVERITY_TYPES: Record<string, string> = {
+  CLASS_I: 'danger',
+  CLASS_II: 'warning',
+  CLASS_III: 'info',
+};
+
+export const recallSeverityLabel = (severity: string) => RECALL_SEVERITY_LABELS[severity] || severity;
+export const recallSeverityType = (severity: string) => RECALL_SEVERITY_TYPES[severity] || 'info';

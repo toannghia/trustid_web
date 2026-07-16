@@ -13,7 +13,7 @@
       <div class="flex justify-between items-center bg-gray-50 p-4 border rounded">
         <div>
           <span class="text-xs text-gray-500 font-semibold block uppercase">Trạng thái hiện tại</span>
-          <el-tag :type="getStatusTagType(ticket?.status)">{{ ticket?.status }}</el-tag>
+          <el-tag :type="getStatusTagType(ticket?.status)">{{ ticketStatusMap[ticket?.status] || ticket?.status }}</el-tag>
         </div>
         <div class="text-right">
           <span class="text-xs text-gray-500 font-semibold block uppercase">Dự kiến</span>
@@ -298,6 +298,13 @@ const loadTicketDetails = async (id: string) => {
   } finally {
     loadingData.value = false;
   }
+};
+
+const ticketStatusMap: Record<string, string> = {
+  OPEN: 'Chưa thực hiện',
+  IN_PROGRESS: 'Đang tiến hành',
+  COMPLETED: 'Đã hoàn thành',
+  REJECTED: 'Đã từ chối',
 };
 
 const getStatusTagType = (status: string) => {

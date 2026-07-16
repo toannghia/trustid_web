@@ -87,7 +87,7 @@
           </div>
           <div>
             <div class="text-sm text-gray-500">Phương thức TT</div>
-            <div class="font-medium uppercase">{{ selectedSale.paymentMethod || 'CASH' }}</div>
+            <div class="font-medium">{{ getPaymentMethodLabel(selectedSale.paymentMethod || 'CASH') }}</div>
           </div>
         </div>
 
@@ -148,6 +148,16 @@ const formatDateTime = (dateStr: string) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleString('vi-VN');
+};
+
+const getPaymentMethodLabel = (method: string) => {
+  const map: Record<string, string> = {
+    CASH: 'Tiền mặt',
+    TRANSFER: 'Chuyển khoản / Quẹt thẻ',
+    BANK_TRANSFER: 'Chuyển khoản',
+    CARD: 'Thẻ'
+  };
+  return map[method?.toUpperCase()] || method;
 };
 
 const loadData = async (page = 1) => {

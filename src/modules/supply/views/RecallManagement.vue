@@ -70,7 +70,7 @@
 
         <el-table-column label="Mức độ" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="severityType(row.severity)" size="small" effect="dark" round>{{ severityLabel(row.severity) }}</el-tag>
+            <el-tag :type="recallSeverityType(row.severity)" size="small" effect="dark" round>{{ recallSeverityLabel(row.severity) }}</el-tag>
           </template>
         </el-table-column>
 
@@ -211,6 +211,7 @@ import { Refresh, Warning, View } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { recallApi } from '../api/recallApi';
 import api from '@/common/utils/api';
+import { recallSeverityLabel, recallSeverityType } from '@/common/utils/status-labels';
 
 const router = useRouter();
 const orders = ref<any[]>([]);
@@ -237,14 +238,6 @@ const statusType = (s: string) => {
 };
 const statusLabel = (s: string) => {
   const map: Record<string, string> = { DRAFT: 'Nháp', ISSUED: 'Đã phát hành', IN_PROGRESS: 'Đang xử lý', COMPLETED: 'Hoàn tất', CANCELLED: 'Đã hủy' };
-  return map[s] || s;
-};
-const severityType = (s: string) => {
-  const map: Record<string, string> = { CLASS_I: 'danger', CLASS_II: 'warning', CLASS_III: 'info' };
-  return map[s] || 'info';
-};
-const severityLabel = (s: string) => {
-  const map: Record<string, string> = { CLASS_I: 'Class I', CLASS_II: 'Class II', CLASS_III: 'Class III' };
   return map[s] || s;
 };
 const formatDate = (d?: string) => {

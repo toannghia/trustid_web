@@ -297,8 +297,15 @@ onMounted(() => {
         <el-table-column v-if="isAdmin" prop="tenant.name" label="Doanh nghiệp" min-width="150" />
         <el-table-column prop="status" label="Trạng thái" width="120" align="center">
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'info'">
-              {{ scope.row.status === 'ACTIVE' ? 'Đang sử dụng' : scope.row.status === 'INACTIVE' ? 'Ngừng sử dụng' : scope.row.status === 'EXHAUSTED' ? 'Đã hết' : scope.row.status }}
+            <el-tag :type="scope.row.status === 'AVAILABLE' ? 'success' : scope.row.status === 'ACTIVE' ? 'primary' : scope.row.status === 'EXPORTED' ? 'warning' : 'info'">
+              {{ 
+                scope.row.status === 'AVAILABLE' ? 'Sẵn sàng' : 
+                scope.row.status === 'ACTIVE' ? 'Đang sử dụng' : 
+                scope.row.status === 'EXPORTED' ? 'Đã xuất' : 
+                scope.row.status === 'INACTIVE' ? 'Ngừng sử dụng' : 
+                scope.row.status === 'EXHAUSTED' ? 'Đã hết' : 
+                scope.row.status 
+              }}
             </el-tag>
           </template>
         </el-table-column>

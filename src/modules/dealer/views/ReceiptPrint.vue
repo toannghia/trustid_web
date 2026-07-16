@@ -67,7 +67,7 @@
           </div>
           <div class="flex justify-between text-xs mt-1">
             <span>Hình thức TT:</span>
-            <span class="uppercase">{{ sale.paymentMethod || 'TIỀN MẶT' }}</span>
+            <span>{{ getPaymentMethodLabel(sale.paymentMethod || 'CASH') }}</span>
           </div>
         </div>
 
@@ -136,7 +136,7 @@
             </div>
             <div class="flex justify-between mb-2">
               <span class="text-gray-600">Hình thức thanh toán:</span>
-              <span class="uppercase font-bold">{{ sale.paymentMethod || 'Tiền mặt' }}</span>
+              <span class="font-bold">{{ getPaymentMethodLabel(sale.paymentMethod || 'CASH') }}</span>
             </div>
             <div class="flex justify-between text-2xl font-bold bg-blue-50 p-2 rounded mt-2 text-blue-800">
               <span>TỔNG CỘNG:</span>
@@ -207,6 +207,16 @@ const formatDateTime = (dateStr: string) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleString('vi-VN');
+};
+
+const getPaymentMethodLabel = (method: string) => {
+  const map: Record<string, string> = {
+    CASH: 'Tiền mặt',
+    TRANSFER: 'Chuyển khoản / Quẹt thẻ',
+    BANK_TRANSFER: 'Chuyển khoản',
+    CARD: 'Thẻ'
+  };
+  return map[method?.toUpperCase()] || method;
 };
 
 const loadStoreInfo = async () => {

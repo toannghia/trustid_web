@@ -15,6 +15,7 @@ import {
 
 import MediaManager from '@/modules/core/components/MediaManager.vue';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
+import { batchStatusMap, productionOrderStatusMap } from '@/common/utils/vi-labels';
 
 const router = useRouter();
 
@@ -51,6 +52,8 @@ const displayQuantity = ref(1);
 // Dialogs
 const showBatchDialog = ref(false);
 const showBatchId = ref(false);
+const showDetailDialog = ref(false);
+const selectedRow = ref<any>(null);
 const isEdit = ref(false);
 
 const SUGGESTED_FIELDS = [
@@ -646,6 +649,7 @@ const fieldLabels: Record<string, string> = {
   plantingDate: 'Ngày gieo trồng',
   harvestDate: 'Ngày thu hoạch',
   cultivationProcess: 'Quy trình canh tác',
+  production_address: 'Địa điểm sản xuất',
   note: 'Ghi chú'
 };
 
@@ -728,6 +732,15 @@ const startPacking = (row: any) => {
     path: '/supply/packaging',
     query: { batchId: row.id }
   });
+};
+
+const openDetailDialog = (row: any, column: any, event: Event) => {
+  // Ignore clicks on action buttons column
+  if (column?.property === 'actions' || column?.label === 'Thao tác') return;
+  const target = event?.target as HTMLElement;
+  if (target?.closest('.action-buttons-cell')) return;
+  selectedRow.value = row;
+  showDetailDialog.value = true;
 };
 
 const getStatusType = (status: string) => {
@@ -827,7 +840,7 @@ onMounted(fetchData);
         <div class="w-80">
           <el-input
             v-model="searchQuery"
-            placeholder="Tìm theo mã lô hoặc sản phẩm..."
+            placeholder="Tìm theo mã lô, mã hiệu lô hoặc sản phẩm..."
             :prefix-icon="Search"
             clearable
           />
@@ -852,213 +865,7 @@ onMounted(fetchData);
 
     <!-- Table -->
     <el-card shadow="never" class="!border-none !rounded-xl shadow-md">
-      <el-table :data="filteredBatches" v-loading="loading" style="width: 100%">
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="px-12 py-4 bg-gray-50 border-y border-gray-100">
-              <div class="grid grid-cols-3 gap-6">
-                <!-- Meta Sections -->
-                <div class="space-y-4">
-                  <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                    <el-icon><Management /></el-icon> Nguồn gốc & Canh tác
-                  </h4>
-                  <div class="grid grid-cols-1 gap-1">
-                    <template v-for="(val, key) in row.sourceInfo" :key="key">
-                      <div v-if="val && isMetadataField(key) && ['seedOwner', 'seedBatchCode', 'growingRegion', 'plantingDate', 'harvestDate', 'cultivationProcess', 'processingUnit', 'production_address'].includes(key)" class="flex text-sm">
-                        <span class="w-32 text-gray-400">{{ getFieldLabel(key) }}:</span>
-                        <span class="text-gray-700 font-medium">{{ formatMetadataValue(key, val) }}</span>
-                      </div>
-                    </template>
-                  </div>
-                  <div v-if="row.sourceInfo?.farmingLogs && row.sourceInfo.farmingLogs.length" class="mt-4 space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <h5 class="text-xs font-bold text-gray-500 flex items-center gap-1">
-                      <el-icon class="text-green-600"><Calendar /></el-icon>
-                      Nhật ký canh tác ({{ row.sourceInfo.farmingLogs.length }})
-                    </h5>
-                    <div v-for="(log, idx) in row.sourceInfo.farmingLogs" :key="idx" class="text-xs bg-white p-2.5 rounded border border-gray-200 shadow-xs">
-                      <div class="flex justify-between font-bold text-blue-600 mb-1">
-                        <span>{{ log.title }}</span>
-                        <span class="text-gray-400 font-normal">{{ formatMetadataValue('completedAt', log.completedAt) }}</span>
-                      </div>
-                      <p class="text-gray-600" v-if="log.description">{{ log.description }}</p>
-                      <div v-if="log.images?.length" class="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
-                        <el-image 
-                          v-for="img in log.images" 
-                          :key="img" 
-                          :src="img" 
-                          class="w-8 h-8 rounded border"
-                          :preview-src-list="log.images"
-                          fit="cover"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="space-y-4">
-                  <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                    <el-icon><Box /></el-icon> Thu hoạch & Chất lượng
-                  </h4>
-                  <div class="grid grid-cols-1 gap-1">
-                    <template v-for="(val, key) in row.sourceInfo" :key="key">
-                      <div v-if="val && isMetadataField(key) && ['harvestDate', 'totalWeightKg', 'unitWeightKg', 'qualityGrade', 'labTestResult'].includes(key)" class="flex text-sm">
-                        <span class="w-32 text-gray-400">{{ getFieldLabel(key) }}:</span>
-                        <span class="text-gray-700 font-medium">{{ formatMetadataValue(key, val) }}</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-
-                <div class="space-y-4 col-span-2 sm:col-span-1">
-                  <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                    <el-icon><Operation /></el-icon> Thông tin bổ sung (Khối thông tin)
-                  </h4>
-                  <div class="flex flex-col gap-3">
-                    <!-- If has customBlocks, render block by block -->
-                    <template v-if="row.sourceInfo?.customBlocks && row.sourceInfo.customBlocks.length">
-                      <div 
-                        v-for="block in row.sourceInfo.customBlocks" 
-                        :key="block.id"
-                        class="bg-white p-2.5 rounded border border-gray-200 shadow-sm"
-                      >
-                        <div class="flex items-center gap-1.5 font-bold text-xs text-blue-600 mb-1.5 pb-1 border-b border-gray-100">
-                          <el-icon><component :is="block.icon || 'Shield'" /></el-icon>
-                          <span>{{ block.title }}</span>
-                        </div>
-                        <div class="grid grid-cols-1 gap-1 pl-4 border-l border-blue-100">
-                          <div v-for="f in block.fields" :key="f.key" class="flex text-xs">
-                            <span class="w-28 text-gray-400">{{ f.key }}:</span>
-                            <span class="text-gray-700 font-medium">{{ f.value }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                    <!-- Fallback to legacy customFields if customBlocks is empty -->
-                    <template v-else-if="row.sourceInfo?.customFields && Object.keys(row.sourceInfo.customFields).length">
-                      <div class="grid grid-cols-1 gap-1">
-                        <div v-for="(val, key) in row.sourceInfo.customFields" :key="key" class="flex text-sm">
-                          <span class="w-32 text-gray-400">{{ key }}:</span>
-                          <span class="text-gray-700 font-medium">{{ val }}</span>
-                        </div>
-                      </div>
-                    </template>
-                    <div v-else class="text-xs text-gray-400 italic">Không có thuộc tính bổ sung</div>
-                    <!-- Images -->
-                    <div v-if="row.images?.length" class="mt-2 flex gap-2 overflow-x-auto pb-2">
-                      <el-image 
-                        v-for="img in row.images" 
-                        :key="img" 
-                        :src="img" 
-                        class="w-12 h-12 rounded border"
-                        :preview-src-list="row.images"
-                        fit="cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- ★ Lịch sử đóng gói -->
-              <div v-if="row.childBatches?.length || row.productionOrders?.length" class="mt-5 border-t border-gray-200 pt-4">
-                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                  <el-icon class="text-orange-500"><Tickets /></el-icon> Lịch sử đóng gói / Sản xuất
-                  <el-tag size="small" type="warning" class="ml-1">{{ (row.childBatches?.length || 0) + (row.productionOrders?.length || 0) }} phiếu</el-tag>
-                </h4>
-
-                <!-- Lô bán thành phẩm -->
-                <div v-if="row.childBatches?.length" class="mb-3">
-                  <div class="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1">
-                    <el-icon><Box /></el-icon> Lô bán thành phẩm ({{ row.childBatches.length }})
-                  </div>
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-xs border-collapse">
-                      <thead>
-                        <tr class="bg-blue-50 text-blue-700">
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Mã lô</th>
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Sản phẩm</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">KL nhập (kg)</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">KL xuất (kg)</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-blue-100">Số bao</th>
-                          <th class="px-3 py-1.5 text-center font-semibold border-b border-blue-100">Trạng thái</th>
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Nơi SX</th>
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-blue-100">Ngày đóng gói</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="child in row.childBatches" :key="child.id" class="hover:bg-blue-50/50 transition-colors">
-                          <td class="px-3 py-1.5 border-b border-gray-100">
-                            <span class="font-mono font-bold text-blue-600">{{ child.batchCode }}</span>
-                          </td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-700">{{ child.productName || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-orange-600">{{ child.inputWeight?.toLocaleString() || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-green-600">{{ child.outputWeight?.toLocaleString() || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-bold text-gray-800">{{ child.packCount || 0 }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-center">
-                            <el-tag size="small" :type="child.status === 'COMPLETED' ? 'success' : 'primary'" effect="light">
-                              {{ child.status === 'COMPLETED' ? 'Hoàn thành' : child.status }}
-                            </el-tag>
-                          </td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-600">{{ child.productionAddress || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-500">{{ child.packagingDate ? formatMetadataValue('date', child.packagingDate) : formatMetadataValue('date', child.createdAt) }}</td>
-                        </tr>
-                      </tbody>
-                      <tfoot>
-                        <tr class="bg-gray-50 font-semibold text-gray-700">
-                          <td class="px-3 py-1.5" colspan="2">Tổng cộng</td>
-                          <td class="px-3 py-1.5 text-right text-orange-600">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.inputWeight) || 0), 0).toLocaleString() }}</td>
-                          <td class="px-3 py-1.5 text-right text-green-600">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.outputWeight) || 0), 0).toLocaleString() }}</td>
-                          <td class="px-3 py-1.5 text-right font-bold">{{ row.childBatches.reduce((s: number, c: any) => s + (Number(c.packCount) || 0), 0) }}</td>
-                          <td colspan="3"></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-
-                <!-- Phiếu sản xuất -->
-                <div v-if="row.productionOrders?.length">
-                  <div class="text-xs font-semibold text-purple-600 mb-2 flex items-center gap-1">
-                    <el-icon><List /></el-icon> Phiếu sản xuất ({{ row.productionOrders.length }})
-                  </div>
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-xs border-collapse">
-                      <thead>
-                        <tr class="bg-purple-50 text-purple-700">
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Mã phiếu</th>
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Sản phẩm</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">KL kế hoạch</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">KL thực tế</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">SL kế hoạch</th>
-                          <th class="px-3 py-1.5 text-right font-semibold border-b border-purple-100">SL thực tế</th>
-                          <th class="px-3 py-1.5 text-center font-semibold border-b border-purple-100">Trạng thái</th>
-                          <th class="px-3 py-1.5 text-left font-semibold border-b border-purple-100">Ngày tạo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="order in row.productionOrders" :key="order.id" class="hover:bg-purple-50/50 transition-colors">
-                          <td class="px-3 py-1.5 border-b border-gray-100">
-                            <span class="font-mono font-bold text-purple-600">{{ order.orderCode }}</span>
-                          </td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-700">{{ order.productName || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right text-gray-600">{{ order.plannedWeightKg?.toLocaleString() || '-' }} kg</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-medium text-green-600">{{ order.actualWeightKg?.toLocaleString() || '-' }} kg</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right text-gray-600">{{ order.plannedUnits || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-right font-bold text-gray-800">{{ order.actualUnits || '-' }}</td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-center">
-                            <el-tag size="small" :type="order.status === 'COMPLETED' ? 'success' : order.status === 'IN_PROGRESS' ? 'warning' : 'info'" effect="light">
-                              {{ order.status }}
-                            </el-tag>
-                          </td>
-                          <td class="px-3 py-1.5 border-b border-gray-100 text-gray-500">{{ formatMetadataValue('date', order.createdAt) }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
+      <el-table :data="filteredBatches" v-loading="loading" style="width: 100%" @row-click="openDetailDialog" row-class-name="cursor-pointer" stripe border>
         <el-table-column label="STT" width="60" align="center">
           <template #default="{ $index }">
             {{ (currentPage - 1) * pageSize + $index + 1 }}
@@ -1073,7 +880,7 @@ onMounted(fetchData);
           </template>
         </el-table-column>
 
-        <el-table-column label="Mã hiệu lô" width="150">
+        <el-table-column label="Mã hiệu lô" width="200">
           <template #default="{ row }">
             <span class="font-medium text-gray-700">{{ row.sourceInfo?.seedBatchCode || '-' }}</span>
           </template>
@@ -1081,10 +888,7 @@ onMounted(fetchData);
 
         <el-table-column label="Sản phẩm" min-width="200">
           <template #default="{ row }">
-            <div class="flex flex-col">
-              <span class="font-bold text-gray-800">{{ row.product?.name || 'N/A' }}</span>
-              <span v-if="row.sourceInfo?.seedOwner" class="text-xs text-gray-400">Chủ giống: {{ row.sourceInfo.seedOwner }}</span>
-            </div>
+            <span class="font-semibold text-gray-800">{{ row.product?.name || 'N/A' }}</span>
           </template>
         </el-table-column>
 
@@ -1108,7 +912,7 @@ onMounted(fetchData);
 
         <el-table-column label="Thao tác" width="200" fixed="right">
           <template #default="{ row }">
-            <div class="flex gap-2">
+            <div class="flex gap-2 action-buttons-cell" @click.stop>
               <el-tooltip content="Xuất lô B2B" placement="top" v-if="Number(row.totalQuantity) > 0.001">
                 <el-button type="warning" :icon="Download" circle size="small" @click="openExportDialog(row)" />
               </el-tooltip>
@@ -1136,6 +940,340 @@ onMounted(fetchData);
         />
       </div>
     </el-card>
+
+    <!-- ★ Detail Dialog (thay thế expand row) -->
+    <el-dialog
+      v-model="showDetailDialog"
+      width="900px"
+      destroy-on-close
+      :show-close="false"
+      :close-on-click-modal="true"
+      class="branded-external-batch-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">
+              Chi tiết lô nguyên liệu
+            </span>
+            <span v-if="selectedRow" class="px-2 py-0.5 text-xs font-mono font-bold text-blue-200 bg-white/10 border border-white/20 rounded">
+              {{ selectedRow.batchCode }}
+            </span>
+            <el-tag v-if="selectedRow" :type="getStatusType(selectedRow.status)" effect="dark" size="small" class="ml-1">
+              {{ getBatchTypeLabel(selectedRow.batchType) }}
+            </el-tag>
+          </div>
+          <el-button
+            type="info"
+            link
+            :icon="Close"
+            @click="showDetailDialog = false"
+            style="color: rgba(255,255,255,0.8); font-size: 20px;"
+          />
+        </div>
+      </template>
+
+      <div v-if="selectedRow" style="padding: 24px; max-height: 75vh; overflow-y: auto;" class="detail-dialog-body">
+        <!-- Section 1: Thông tin chung -->
+        <div class="mb-6">
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <div class="w-1 h-5 bg-blue-500 rounded-full"></div>
+            <el-icon class="text-blue-500"><Operation /></el-icon>
+            Thông tin chung
+          </div>
+          <el-descriptions border :column="2" class="detail-descriptions">
+            <el-descriptions-item label="Sản phẩm">
+              <div>
+                <div class="font-bold text-gray-800">{{ selectedRow.product?.name || 'N/A' }}</div>
+                <div v-if="selectedRow.productGtin" class="text-xs text-gray-400">GTIN: {{ selectedRow.productGtin }}</div>
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="Kho nhập">
+              <div class="flex items-center gap-1.5">
+                <el-icon class="text-gray-400"><Box /></el-icon>
+                <span>{{ selectedRow.warehouseStocks?.[0]?.warehouse?.name || 'Chưa xác định' }}</span>
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="Khối lượng nhập">
+              <span class="text-lg font-bold text-blue-600">{{ (Number(selectedRow.totalUnitsExpected) || 0).toLocaleString() }}</span>
+              <span class="text-gray-400 ml-1">kg</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="Tồn kho">
+              <span class="text-lg font-bold" :class="Number(selectedRow.totalQuantity) > 0.01 ? 'text-green-600' : 'text-red-500'">
+                {{ (Number(selectedRow.totalQuantity) || 0).toLocaleString() }}
+              </span>
+              <span class="text-gray-400 ml-1">kg</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="Mã hiệu lô giống">
+              <span class="font-mono font-medium">{{ selectedRow.sourceInfo?.seedBatchCode || '---' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="Đơn vị sơ chế">
+              {{ selectedRow.sourceInfo?.processingUnit || '---' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Địa điểm sản xuất">
+              {{ selectedRow.sourceInfo?.production_address || '---' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Mã QR định danh">
+              <span class="font-mono text-xs">{{ selectedRow.batchQrSerial || '---' }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+
+        <!-- Section 2: Nguồn gốc & Canh tác -->
+        <div class="mb-6">
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <div class="w-1 h-5 bg-green-500 rounded-full"></div>
+            <el-icon class="text-green-500"><Management /></el-icon>
+            Nguồn gốc & Canh tác
+          </div>
+          <div class="bg-green-50/50 rounded-lg border border-green-100 p-4">
+            <div class="grid grid-cols-2 gap-x-8 gap-y-2">
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Chủ lô giống:</span>
+                <span class="text-gray-700 font-medium">{{ selectedRow.sourceInfo?.seedOwner || '---' }}</span>
+              </div>
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Mã hiệu lô giống:</span>
+                <span class="text-gray-700 font-medium font-mono">{{ selectedRow.sourceInfo?.seedBatchCode || '---' }}</span>
+              </div>
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Khu vực trồng:</span>
+                <span class="text-gray-700 font-medium">{{ selectedRow.sourceInfo?.growingRegion || '---' }}</span>
+              </div>
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Quy trình canh tác:</span>
+                <span class="text-gray-700 font-medium">{{ selectedRow.sourceInfo?.cultivationProcess || '---' }}</span>
+              </div>
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Ngày gieo trồng:</span>
+                <span class="text-gray-700 font-medium">{{ formatMetadataValue('plantingDate', selectedRow.sourceInfo?.plantingDate) || '---' }}</span>
+              </div>
+              <div class="flex text-sm">
+                <span class="w-36 text-gray-400 shrink-0">Ngày thu hoạch:</span>
+                <span class="text-gray-700 font-medium">{{ formatMetadataValue('harvestDate', selectedRow.sourceInfo?.harvestDate) || '---' }}</span>
+              </div>
+            </div>
+
+            <!-- Nhật ký canh tác -->
+            <div v-if="selectedRow.sourceInfo?.farmingLogs && selectedRow.sourceInfo.farmingLogs.length" class="mt-4 pt-4 border-t border-green-200/60">
+              <h5 class="text-xs font-bold text-green-700 flex items-center gap-1.5 mb-3">
+                <el-icon><Calendar /></el-icon>
+                Nhật ký canh tác ({{ selectedRow.sourceInfo.farmingLogs.length }})
+              </h5>
+              <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div
+                  v-for="(log, idx) in selectedRow.sourceInfo.farmingLogs"
+                  :key="idx"
+                  class="flex gap-3 items-start bg-white p-3 rounded-lg border border-gray-100 shadow-sm"
+                >
+                  <div class="flex flex-col items-center shrink-0">
+                    <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-700">
+                      {{ Number(idx) + 1 }}
+                    </div>
+                    <div v-if="Number(idx) < selectedRow.sourceInfo.farmingLogs.length - 1" class="w-px h-4 bg-green-200 mt-1"></div>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-0.5">
+                      <span class="font-bold text-sm text-gray-800">{{ log.title }}</span>
+                      <span class="text-xs text-gray-400">{{ formatMetadataValue('completedAt', log.completedAt) }}</span>
+                    </div>
+                    <p v-if="log.description" class="text-xs text-gray-500 mb-1">{{ log.description }}</p>
+                    <div v-if="log.images?.length" class="flex gap-1.5 overflow-x-auto mt-1">
+                      <el-image
+                        v-for="img in log.images"
+                        :key="img"
+                        :src="getImageUrl(img)"
+                        class="w-10 h-10 rounded border shrink-0"
+                        :preview-src-list="log.images.map(getImageUrl)"
+                        fit="cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Thông tin bổ sung (Custom Blocks) -->
+        <div v-if="(selectedRow.sourceInfo?.customBlocks && selectedRow.sourceInfo.customBlocks.length) || (selectedRow.sourceInfo?.customFields && Object.keys(selectedRow.sourceInfo.customFields).length)" class="mb-6">
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <div class="w-1 h-5 bg-amber-500 rounded-full"></div>
+            <el-icon class="text-amber-500"><Setting /></el-icon>
+            Thông tin bổ sung
+          </div>
+
+          <!-- Custom Blocks as card grid -->
+          <template v-if="selectedRow.sourceInfo?.customBlocks && selectedRow.sourceInfo.customBlocks.length">
+            <div class="grid grid-cols-2 gap-3">
+              <div
+                v-for="block in selectedRow.sourceInfo.customBlocks"
+                :key="block.id"
+                class="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div class="flex items-center gap-2 font-bold text-sm text-blue-600 mb-2 pb-2 border-b border-gray-100">
+                  <el-icon><component :is="block.icon || 'Shield'" /></el-icon>
+                  <span>{{ block.title }}</span>
+                </div>
+                <div class="space-y-1.5 pl-3 border-l-2 border-blue-100">
+                  <div v-for="f in block.fields" :key="f.key" class="flex text-sm">
+                    <span class="w-28 text-gray-400 shrink-0 text-xs">{{ f.key }}:</span>
+                    <span class="text-gray-700 font-medium text-xs">{{ f.value }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Fallback: Legacy customFields -->
+          <template v-else-if="selectedRow.sourceInfo?.customFields && Object.keys(selectedRow.sourceInfo.customFields).length">
+            <div class="bg-white p-4 rounded-lg border border-gray-200">
+              <div class="grid grid-cols-2 gap-2">
+                <div v-for="(val, key) in selectedRow.sourceInfo.customFields" :key="key" class="flex text-sm">
+                  <span class="w-32 text-gray-400 shrink-0">{{ key }}:</span>
+                  <span class="text-gray-700 font-medium">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Section 4: Lịch sử đóng gói / Sản xuất -->
+        <div v-if="selectedRow.childBatches?.length || selectedRow.productionOrders?.length" class="mb-6">
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <div class="w-1 h-5 bg-orange-500 rounded-full"></div>
+            <el-icon class="text-orange-500"><Tickets /></el-icon>
+            Lịch sử đóng gói / Sản xuất
+            <el-tag size="small" type="warning" class="ml-1">
+              {{ (selectedRow.childBatches?.length || 0) + (selectedRow.productionOrders?.length || 0) }} phiếu
+            </el-tag>
+          </div>
+
+          <!-- Lô bán thành phẩm -->
+          <div v-if="selectedRow.childBatches?.length" class="mb-4">
+            <div class="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1">
+              <el-icon><Box /></el-icon> Lô bán thành phẩm ({{ selectedRow.childBatches.length }})
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-blue-50 text-blue-700">
+                    <th class="px-3 py-2 text-left font-semibold">Mã lô</th>
+                    <th class="px-3 py-2 text-left font-semibold">Sản phẩm</th>
+                    <th class="px-3 py-2 text-right font-semibold">KL nhập</th>
+                    <th class="px-3 py-2 text-right font-semibold">KL xuất</th>
+                    <th class="px-3 py-2 text-right font-semibold">Số bao</th>
+                    <th class="px-3 py-2 text-center font-semibold">Trạng thái</th>
+                    <th class="px-3 py-2 text-left font-semibold">Ngày ĐG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="child in selectedRow.childBatches" :key="child.id" class="hover:bg-blue-50/30">
+                    <td class="px-3 py-1.5 border-t border-gray-100 font-mono font-bold text-blue-600">{{ child.batchCode }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-gray-700">{{ child.productName || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right text-orange-600 font-medium">{{ child.inputWeight?.toLocaleString() || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right text-green-600 font-medium">{{ child.outputWeight?.toLocaleString() || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right font-bold">{{ child.packCount || 0 }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-center">
+                      <el-tag size="small" :type="child.status === 'COMPLETED' ? 'success' : 'primary'" effect="light">
+                        {{ batchStatusMap[child.status] || child.status }}
+                      </el-tag>
+                    </td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-gray-500">{{ child.packagingDate ? formatMetadataValue('date', child.packagingDate) : formatMetadataValue('date', child.createdAt) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="bg-gray-50 font-semibold text-gray-700">
+                    <td class="px-3 py-2" colspan="2">Tổng cộng</td>
+                    <td class="px-3 py-2 text-right text-orange-600">{{ selectedRow.childBatches.reduce((s: number, c: any) => s + (Number(c.inputWeight) || 0), 0).toLocaleString() }}</td>
+                    <td class="px-3 py-2 text-right text-green-600">{{ selectedRow.childBatches.reduce((s: number, c: any) => s + (Number(c.outputWeight) || 0), 0).toLocaleString() }}</td>
+                    <td class="px-3 py-2 text-right font-bold">{{ selectedRow.childBatches.reduce((s: number, c: any) => s + (Number(c.packCount) || 0), 0) }}</td>
+                    <td colspan="2"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Phiếu sản xuất -->
+          <div v-if="selectedRow.productionOrders?.length">
+            <div class="text-xs font-semibold text-teal-600 mb-2 flex items-center gap-1">
+              <el-icon><List /></el-icon> Phiếu sản xuất ({{ selectedRow.productionOrders.length }})
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-teal-50 text-teal-700">
+                    <th class="px-3 py-2 text-left font-semibold">Mã phiếu</th>
+                    <th class="px-3 py-2 text-left font-semibold">Sản phẩm</th>
+                    <th class="px-3 py-2 text-right font-semibold">KL KH</th>
+                    <th class="px-3 py-2 text-right font-semibold">KL TT</th>
+                    <th class="px-3 py-2 text-right font-semibold">SL KH</th>
+                    <th class="px-3 py-2 text-right font-semibold">SL TT</th>
+                    <th class="px-3 py-2 text-center font-semibold">Trạng thái</th>
+                    <th class="px-3 py-2 text-left font-semibold">Ngày tạo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="order in selectedRow.productionOrders" :key="order.id" class="hover:bg-teal-50/30">
+                    <td class="px-3 py-1.5 border-t border-gray-100 font-mono font-bold text-teal-600">{{ order.orderCode }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-gray-700">{{ order.productName || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right text-gray-600">{{ order.plannedWeightKg?.toLocaleString() || '-' }} kg</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right font-medium text-green-600">{{ order.actualWeightKg?.toLocaleString() || '-' }} kg</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right text-gray-600">{{ order.plannedUnits || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-right font-bold text-gray-800">{{ order.actualUnits || '-' }}</td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-center">
+                      <el-tag size="small" :type="order.status === 'COMPLETED' ? 'success' : order.status === 'IN_PROGRESS' ? 'warning' : 'info'" effect="light">
+                        {{ productionOrderStatusMap[order.status] || order.status }}
+                      </el-tag>
+                    </td>
+                    <td class="px-3 py-1.5 border-t border-gray-100 text-gray-500">{{ formatMetadataValue('date', order.createdAt) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Ảnh đính kèm -->
+        <div v-if="selectedRow.images?.length" class="mb-4">
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold text-gray-700 uppercase tracking-wide">
+            <div class="w-1 h-5 bg-indigo-500 rounded-full"></div>
+            <el-icon class="text-indigo-500"><Picture /></el-icon>
+            Hình ảnh & Chứng nhận
+          </div>
+          <div class="flex gap-3 flex-wrap">
+            <el-image
+              v-for="img in selectedRow.images"
+              :key="img"
+              :src="getImageUrl(img)"
+              class="w-20 h-20 rounded-lg border border-gray-200 shadow-sm"
+              :preview-src-list="selectedRow.images.map(getImageUrl)"
+              fit="cover"
+            />
+          </div>
+        </div>
+
+        <!-- Ghi chú -->
+        <div v-if="selectedRow.sourceInfo?.note" class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div class="text-xs text-gray-400 uppercase font-bold mb-1">Ghi chú</div>
+          <div class="text-sm text-gray-700">{{ selectedRow.sourceInfo.note }}</div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 24px; border-top: 1px solid #e5e7eb;">
+          <el-button @click="handleEdit(selectedRow); showDetailDialog = false" type="primary" plain style="border-radius: 8px; padding: 10px 20px;">
+            <el-icon class="mr-1"><Edit /></el-icon> Chỉnh sửa
+          </el-button>
+          <el-button @click="showDetailDialog = false" style="border-radius: 8px; padding: 10px 20px;">
+            Đóng
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="showBatchDialog"
@@ -1693,6 +1831,25 @@ onMounted(fetchData);
 <style scoped>
 .font-mono {
   font-family: 'Courier New', Courier, monospace;
+}
+
+.detail-dialog-body {
+  scroll-behavior: smooth;
+}
+
+.detail-dialog-body::-webkit-scrollbar {
+  width: 6px;
+}
+.detail-dialog-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+.detail-dialog-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.detail-dialog-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 </style>
 

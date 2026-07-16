@@ -172,6 +172,41 @@ const getDisplayAttributes = (attributes: any) => {
     return result;
 };
 
+const translateAttributeKey = (key: string) => {
+    const map: Record<string, string> = {
+        govStatus: 'Trạng thái quản lý (Gov)',
+        recallReason: 'Lý do thu hồi',
+        recallRequestedAt: 'Thời gian yêu cầu thu hồi',
+    };
+    return map[key] || key;
+};
+
+const formatAttributeValue = (key: string, val: any) => {
+    if (key === 'govStatus') {
+        const statusMap: Record<string, string> = {
+            NORMAL: 'Bình thường',
+            PENDING_RECALL: 'Chờ thu hồi',
+            RECALLED: 'Đã thu hồi',
+        };
+        return statusMap[val] || val;
+    }
+    if (key === 'recallRequestedAt' && val) {
+        try {
+            const date = new Date(val);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleDateString('vi-VN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+            }
+        } catch (e) {}
+    }
+    return val;
+};
+
 const handleRetryNda = async (row: any) => {
     try {
         await productApi.update(row.id, { retryNda: true }); // Assuming backend supports this trigger or just update triggers sync
@@ -355,7 +390,7 @@ onMounted(() => {
         v-model="showDetailModal" 
         title="Chi tiết sản phẩm" 
         width="95%"
-        style="max-width: 600px"
+        style="max-width: 720px"
         class="responsive-dialog"
     >
         <div v-if="selectedProduct" class="space-y-4">
@@ -373,14 +408,16 @@ onMounted(() => {
                  />
              </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="text-sm text-gray-500 block">ID Sản phẩm</label>
                     <div class="font-mono text-xs bg-gray-100 p-1 rounded">{{ selectedProduct.id }}</div>
                 </div>
                 <div>
                      <label class="text-sm text-gray-500 block">Trạng thái</label>
-                     <el-tag :type="selectedProduct.status === 'ACTIVE' ? 'success' : 'info'">{{ selectedProduct.status }}</el-tag>
+                     <el-tag :type="selectedProduct.status === 'ACTIVE' ? 'success' : 'info'">
+                         {{ selectedProduct.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động' }}
+                     </el-tag>
                 </div>
             </div>
 
@@ -392,7 +429,7 @@ onMounted(() => {
                  </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                      <label class="text-sm text-gray-500 block">Mã GTIN</label>
                      <div class="font-medium">{{ selectedProduct.gtinCode }}</div>
@@ -403,7 +440,7 @@ onMounted(() => {
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div>
                      <label class="text-sm text-gray-500 block">Trọng lượng (Quy cách)</label>
                      <div class="font-medium">{{ selectedProduct.netWeight || '0' }} {{ selectedProduct.weightUnit || 'kg' }}</div>
@@ -414,7 +451,7 @@ onMounted(() => {
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                      <label class="text-sm text-gray-500 block">Hạn sử dụng</label>
                      <div class="font-medium">
@@ -430,11 +467,11 @@ onMounted(() => {
             
             <!-- Thuộc tính chi tiết phẳng -->
             <div v-if="selectedProduct.attributes && Object.keys(getDisplayAttributes(selectedProduct.attributes)).length > 0" class="mt-4 border-t pt-4">
-                <label class="text-sm text-gray-500 block mb-2">Thuộc tính chi tiết</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <div v-for="(val, key) in getDisplayAttributes(selectedProduct.attributes)" :key="key" class="flex justify-between bg-gray-50 p-2 rounded text-sm">
-                        <span class="text-gray-500">{{ key }}:</span>
-                        <span class="font-medium">{{ val }}</span>
+                <label class="text-sm text-gray-500 block mb-2 font-semibold">Thuộc tính chi tiết</label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div v-for="(val, key) in getDisplayAttributes(selectedProduct.attributes)" :key="key" class="bg-gray-50 p-3 rounded-lg text-sm border border-gray-100 flex flex-col gap-1 min-h-[56px] justify-center">
+                        <span class="text-gray-500 font-medium">{{ translateAttributeKey(key) }}</span>
+                        <span class="font-bold text-gray-800 break-all">{{ formatAttributeValue(key, val) }}</span>
                     </div>
                 </div>
             </div>

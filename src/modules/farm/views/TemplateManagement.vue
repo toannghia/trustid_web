@@ -26,12 +26,12 @@
         <el-table-column prop="name" label="Tên quy trình" min-width="250" />
         <el-table-column label="Số lượng việc" width="150" align="center">
           <template #default="{ row }">
-            <el-tag effect="plain">{{ row.tasksConfig?.length || 0 }} tasks</el-tag>
+            <el-tag effect="plain">{{ row.tasksConfig?.length || 0 }} công việc</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="isActive" label="Trạng thái" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.isActive ? 'success' : 'info'">{{ row.isActive ? 'Active' : 'Inactive' }}</el-tag>
+            <el-tag :type="row.isActive ? 'success' : 'info'">{{ row.isActive ? 'Hoạt động' : 'Tạm dừng' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Thao tác" width="100" align="center" fixed="right">
