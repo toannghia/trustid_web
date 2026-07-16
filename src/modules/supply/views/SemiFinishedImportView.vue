@@ -247,7 +247,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="filteredImportedTransfers.length > historyPageSize" class="flex justify-end mt-4">
+      <div class="flex justify-end mt-4">
         <el-pagination 
           v-model:current-page="historyPage" 
           :page-size="historyPageSize" 
