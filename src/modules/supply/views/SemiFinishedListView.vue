@@ -53,8 +53,8 @@
           class="modern-table"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column type="selection" width="55" align="center" :selectable="canSelectRow" />
-          <el-table-column label="STT" width="60" align="center">
+          <el-table-column type="selection" width="50" align="center" :selectable="canSelectRow" />
+          <el-table-column label="STT" width="55" align="center">
             <template #default="{ $index }">
               {{ (currentPage - 1) * pageSize + $index + 1 }}
             </template>
@@ -75,7 +75,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="Khối lượng (kg)" width="180">
+        <el-table-column label="Khối lượng (kg)" width="140">
           <template #default="{ row }">
             <div class="flex flex-col text-xs">
                <span title="Tổng đóng gói"><el-icon><Calendar /></el-icon> {{ row.outputWeight ?? 0 }} kg</span>
@@ -92,15 +92,15 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="Lô nguồn" width="160">
+        <el-table-column label="Lô nguồn" width="180">
           <template #default="{ row }">
-             <el-tag size="small" type="info" effect="plain" class="!text-[10px]">
+             <span class="font-mono text-[11px] text-slate-600">
                {{ row.parentBatch?.batchCode || row.farmBatchCode || '-' }}
-             </el-tag>
+             </span>
           </template>
         </el-table-column>
 
-        <el-table-column label="Thông tin SX" width="200">
+        <el-table-column label="Thông tin SX" width="140">
            <template #default="{ row }">
               <div class="flex flex-col text-[11px] gap-1">
                  <span v-if="row.sourceInfo?.packaging_date"><el-icon><Calendar /></el-icon> {{ formatDate(row.sourceInfo.packaging_date) }}</span>
@@ -112,12 +112,12 @@
         <el-table-column prop="status" label="Trạng thái" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="getStatusType(row.status)" effect="light">
-              {{ row.status === 'EXPORTED' ? 'Đã xuất' : row.status === 'ACTIVE' ? 'Đang hoạt động' : row.status === 'COMPLETED' ? 'Hoàn thành' : row.status }}
+              {{ batchStatusMap[row.status] || row.status }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="Thao tác" width="180" fixed="right" align="center">
+        <el-table-column label="Thao tác" width="120" fixed="right" align="center">
            <template #default="{ row }">
               <div class="flex gap-2 justify-center">
                 <el-button v-if="row.availableQuantity > 0.001" type="primary" size="small" link :icon="ShoppingCart" @click="handleSell(row)">
@@ -168,7 +168,15 @@
                   </template>
                 </div>
               </el-descriptions-item>
-              <el-descriptions-item label="Trạng thái">{{ selectedBatch.status }}</el-descriptions-item>
+              <el-descriptions-item label="Trạng thái">
+                <el-tag 
+                  size="small" 
+                  :type="selectedBatch.status === 'COMPLETED' ? 'success' : selectedBatch.status === 'ACTIVE' ? 'primary' : selectedBatch.status === 'CANCELLED' ? 'danger' : 'info'" 
+                  effect="light"
+                >
+                  {{ batchStatusMap[selectedBatch.status] || selectedBatch.status }}
+                </el-tag>
+              </el-descriptions-item>
               <el-descriptions-item label="Sản phẩm">{{ selectedBatch.product?.name }}</el-descriptions-item>
               <el-descriptions-item label="Lô nguồn">{{ selectedBatch.parentBatch?.batchCode || '-' }}</el-descriptions-item>
               <el-descriptions-item label="Khối lượng nạp">{{ selectedBatch.inputWeight }} kg</el-descriptions-item>
@@ -198,9 +206,9 @@
               </div>
               <el-table :data="batchItems" border size="small" height="300px">
                 <el-table-column type="index" label="#" width="50" align="center" />
-                <el-table-column prop="serialNumber" label="Serial Number" width="160" />
-                <el-table-column prop="fullQrCode" label="QR Code Content" min-width="200" show-overflow-tooltip />
-                <el-table-column prop="status" label="Status" width="120" align="center">
+                <el-table-column prop="serialNumber" label="Số Serial" width="160" />
+                <el-table-column prop="fullQrCode" label="Mã QR" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="status" label="Trạng thái" width="130" align="center">
                   <template #default="{ row }">
                     <el-tag
                       v-if="isAdminOrTenantAdmin && row.isSupplementary"
@@ -210,7 +218,14 @@
                     >
                       🏷️ Tem bù
                     </el-tag>
-                    <el-tag v-else size="small" :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang hoạt động' : row.status === 'INACTIVE' ? 'Ngừng hoạt động' : row.status }}</el-tag>
+                    <el-tag 
+                      v-else 
+                      size="small" 
+                      :type="row.status === 'ACTIVE' ? 'success' : row.status === 'SOLD' ? 'danger' : 'info'"
+                      effect="light"
+                    >
+                      {{ productItemStatusMap[row.status] || row.status }}
+                    </el-tag>
                   </template>
                 </el-table-column>
               </el-table>
@@ -314,6 +329,7 @@ import dayjs from 'dayjs';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 import { useAuthStore } from '@/modules/core/store/auth';
+import { batchStatusMap, productItemStatusMap } from '@/common/utils/vi-labels';
 
 const router = useRouter();
 const authStore = useAuthStore();

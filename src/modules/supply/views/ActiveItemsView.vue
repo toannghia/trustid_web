@@ -31,10 +31,10 @@
               {{ (currentPage - 1) * pageSize + $index + 1 }}
             </template>
           </el-table-column>
-          <el-table-column prop="fullQrCode" label="QR Code (Hex)" min-width="200" show-overflow-tooltip sortable />
+          <el-table-column prop="fullQrCode" label="QR Code (Hex)" min-width="190" show-overflow-tooltip sortable />
           <!-- <el-table-column prop="serialNumber" label="Serial" width="150" sortable /> -->
-          <el-table-column prop="parentCode" label="Mã Thùng" width="150" />
-          <el-table-column label="Lô SX" width="200">
+          <el-table-column prop="parentCode" label="Mã Thùng" width="180" />
+          <el-table-column label="Lô SX" width="180">
                <template #default="{row}">
                    {{ row.batch?.batchCode }}
                </template>
@@ -52,7 +52,7 @@
                    {{ formatDate(row.activatedAt || row.createdAt) }}
                </template>
           </el-table-column>
-          <el-table-column label="Trạng thái" width="100" align="center">
+          <el-table-column label="Trạng thái" width="120" align="center">
               <template #default="{row}">
                   <el-tag type="success">{{ row.status === 'ACTIVE' ? 'Đã kích hoạt' : row.status === 'INACTIVE' ? 'Chưa kích hoạt' : row.status === 'AT_DEALER' ? 'Tại đại lý' : row.status === 'SOLD' ? 'Đã bán' : row.status }}</el-tag>
               </template>

@@ -32,6 +32,8 @@ export const roleNameMap: Record<string, string> = {
 
 // ========== Trạng thái lô sản xuất (SupplyBatch.status) ==========
 export const batchStatusMap: Record<string, string> = {
+  ACTIVE: 'Đang hoạt động',
+  EXPORTED: 'Đã xuất',
   PACKING: 'Đang đóng gói',
   CLOSED: 'Đã đóng',
   SHIPPED: 'Đã xuất kho',
@@ -114,9 +116,10 @@ export const productionSourceTypeMap: Record<string, string> = {
 // ========== Trạng thái tem / sản phẩm (ProductItem.status) ==========
 export const productItemStatusMap: Record<string, string> = {
   INACTIVE: 'Chưa kích hoạt',
-  ACTIVE: 'Đã kích hoạt',
+  ACTIVE: 'Đang hoạt động',
   AT_DEALER: 'Tại đại lý',
   SOLD: 'Đã bán',
   LOST: 'Thất lạc',
+  RECALLED: 'Đã thu hồi',
 };
 
