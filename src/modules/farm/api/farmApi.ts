@@ -185,11 +185,23 @@ export const farmApi = {
     },
 
     // Tasks (Logs)
-    // Tasks (Logs)
-    getDailyTasks(date?: string, status?: string, cycleId?: string, locationId?: string, beforeDate?: string) {
-        return api.get<any[]>(`${baseUrl}/logs`, { params: { date, status, cycleId, locationId, beforeDate } });
+    getDailyTasks(params: {
+        date?: string;
+        startDate?: string;
+        endDate?: string;
+        status?: string;
+        cycleId?: string;
+        locationId?: string;
+        beforeDate?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        return api.get<any>(`${baseUrl}/logs`, { params });
     },
-    updateTaskStatus(id: string, payload: { status: 'COMPLETED' | 'SKIPPED' | 'PENDING'; notes?: string; materialsUsed?: any[] }) {
+    getTaskDetail(id: string) {
+        return api.get<any>(`${baseUrl}/logs/${id}`);
+    },
+    updateTaskStatus(id: string, payload: { status: 'COMPLETED' | 'SKIPPED' | 'PENDING'; notes?: string; materialsUsed?: any[]; evidencePhotos?: string[] }) {
         return api.patch(`${baseUrl}/logs/${id}`, payload);
     },
 

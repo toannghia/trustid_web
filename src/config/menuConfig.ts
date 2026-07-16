@@ -50,7 +50,7 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
       { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', permission: 'FARM_APPROVAL_MANAGE', icon: Check },
       { title: 'Mùa vụ', path: '/farm/cycles', permission: 'FARM_CYCLE_VIEW', icon: Calendar },
       { title: 'Quy trình mẫu', path: '/farm/templates', permission: 'FARM_TEMPLATE_MANAGE', icon: Document },
-      { title: 'Việc hôm nay', path: '/farm/tasks', permission: 'FARM_TASK_VIEW', icon: List },
+      { title: 'Nhật ký điện tử', path: '/farm/tasks', permission: 'FARM_TASK_VIEW', icon: List },
       { title: 'Lô thu hoạch', path: '/farm/batches', permission: 'FARM_BATCH_VIEW', icon: Collection },
     ]
   },
