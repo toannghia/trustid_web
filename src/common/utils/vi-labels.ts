@@ -105,3 +105,13 @@ export const productionSourceTypeMap: Record<string, string> = {
   CROSS_TENANT: 'Liên doanh nghiệp',
   SEMI_FINISHED: 'Bán thành phẩm',
 };
+
+// ========== Trạng thái tem / sản phẩm (ProductItem.status) ==========
+export const productItemStatusMap: Record<string, string> = {
+  INACTIVE: 'Chưa kích hoạt',
+  ACTIVE: 'Đã kích hoạt',
+  AT_DEALER: 'Tại đại lý',
+  SOLD: 'Đã bán',
+  LOST: 'Thất lạc',
+};
+

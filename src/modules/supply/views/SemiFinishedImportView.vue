@@ -1,11 +1,11 @@
 <template>
-  <div class="p-6 space-y-6 max-w-5xl mx-auto pb-24">
+  <div class="p-6 space-y-6 pb-24">
     <!-- Header -->
     <div class="flex items-center justify-between mb-2">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-          <div class="p-2 bg-green-100 rounded-lg text-green-600">
-            <el-icon><Download /></el-icon>
+        <h1 class="text-2xl font-bold flex items-center gap-3" style="color: #0F2B46;">
+          <div class="p-2.5 rounded-xl" style="background: #0F2B46;">
+            <el-icon class="text-white"><Download /></el-icon>
           </div>
           Tiếp nhận Bán thành phẩm
         </h1>
@@ -14,47 +14,41 @@
       <el-button @click="router.back()" plain>Quay lại</el-button>
     </div>
 
-    <!-- KHỐI 1: TÌM KIẾM & NẠP PHIẾU (Scan & Load) -->
-    <el-card shadow="never" class="!border-green-200 !rounded-xl" :class="{ '!bg-green-50/30': selectedTransfer }">
-      <div class="flex items-center justify-between mb-4">
-        <div class="text-sm font-bold text-green-800 flex items-center gap-2">
-          <el-icon><Search /></el-icon> 1. Quét mã nạp phiếu
+    <!-- KHỐI 1: TÌM KIẾM & NẠP PHIẾU -->
+    <el-card shadow="never" class="!border-green-200 !rounded-xl !py-0" :class="{ '!bg-green-50/30': selectedTransfer }">
+      <div class="flex items-center gap-3">
+        <div class="text-sm font-bold flex items-center gap-2 whitespace-nowrap" style="color: #0F2B46;">
+          <el-icon><Search /></el-icon> Quét mã nạp phiếu
         </div>
-      </div>
-      
-      <div class="flex gap-3">
         <el-input 
           v-model="scanInput" 
           ref="scanInputRef" 
           placeholder="Quét Mã Phiếu (XK-...) hoặc Mã Serial trên bao hàng..." 
           @keyup.enter="handleScan" 
-          class="flex-1 scan-input-large"
-          size="large"
+          class="flex-1"
           clearable
         >
-          <template #prefix><el-icon size="18"><FullScreen /></el-icon></template>
+          <template #prefix><el-icon><FullScreen /></el-icon></template>
         </el-input>
-        <el-button type="success" size="large" @click="handleScan" :loading="scanning" class="!px-8">Nạp Phiếu</el-button>
-      </div>
-      
-      <!-- Hỗ trợ chọn tay nếu không có súng quét -->
-      <div class="mt-4 flex items-center gap-2 text-xs text-gray-500 border-t pt-3">
-        <span>Hoặc chọn thủ công phiếu đang chờ:</span>
-        <el-select 
-          v-model="selectedTransferId" 
-          filterable 
-          size="small"
-          class="!w-64" 
-          placeholder="Chọn phiếu đang đến..."
-          @change="handleManualSelect"
-        >
-          <el-option 
-            v-for="t in pendingTransfers" 
-            :key="t.id" 
-            :label="`${t.transferCode || t.id.split('-')[0]} - Từ: ${getTenantName(t.fromTenantId)}`" 
-            :value="t.id"
-          />
-        </el-select>
+        <el-button type="success" @click="handleScan" :loading="scanning" class="!px-6" style="background: #00875A; border-color: #00875A;">Nạp Phiếu</el-button>
+        <div class="border-l pl-3 flex items-center gap-2 text-xs text-gray-400 whitespace-nowrap">
+          <span>Chọn tay:</span>
+          <el-select 
+            v-model="selectedTransferId" 
+            filterable 
+            size="small"
+            class="!w-52" 
+            placeholder="Phiếu đang chờ..."
+            @change="handleManualSelect"
+          >
+            <el-option 
+              v-for="t in pendingTransfers" 
+              :key="t.id" 
+              :label="`${t.transferCode || t.id.split('-')[0]} - ${getTenantName(t.fromTenantId)}`" 
+              :value="t.id"
+            />
+          </el-select>
+        </div>
       </div>
     </el-card>
 
@@ -62,7 +56,7 @@
     <el-card v-if="selectedTransfer" shadow="never" class="!border-gray-200 !rounded-xl animate-in fade-in slide-in-from-top-4 duration-300">
       <template #header>
         <div class="flex justify-between items-center h-4">
-          <div class="flex items-center gap-2 font-bold text-gray-700">
+          <div class="flex items-center gap-2 font-bold" style="color: #0F2B46;">
             <el-icon><List /></el-icon> 2. Thông tin tiếp nhận
           </div>
           <el-tag effect="dark" :type="getTransferStatusType(selectedTransfer.status)" size="small">{{ getTransferStatusLabel(selectedTransfer.status) }}</el-tag>
@@ -118,7 +112,7 @@
     <el-card v-if="selectedTransfer" shadow="never" class="!border-gray-200 !rounded-xl animate-in fade-in slide-in-from-top-8 duration-500">
       <template #header>
         <div class="flex justify-between items-center h-4">
-          <div class="flex items-center gap-2 font-bold text-gray-700">
+          <div class="flex items-center gap-2 font-bold" style="color: #0F2B46;">
             <el-icon><Box /></el-icon> 3. Kiểm đếm hàng hóa
           </div>
           <span class="text-xs font-bold text-gray-500">Tổng: {{ partialRows.length }} Lô</span>
@@ -181,19 +175,49 @@
     </el-card>
 
     <!-- KHỐI 4: LỊCH SỬ PHIẾU ĐÃ NHẬP -->
-    <el-card v-if="!selectedTransfer" shadow="never" class="!border-gray-200 !rounded-xl mt-6">
+    <el-card v-if="!selectedTransfer" shadow="never" class="!border-[#0F2B46]/20 !rounded-xl mt-6">
       <template #header>
-        <div class="flex items-center gap-2 font-bold text-gray-700">
-          <el-icon><List /></el-icon> Lịch sử Phiếu đã nhập gần đây
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 font-bold" style="color: #0F2B46;">
+            <el-icon><List /></el-icon> Lịch sử Phiếu đã nhập
+            <el-tag size="small" effect="plain" class="ml-2">{{ filteredImportedTransfers.length }}</el-tag>
+          </div>
+          <div class="flex items-center gap-3">
+            <el-input 
+              v-model="historySearch" 
+              placeholder="Tìm mã phiếu..." 
+              :prefix-icon="Search" 
+              clearable 
+              size="small" 
+              class="!w-52"
+            />
+            <el-select v-model="historyStatusFilter" size="small" clearable placeholder="Trạng thái" class="!w-40">
+              <el-option label="Hoàn thành" value="COMPLETED" />
+              <el-option label="Hoàn thành một phần" value="PARTIAL_COMPLETED" />
+            </el-select>
+            <el-select v-model="historyTenantFilter" size="small" filterable clearable placeholder="Đơn vị xuất" class="!w-48">
+              <el-option 
+                v-for="tid in uniqueFromTenants" 
+                :key="tid" 
+                :label="getTenantName(tid)" 
+                :value="tid" 
+              />
+            </el-select>
+          </div>
         </div>
       </template>
-      <el-table :data="importedTransfers" border stripe class="modern-table" empty-text="Chưa có phiếu nào được nhập">
-        <el-table-column label="Mã Phiếu" width="160">
-          <template #default="{ row }">
-            <span class="font-mono font-bold text-blue-600">{{ row.transferCode }}</span>
+      <el-table :data="paginatedImportedTransfers" border stripe class="modern-table" empty-text="Chưa có phiếu nào được nhập">
+        <el-table-column label="STT" width="55" align="center">
+          <template #default="{ $index }">
+            {{ (historyPage - 1) * historyPageSize + $index + 1 }}
           </template>
         </el-table-column>
-        <el-table-column label="Ngày Nhập" width="140">
+        <el-table-column label="Mã Phiếu" width="180">
+          <template #default="{ row }">
+            <span class="font-mono font-bold cursor-pointer hover:underline" style="color: #0F2B46;" @click="viewDetail(row)">{{ row.transferCode }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Ngày Nhập" width="180">
           <template #default="{ row }">
             <div class="flex items-center gap-1 text-xs">
               <el-icon><Calendar /></el-icon> {{ formatDate(row.importedAt || row.updatedAt) }}
@@ -217,58 +241,151 @@
         </el-table-column>
         <el-table-column label="Thao tác" width="100" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link icon="View" @click="viewDetail(row)">Chi tiết</el-button>
+            <el-tooltip content="Xem chi tiết" placement="top">
+              <el-button type="primary" :icon="View" circle size="small" @click="viewDetail(row)" />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="filteredImportedTransfers.length > historyPageSize" class="flex justify-end mt-4">
+        <el-pagination 
+          v-model:current-page="historyPage" 
+          :page-size="historyPageSize" 
+          :total="filteredImportedTransfers.length" 
+          layout="total, prev, pager, next" 
+          small 
+        />
+      </div>
     </el-card>
 
     <!-- Dialog xem chi tiết phiếu đã nhập -->
-    <el-dialog v-model="detailVisible" title="Chi tiết Phiếu Nhập" width="600px" append-to-body destroy-on-close class="rounded-dialog">
-      <div v-if="detailRow" class="space-y-4">
-        <div class="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
-          <div>
-            <div class="text-gray-400 text-[10px] uppercase font-bold">Mã Phiếu</div>
-            <div class="font-mono font-bold">{{ detailRow.transferCode }}</div>
+    <el-dialog v-model="detailVisible" width="900px" append-to-body destroy-on-close :show-close="false" class="branded-import-detail-dialog">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">Chi tiết Phiếu Nhập</span>
+            <span v-if="detailRow" class="px-2 py-0.5 text-xs font-mono font-bold text-blue-200 bg-white/10 border border-white/20 rounded">
+              {{ detailRow.transferCode }}
+            </span>
+            <el-tag v-if="detailRow" :type="getTransferStatusType(detailRow.status)" effect="dark" size="small">
+              {{ getTransferStatusLabel(detailRow.status) }}
+            </el-tag>
           </div>
-          <div>
-            <div class="text-gray-400 text-[10px] uppercase font-bold">Ngày Nhập</div>
-            <div class="font-medium">{{ formatDate(detailRow.importedAt || detailRow.updatedAt) }}</div>
-          </div>
-          <div>
-            <div class="text-gray-400 text-[10px] uppercase font-bold">Đơn vị xuất</div>
-            <div class="font-bold text-green-700">{{ getTenantName(detailRow.fromTenantId) }}</div>
-          </div>
-          <div>
-            <div class="text-gray-400 text-[10px] uppercase font-bold">Trạng thái</div>
+          <el-button type="info" link :icon="Close" @click="detailVisible = false" style="color: rgba(255,255,255,0.8); font-size: 20px;" />
+        </div>
+      </template>
+
+      <div v-if="detailRow" style="padding: 24px;" class="space-y-5">
+        <!-- Thông tin tổng quan -->
+        <el-descriptions border :column="3" class="detail-descriptions">
+          <el-descriptions-item label="Mã Phiếu">
+            <span class="font-mono font-bold" style="color: #0F2B46;">{{ detailRow.transferCode }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="Ngày Nhập">
+            {{ formatDate(detailRow.importedAt || detailRow.updatedAt) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="Trạng thái">
             <el-tag size="small" :type="getTransferStatusType(detailRow.status)">{{ getTransferStatusLabel(detailRow.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="Đơn vị xuất">
+            <span class="font-bold" style="color: #00875A;">{{ getTenantName(detailRow.fromTenantId) }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="Tổng số lô">
+            <span class="font-bold">{{ detailRow.items?.length || 0 }}</span> lô
+          </el-descriptions-item>
+          <el-descriptions-item label="Tổng khối lượng">
+            <span class="text-lg font-bold" style="color: #0F2B46;">{{ detailRow.items?.reduce((s: number, i: any) => s + (Number(i.receivedQuantity || i.expectedQuantity) || 0), 0).toLocaleString() }}</span>
+            <span class="text-gray-400 ml-1">kg</span>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- Ghi chú -->
+        <div v-if="detailRow.notes" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div class="text-xs text-gray-400 uppercase font-bold mb-1">Ghi chú</div>
+          <div class="text-sm text-gray-700">{{ detailRow.notes }}</div>
+        </div>
+
+        <!-- Danh sách hàng hóa -->
+        <div>
+          <div class="flex items-center gap-2 mb-3 text-sm font-bold uppercase tracking-wide" style="color: #0F2B46;">
+            <div class="w-1 h-5 bg-blue-500 rounded-full"></div>
+            <el-icon><Box /></el-icon> Danh sách hàng hóa thực nhập
+          </div>
+          <el-table :data="detailRow.items" border size="small" stripe>
+            <el-table-column label="STT" type="index" width="50" align="center" />
+            <el-table-column label="Mã lô" min-width="160">
+              <template #default="{ row }">
+                <span class="font-mono font-bold" style="color: #0F2B46;">{{ row.batch?.batchCode || row.batchId }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Sản phẩm" min-width="180">
+              <template #default="{ row }">
+                <span class="text-sm font-medium text-gray-700">{{ row.batch?.product?.name || '---' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Khối lượng (KG)" width="130" align="right">
+              <template #default="{ row }">
+                <span class="font-bold" style="color: #00875A;">{{ (Number(row.receivedQuantity || row.expectedQuantity) || 0).toLocaleString() }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Số bao" width="90" align="center">
+              <template #default="{ row }">
+                <span class="font-bold text-gray-700">{{ row.batch?.packCount || '---' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Mã" width="80" align="center">
+              <template #default="{ row }">
+                <el-tooltip content="Xem danh sách mã" placement="top">
+                  <el-button type="primary" size="small" link @click="loadBatchCodes(row.batch?.id || row.batchId)" :loading="loadingCodesForBatch === (row.batch?.id || row.batchId)">
+                    <el-icon><List /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- Danh sách mã (hiện khi bấm "Xem mã") -->
+        <div v-if="batchCodesVisible && batchCodesList.length > 0" class="border border-blue-200 rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5" style="background: #0F2B46;">
+            <div class="text-white text-xs font-bold flex items-center gap-2">
+              <el-icon><List /></el-icon>
+              Danh sách mã — {{ batchCodesLabel }}
+              <el-tag effect="dark" size="small" type="info" class="ml-1">{{ batchCodesList.length }} mã</el-tag>
+            </div>
+            <el-button size="small" link style="color: rgba(255,255,255,0.8);" @click="batchCodesVisible = false">
+              <el-icon><Close /></el-icon>
+            </el-button>
+          </div>
+          <div class="max-h-60 overflow-y-auto">
+            <el-table :data="batchCodesList" size="small" stripe>
+              <el-table-column label="STT" type="index" width="50" align="center" />
+              <el-table-column label="Serial" min-width="150">
+                <template #default="{ row }">
+                  <span class="font-mono text-xs font-bold" style="color: #0F2B46;">{{ row.serialNumber }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="QR Code" min-width="200">
+                <template #default="{ row }">
+                  <span class="font-mono text-xs text-gray-500">{{ row.fullQrCode || '---' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Trạng thái" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.status === 'ACTIVE' ? 'success' : row.status === 'SOLD' ? 'danger' : 'info'" effect="light">
+                    {{ productItemStatusMap[row.status] || row.status }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </div>
-
-        <div class="font-bold text-gray-700 flex items-center gap-2">
-           <el-icon><Box /></el-icon> Danh sách hàng hóa thực nhập
-        </div>
-
-        <el-table :data="detailRow.items" border size="small">
-          <el-table-column label="Mã lô" min-width="140">
-            <template #default="{ row }">
-              <span class="font-mono text-xs">{{ row.batch?.batchCode || row.batchId }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="Sản phẩm" min-width="150">
-            <template #default="{ row }">
-              <span class="text-xs">{{ row.batch?.product?.name || '---' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="Khối lượng (KG)" width="120" align="right">
-            <template #default="{ row }">
-              <span class="font-bold text-blue-600">{{ row.receivedQuantity || row.expectedQuantity }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
       </div>
+
       <template #footer>
-        <el-button @click="detailVisible = false">Đóng</el-button>
+        <div style="display: flex; justify-content: flex-end; padding: 12px 24px; border-top: 1px solid #e5e7eb;">
+          <el-button @click="detailVisible = false" style="border-radius: 8px; padding: 10px 24px;">Đóng</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -308,6 +425,7 @@ import {
 import dayjs from 'dayjs';
 import { useAuthStore } from '@/modules/core/store/auth';
 import WarehouseCreateDialog from '../components/WarehouseCreateDialog.vue';
+import { productItemStatusMap } from '@/common/utils/vi-labels';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -338,6 +456,28 @@ const partialRows = ref<Array<{ batch_id: string; expected_quantity: number; rec
 const detailVisible = ref(false);
 const detailRow = ref<any>(null);
 
+// Batch codes viewer
+const batchCodesVisible = ref(false);
+const batchCodesList = ref<any[]>([]);
+const batchCodesLabel = ref('');
+const loadingCodesForBatch = ref('');
+
+const loadBatchCodes = async (batchId: string) => {
+  if (!batchId) return;
+  loadingCodesForBatch.value = batchId;
+  try {
+    const { data } = await supplyApi.getBatchItems(batchId);
+    batchCodesList.value = data || [];
+    // Find batch code for label
+    const item = detailRow.value?.items?.find((i: any) => (i.batch?.id || i.batchId) === batchId);
+    batchCodesLabel.value = item?.batch?.batchCode || batchId;
+    batchCodesVisible.value = true;
+  } catch (e) {
+    ElMessage.error('Không thể tải danh sách mã.');
+  } finally {
+    loadingCodesForBatch.value = '';
+  }
+};
 // Computed
 const pendingTransfers = computed(() => {
   const currentTenantId = authStore.user?.tenantId;
@@ -353,6 +493,38 @@ const importedTransfers = computed(() => {
     t.toTenantId === currentTenantId &&
     (t.status === 'COMPLETED' || t.status === 'PARTIAL_COMPLETED')
   );
+});
+
+// History filters & pagination
+const historySearch = ref('');
+const historyStatusFilter = ref('');
+const historyTenantFilter = ref('');
+const historyPage = ref(1);
+const historyPageSize = 10;
+
+const uniqueFromTenants = computed(() => {
+  const ids = new Set(importedTransfers.value.map((t: any) => t.fromTenantId));
+  return Array.from(ids);
+});
+
+const filteredImportedTransfers = computed(() => {
+  let list = importedTransfers.value;
+  if (historySearch.value) {
+    const q = historySearch.value.toLowerCase();
+    list = list.filter((t: any) => t.transferCode?.toLowerCase().includes(q));
+  }
+  if (historyStatusFilter.value) {
+    list = list.filter((t: any) => t.status === historyStatusFilter.value);
+  }
+  if (historyTenantFilter.value) {
+    list = list.filter((t: any) => t.fromTenantId === historyTenantFilter.value);
+  }
+  return list;
+});
+
+const paginatedImportedTransfers = computed(() => {
+  const start = (historyPage.value - 1) * historyPageSize;
+  return filteredImportedTransfers.value.slice(start, start + historyPageSize);
 });
 
 const selectedTransfer = computed(() => {
@@ -626,10 +798,28 @@ onMounted(() => {
   color: #374151;
 }
 .modern-table :deep(.el-table__header-wrapper) th {
-  background-color: #f9fafb;
-  color: #374151;
+  background-color: #0F2B46;
+  color: #fff;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 11px;
+}
+</style>
+
+<style>
+.branded-import-detail-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-import-detail-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-import-detail-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-import-detail-dialog .el-dialog__footer {
+  padding: 0 !important;
 }
 </style>
