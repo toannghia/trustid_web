@@ -30,6 +30,30 @@
       </div>
 
       <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+          <el-form-item label="Sản phẩm thu hoạch" prop="product_id">
+              <el-select v-model="form.product_id" filterable placeholder="Chọn sản phẩm..." class="w-full" size="large">
+                  <el-option-group v-if="cycleProducts && cycleProducts.length > 0" label="Sản phẩm liên kết vụ mùa">
+                      <el-option
+                          v-for="cp in cycleProducts"
+                          :key="cp.productId"
+                          :label="cp.product?.name || '---'"
+                          :value="cp.productId"
+                      />
+                  </el-option-group>
+                  <el-option-group label="Tất cả sản phẩm">
+                      <el-option
+                          v-for="p in otherProducts"
+                          :key="p.id"
+                          :label="p.name"
+                          :value="p.id"
+                      />
+                  </el-option-group>
+              </el-select>
+              <div class="text-xs text-gray-500 mt-1">
+                  Chọn sản phẩm cụ thể thu hoạch được từ vụ mùa này để tạo lô đóng gói.
+              </div>
+          </el-form-item>
+
           <el-form-item label="Sản lượng thực tế (kg)" prop="quantity_kg">
               <el-input-number v-model="form.quantity_kg" :min="1" class="w-full" size="large" />
           </el-form-item>
@@ -58,17 +82,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { Warning, Check } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi } from '../api/farmApi';
+import { productApi } from '@/modules/core/api/product';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps<{
     modelValue: boolean;
     cycleId: string;
     cycleName: string;
+    cycleProducts?: Array<{
+        id: string;
+        productId: string;
+        product?: { id: string; name: string };
+        isPrimary: boolean;
+    }>;
 }>();
 
 const emit = defineEmits(['update:modelValue', 'success']);
@@ -80,15 +111,52 @@ const visible = computed({
 
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
+const allProducts = ref<any[]>([]);
 
 const form = reactive({
     quantity_kg: 0,
-    notes: ''
+    notes: '',
+    product_id: ''
 });
 
 const rules = reactive<FormRules>({
-    quantity_kg: [{ required: true, message: 'Vui lòng nhập sản lượng', trigger: 'blur' }]
+    quantity_kg: [{ required: true, message: 'Vui lòng nhập sản lượng', trigger: 'blur' }],
+    product_id: [{ required: true, message: 'Vui lòng chọn sản phẩm', trigger: 'change' }]
 });
+
+const cycleProductIds = computed(() => props.cycleProducts?.map(cp => cp.productId) || []);
+const otherProducts = computed(() => {
+    return allProducts.value.filter(p => !cycleProductIds.value.includes(p.id));
+});
+
+const loadProducts = async () => {
+    try {
+        const { data } = await productApi.getList({ limit: 200 });
+        allProducts.value = data?.data || data?.items || (Array.isArray(data) ? data : []);
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+watch(() => props.modelValue, (val) => {
+    if (val) {
+        loadProducts();
+    }
+}, { immediate: true });
+
+watch(() => [props.modelValue, props.cycleProducts], ([val, products]) => {
+    if (val) {
+        const cycleProductsArray = (products as any[]) || [];
+        const primary = cycleProductsArray.find(cp => cp.isPrimary);
+        if (primary) {
+            form.product_id = primary.productId;
+        } else if (cycleProductsArray.length > 0) {
+            form.product_id = cycleProductsArray[0].productId;
+        } else {
+            form.product_id = '';
+        }
+    }
+}, { deep: true, immediate: true });
 
 const submitHarvest = async () => {
     if (!formRef.value) return;
@@ -98,6 +166,7 @@ const submitHarvest = async () => {
             try {
                 const { data } = await farmApi.createHarvest({
                     crop_cycle_id: props.cycleId,
+                    product_id: form.product_id,
                     quantity_kg: form.quantity_kg,
                     notes: form.notes
                 });
@@ -128,6 +197,7 @@ const resetForm = () => {
     if (formRef.value) formRef.value.resetFields();
     form.quantity_kg = 0;
     form.notes = '';
+    form.product_id = '';
 };
 </script>
 

@@ -48,7 +48,7 @@
                     <el-option 
                         v-for="h in harvestList" 
                         :key="h.id" 
-                        :label="`${h.batchCode} (${h.productName || 'Chưa rõ SP'}) - ${h.quantityKg}kg`" 
+                        :label="`${h.batchCode} (${h.product?.name || h.productName || 'Chưa rõ SP'}) - ${h.quantityKg}kg`" 
                         :value="h.batchCode" 
                     />
                  </el-select>

@@ -62,6 +62,12 @@ export interface CropCycle {
     startDate: string;
     status: string;
     location?: Location;
+    cycleProducts?: Array<{
+        id: string;
+        productId: string;
+        product?: { id: string; name: string };
+        isPrimary: boolean;
+    }>;
 }
 
 export interface Material {
@@ -94,6 +100,8 @@ export interface Harvest {
     status: string; // CREATED, READY_FOR_PACKAGING, COMPLETED
     expiryDate?: string;
     cropCycle?: CropCycle;
+    productId?: string;
+    product?: { id: string; name: string };
 }
 
 export interface KcsInspection {
@@ -160,11 +168,20 @@ export const farmApi = {
     getCycles(params?: any) {
         return api.get<any>(`${baseUrl}/cycles`, { params });
     },
-    startCycle(data: { location_id: string; template_id: string; name: string; start_date: string }) {
+    startCycle(data: { location_id: string; template_id: string; name: string; start_date: string; product_ids?: string[] }) {
         return api.post<CropCycle>(`${baseUrl}/cycles`, data);
     },
     updateCycle(id: string, data: Partial<{ location_id: string; template_id: string; name: string; start_date: string }>) {
         return api.patch<CropCycle>(`${baseUrl}/cycles/${id}`, data);
+    },
+    addCycleProducts(cycleId: string, productIds: string[]) {
+        return api.post(`${baseUrl}/cycles/${cycleId}/products`, { product_ids: productIds });
+    },
+    removeCycleProduct(cycleId: string, productId: string) {
+        return api.delete(`${baseUrl}/cycles/${cycleId}/products/${productId}`);
+    },
+    getCycleProducts(cycleId: string) {
+        return api.get<any[]>(`${baseUrl}/cycles/${cycleId}/products`);
     },
 
     // Tasks (Logs)
@@ -197,7 +214,7 @@ export const farmApi = {
     },
 
     // Harvest
-    createHarvest(data: { crop_cycle_id: string; quantity_kg: number; notes?: string }) {
+    createHarvest(data: { crop_cycle_id: string; product_id: string; quantity_kg: number; notes?: string }) {
         return api.post<{ id: string; batchCode: string }>(`${baseUrl}/harvests`, data);
     },
     getHarvests(params?: { status?: string }) {

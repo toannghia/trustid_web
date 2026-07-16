@@ -125,7 +125,7 @@
               <el-option
                 v-for="h in filteredHarvests"
                 :key="h.batchCode"
-                :label="`${h.batchCode} (${h.cropCycle?.location?.plantType || h.productName || 'Chưa rõ SP'}) — Khối lượng còn lại: ${h.quantityKg.toFixed(1)} kg`"
+                :label="`${h.batchCode} (${h.product?.name || h.cropCycle?.location?.plantType || h.productName || 'Chưa rõ SP'}) — Khối lượng còn lại: ${h.quantityKg.toFixed(1)} kg`"
                 :value="h.batchCode"
               />
             </el-select>
@@ -404,11 +404,17 @@ const filteredSourceBatches = computed(() => {
   });
 });
 
-// Filter harvest lots dynamically based on selected product name
+// Filter harvest lots dynamically based on selected product name or product ID
 const filteredHarvests = computed(() => {
   if (!form.product_id || !selectedProduct.value) return [];
+  const prodId = form.product_id;
   const prodName = selectedProduct.value.name.toLowerCase();
   return harvestList.value.filter((h: any) => {
+    // Match by product ID directly if linked
+    if (h.productId === prodId || h.product?.id === prodId) {
+      return true;
+    }
+    // Fallback to name-matching logic for legacy harvests
     const plantType = h.cropCycle?.location?.plantType?.toLowerCase() || h.productName?.toLowerCase() || '';
     return plantType && (prodName.includes(plantType) || plantType.includes(prodName));
   });

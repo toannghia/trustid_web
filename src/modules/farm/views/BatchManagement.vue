@@ -36,6 +36,12 @@
              </template>
         </el-table-column>
 
+        <el-table-column label="Sản phẩm" min-width="150">
+             <template #default="{ row }">
+                {{ row.product?.name || '---' }}
+             </template>
+        </el-table-column>
+
         <el-table-column label="Ngày thu hoạch" width="150">
            <template #default="{ row }">
               {{ formatDate(row.harvestDate) }}
@@ -90,7 +96,8 @@
             <div class="mb-6 p-4 bg-blue-50 rounded-lg flex justify-between items-start">
                 <div>
                    <h3 class="font-bold text-lg text-blue-800">{{ selectedBatch.batchCode }}</h3>
-                   <p class="text-gray-600 text-sm mt-1">Vụ: {{ selectedBatch.cropCycle?.name }}</p>
+                   <p class="text-gray-600 text-sm mt-1">Sản phẩm: <strong>{{ selectedBatch.product?.name || '---' }}</strong></p>
+                   <p class="text-gray-600 text-sm">Vụ: {{ selectedBatch.cropCycle?.name }}</p>
                    <p class="text-gray-600 text-sm">Vùng trồng: {{ selectedBatch.cropCycle?.location?.name }}</p>
                 </div>
                 <div class="text-right">

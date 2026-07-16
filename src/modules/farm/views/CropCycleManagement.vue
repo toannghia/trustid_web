@@ -18,7 +18,8 @@
                 <el-input v-model="searchKeyword" placeholder="Tìm vụ mùa..." class="w-64" prefix-icon="Search" clearable />
                 <el-select v-model="filterStatus" placeholder="Trạng thái" clearable class="w-40">
                     <el-option label="Tất cả" value="" />
-                    <el-option label="Đang diễn ra" value="ACTIVE" />
+                    <el-option label="Đang canh tác" value="ACTIVE" />
+                    <el-option label="Đã thu hoạch" value="HARVESTED" />
                     <el-option label="Hoàn thành" value="COMPLETED" />
                     <el-option label="Đã hủy" value="CANCELLED" />
                 </el-select>
@@ -43,9 +44,20 @@
                     {{ formatDate(row.startDate) }}
                 </template>
                 </el-table-column>
+                <el-table-column label="Sản phẩm" min-width="200">
+                  <template #default="{ row }">
+                    <el-tag v-for="cp in (row.cycleProducts || [])" :key="cp.id"
+                            size="small" class="mr-1 mb-1" type="success">
+                      {{ cp.product?.name || '---' }}
+                    </el-tag>
+                    <span v-if="!row.cycleProducts?.length" class="text-gray-400">---</span>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="status" label="Trạng thái" width="120">
                 <template #default="{ row }">
-                    <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? 'Đang canh tác' : row.status === 'COMPLETED' ? 'Đã thu hoạch' : row.status === 'PLANNED' ? 'Kế hoạch' : row.status }}</el-tag>
+                    <el-tag :type="row.status === 'ACTIVE' ? 'success' : row.status === 'CANCELLED' ? 'danger' : 'info'">
+                        {{ seasonStatusMap[row.status] || row.status }}
+                    </el-tag>
                 </template>
                 </el-table-column>
                 <el-table-column label="Thao tác" width="200" align="center" fixed="right">
@@ -147,6 +159,15 @@
           />
         </el-form-item>
 
+        <el-form-item label="Sản phẩm dự kiến" prop="product_ids">
+          <el-select v-model="form.product_ids" multiple filterable placeholder="Chọn sản phẩm..." class="w-full">
+            <el-option v-for="p in allProducts" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+          <div class="text-xs text-gray-500 mt-1">
+            Sản phẩm sẽ được gợi ý khi thu hoạch. Có thể thay đổi sau.
+          </div>
+        </el-form-item>
+
       </el-form>
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
@@ -163,6 +184,7 @@
         v-model="showHarvestModal" 
         :cycle-id="selectedCycle?.id"
         :cycle-name="selectedCycle?.name"
+        :cycle-products="selectedCycle?.cycleProducts"
         @success="loadData"
     />
   </div>
@@ -173,16 +195,19 @@ import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { VideoPlay, Search } from '@element-plus/icons-vue';
 import { ElMessage, type FormInstance } from 'element-plus';
 import { farmApi, type CropCycle, type Location, type ProcessTemplate } from '../api/farmApi';
+import { productApi } from '@/modules/core/api/product';
 import dayjs from 'dayjs';
 import HarvestModal from '../components/HarvestModal.vue';
 import BatchManagement from './BatchManagement.vue';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
+import { seasonStatusMap } from '@/common/utils/vi-labels';
 
 const activeTab = ref('cycles');
 
 const cycles = ref<CropCycle[]>([]);
 const locations = ref<Location[]>([]);
 const templates = ref<ProcessTemplate[]>([]);
+const allProducts = ref<any[]>([]);
 
 const loading = ref(false);
 const showStartModal = ref(false);
@@ -239,7 +264,8 @@ const form = reactive({
   name: '',
   location_id: '',
   template_id: '',
-  start_date: dayjs().format('YYYY-MM-DD')
+  start_date: dayjs().format('YYYY-MM-DD'),
+  product_ids: [] as string[]
 });
 
 const rules = {
@@ -281,12 +307,14 @@ const loadData = async () => {
 
 const loadDropdowns = async () => {
     try {
-        const [locRes, tplRes] = await Promise.all([
+        const [locRes, tplRes, prodRes] = await Promise.all([
             farmApi.getLocations(),
-            farmApi.getTemplates()
+            farmApi.getTemplates(),
+            productApi.getList({ limit: 200 })
         ]);
         locations.value = locRes.data;
         templates.value = tplRes.data;
+        allProducts.value = prodRes.data?.data || prodRes.data?.items || (Array.isArray(prodRes.data) ? prodRes.data : []);
     } catch (err) {
         ElMessage.error('Lỗi tải dữ liệu danh mục');
     }
@@ -299,6 +327,7 @@ const openStartModal = async () => {
     form.location_id = '';
     form.template_id = '';
     form.start_date = dayjs().format('YYYY-MM-DD');
+    form.product_ids = [];
     
     showStartModal.value = true;
     await loadDropdowns();
@@ -307,6 +336,7 @@ const openStartModal = async () => {
 const openEditModal = async (row: CropCycle) => {
     isEditing.value = true;
     currentId.value = row.id;
+    selectedCycle.value = row;
     
     // Determine IDs. 
     // row.location is object, row.locationId is ID (if api returns it, else use row.location?.id)
@@ -314,6 +344,7 @@ const openEditModal = async (row: CropCycle) => {
     form.location_id = row.locationId || row.location?.id || '';
     form.template_id = row.templateId || ''; 
     form.start_date = row.startDate ? dayjs(row.startDate).format('YYYY-MM-DD') : '';
+    form.product_ids = row.cycleProducts?.map(cp => cp.productId) || [];
 
     showStartModal.value = true;
     await loadDropdowns();
@@ -331,7 +362,23 @@ const submitForm = async () => {
       submitting.value = true;
       try {
         if (isEditing.value && currentId.value) {
-            await farmApi.updateCycle(currentId.value, form);
+            await farmApi.updateCycle(currentId.value, {
+                location_id: form.location_id,
+                template_id: form.template_id,
+                name: form.name,
+                start_date: form.start_date
+            });
+            // Update M2M product associations
+            const originalProductIds = selectedCycle.value?.cycleProducts?.map(cp => cp.productId) || [];
+            const added = form.product_ids.filter(id => !originalProductIds.includes(id));
+            const removed = originalProductIds.filter(id => !form.product_ids.includes(id));
+
+            if (added.length > 0) {
+                await farmApi.addCycleProducts(currentId.value, added);
+            }
+            if (removed.length > 0) {
+                await Promise.all(removed.map(pid => farmApi.removeCycleProduct(currentId.value!, pid)));
+            }
             ElMessage.success('Cập nhật vụ mùa thành công');
         } else {
             await farmApi.startCycle(form);
