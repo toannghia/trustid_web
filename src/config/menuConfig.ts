@@ -27,9 +27,9 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     label: 'TỔNG QUAN',
     icon: Odometer,
     items: [
-      { title: 'Dashboard', path: '/', permission: 'SYSTEM_TENANT_MANAGE', icon: Monitor },
-      { title: 'Doanh nghiệp', path: '/tenant-dashboard', permission: 'TENANT_VIEW', icon: OfficeBuilding },
-      { title: 'Giám sát (Audit)', path: '/regulator/audit', permission: 'TRACE_AUDIT', icon: View },
+      { title: 'Dashboard', path: '/', permission: 'DASHBOARD_SYSTEM_VIEW', icon: Monitor },
+      { title: 'Doanh nghiệp', path: '/tenant-dashboard', permission: 'DASHBOARD_TENANT_VIEW', icon: OfficeBuilding },
+      { title: 'Giám sát (Audit)', path: '/regulator/audit', permission: 'DASHBOARD_GOV_VIEW', icon: View },
     ]
   },
   {

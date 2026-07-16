@@ -37,6 +37,11 @@ export const batchStatusMap: Record<string, string> = {
   SHIPPED: 'Đã xuất kho',
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
+  CREATED: 'Mới (Tại nông trại)',
+  READY_FOR_PACKAGING: 'Chờ đóng gói',
+  PACKAGING: 'Đang đóng gói',
+  FARM: 'Nông trại',
+  EXTERNAL: 'Nhập ngoài',
 };
 
 // ========== Loại lô (SupplyBatch.batchType) ==========
