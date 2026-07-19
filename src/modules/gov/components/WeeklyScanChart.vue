@@ -18,7 +18,7 @@ import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 
-const props = defineProps<{ province?: string; tenantId?: string }>();
+const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const weekOffset = ref(0);
@@ -42,6 +42,7 @@ const fetchData = async () => {
     const params: any = { weekOffset: weekOffset.value };
     if (props.province) params.province = props.province;
     if (props.tenantId) params.tenantId = props.tenantId;
+    if (props.ward) params.ward = props.ward;
     const { data: res } = await api.get('/api/gov/weekly-scans', { params });
     weekStart.value = res.weekStart;
     weekEnd.value = res.weekEnd;
@@ -74,11 +75,11 @@ const renderChart = () => {
       type: 'line',
       smooth: true,
       data: scanData.value.map(d => d.count),
-      lineStyle: { color: '#6366f1', width: 2.5 },
-      itemStyle: { color: '#6366f1' },
+      lineStyle: { color: '#00875A', width: 2.5 },
+      itemStyle: { color: '#00875A' },
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(99,102,241,0.25)' },
-        { offset: 1, color: 'rgba(99,102,241,0.02)' },
+        { offset: 0, color: 'rgba(0,135,90,0.25)' },
+        { offset: 1, color: 'rgba(0,135,90,0.02)' },
       ])},
       symbol: 'circle',
       symbolSize: 6,
@@ -87,7 +88,7 @@ const renderChart = () => {
 };
 
 onMounted(fetchData);
-watch(() => [props.province, props.tenantId], () => { weekOffset.value = 0; fetchData(); });
+watch(() => [props.province, props.tenantId, props.ward], () => { weekOffset.value = 0; fetchData(); });
 </script>
 
 <style scoped>

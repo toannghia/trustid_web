@@ -139,27 +139,27 @@
 
       <!-- Weekly Scan + Top Scan Provinces stacked -->
       <div class="flex flex-col gap-6">
-        <WeeklyScanChart :province="selectedProvince" />
-        <TopScanProvincesChart :province="selectedProvince" />
+        <WeeklyScanChart :province="selectedProvince" :ward="selectedWard" />
+        <TopScanProvincesChart :province="selectedProvince" :ward="selectedWard" />
       </div>
     </div>
 
     <!-- Blockchain + Diary -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <BlockchainReportCard />
-      <ProductionDiaryReport :province="selectedProvince" />
+      <ProductionDiaryReport :province="selectedProvince" :ward="selectedWard" />
     </div>
 
     <!-- QR Issuance + Seasonal Harvest -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <QrIssuanceChart :province="selectedProvince" />
-      <SeasonalHarvestChart :province="selectedProvince" />
+      <QrIssuanceChart :province="selectedProvince" :ward="selectedWard" />
+      <SeasonalHarvestChart :province="selectedProvince" :ward="selectedWard" />
     </div>
 
     <!-- Top Products + Top Tenants by Scans -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <TopScanProductsChart />
-      <TopScanTenantsChart />
+      <TopScanProductsChart :province="selectedProvince" :ward="selectedWard" />
+      <TopScanTenantsChart :province="selectedProvince" :ward="selectedWard" />
     </div>
 
     <!-- Products & Enterprises -->

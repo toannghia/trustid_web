@@ -42,7 +42,7 @@ import { ref, onMounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
-const props = defineProps<{ province?: string; tenantId?: string }>();
+const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 
@@ -59,6 +59,7 @@ const fetchData = async () => {
     const params: any = {};
     if (props.province) params.province = props.province;
     if (props.tenantId) params.tenantId = props.tenantId;
+    if (props.ward) params.ward = props.ward;
     const { data: res } = await api.get('/api/gov/production-diary', { params });
     data.value = res;
     await nextTick();
@@ -90,18 +91,18 @@ const renderChart = () => {
       type: 'line',
       smooth: true,
       data: weeks.map(w => w.count),
-      lineStyle: { color: '#3b82f6', width: 2.5 },
-      itemStyle: { color: '#3b82f6' },
+      lineStyle: { color: '#00875A', width: 2.5 },
+      itemStyle: { color: '#00875A' },
       areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(59,130,246,0.2)' },
-        { offset: 1, color: 'rgba(59,130,246,0.02)' },
+        { offset: 0, color: 'rgba(0,135,90,0.2)' },
+        { offset: 1, color: 'rgba(0,135,90,0.02)' },
       ])},
     }],
   });
 };
 
 onMounted(fetchData);
-watch(() => [props.province, props.tenantId], fetchData);
+watch(() => [props.province, props.tenantId, props.ward], fetchData);
 </script>
 
 <style scoped>

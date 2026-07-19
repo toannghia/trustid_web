@@ -162,6 +162,7 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
       { title: 'Quản lý Sao lưu', path: '/admin/backups', permission: 'SYSTEM_BACKUP', icon: Document },
       { title: 'Mini App Analytics', path: '/admin/miniapp-analytics', permission: 'SYSTEM_MINIAPP', icon: TrendCharts },
       { title: 'Công cụ Database', path: '/admin/db-tools', permission: 'SYSTEM_DB_TOOLS', icon: Monitor },
+      { title: 'Cấu hình hiển thị SP', path: '/admin/consumer-display', permission: 'SYSTEM_CONSUMER_DISPLAY', icon: Goods },
     ]
   },
 ];

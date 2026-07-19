@@ -6,9 +6,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
+
+const props = defineProps<{ province?: string; ward?: string }>();
 
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
@@ -16,7 +18,10 @@ const topData = ref<{ tenantName: string; count: number }[]>([]);
 
 const fetchData = async () => {
   try {
-    const res = await api.get('/api/gov/top-scan-tenants');
+    const params: any = {};
+    if (props.province) params.province = props.province;
+    if (props.ward) params.ward = props.ward;
+    const res = await api.get('/api/gov/top-scan-tenants', { params });
     topData.value = res.data || [];
     await nextTick();
     renderChart();
@@ -59,8 +64,8 @@ const renderChart = () => {
       data: items.map(i => i.count),
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: '#8b5cf6' },
-          { offset: 1, color: '#ec4899' },
+          { offset: 0, color: '#0F2B46' },
+          { offset: 1, color: '#00875A' },
         ]),
         borderRadius: [0, 4, 4, 0],
       },
@@ -84,6 +89,8 @@ onMounted(() => {
   fetchData();
   window.addEventListener('resize', handleResize);
 });
+
+watch(() => [props.province, props.ward], fetchData);
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);

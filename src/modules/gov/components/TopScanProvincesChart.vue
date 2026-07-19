@@ -10,7 +10,7 @@ import { ref, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
-const props = defineProps<{ province?: string }>();
+const props = defineProps<{ province?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const topData = ref<{ province: string; count: number }[]>([]);
@@ -19,6 +19,7 @@ const fetchData = async () => {
   try {
     const params: any = {};
     if (props.province) params.province = props.province;
+    if (props.ward) params.ward = props.ward;
     const res = await api.get('/api/gov/top-scan-provinces', { params });
     topData.value = res.data || [];
     await nextTick();
@@ -58,7 +59,7 @@ onUnmounted(() => {
   }
 });
 
-watch(() => props.province, fetchData);
+watch(() => [props.province, props.ward], fetchData);
 </script>
 
 <style scoped>

@@ -409,15 +409,19 @@ const initMap = async () => {
 };
 
 const renderLocations = () => {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map) return;
+  if (!map.isStyleLoaded()) {
+    map.once('style.load', () => {
+      renderLocations();
+    });
+    return;
+  }
 
-  // Clean up existing sources/layers
-  ['vietnam-provinces-fill', 'vietnam-provinces-outline', 'archipelago-islet-dots', 'farm-polygons-fill', 'farm-polygons-outline', 'farm-points', 'farm-scans'].forEach(id => {
-    if (map!.getLayer(id)) map!.removeLayer(id);
-  });
-  ['vietnam-provinces-source', 'archipelago-islets-source', 'farm-polygons-source', 'farm-points-source', 'farm-scans-source'].forEach(id => {
-    if (map!.getSource(id)) map!.removeSource(id);
-  });
+  // Clear existing popups
+  if (popup) {
+    popup.remove();
+    popup = null;
+  }
 
   // Remove existing markers
   clearMarkers();
@@ -473,66 +477,112 @@ const renderLocations = () => {
     });
   }
 
-  // Add Vietnam Provinces layer
+  const targetName = getGeoJsonProvinceName(props.selectedProvince);
+
+  // 1. Vietnam Provinces Layer
   if (provincesGeoJson) {
-    const targetName = getGeoJsonProvinceName(props.selectedProvince);
+    if (!map.getSource('vietnam-provinces-source')) {
+      map.addSource('vietnam-provinces-source', {
+        type: 'geojson',
+        data: provincesGeoJson,
+      });
 
-    map!.addSource('vietnam-provinces-source', {
-      type: 'geojson',
-      data: provincesGeoJson,
-    });
+      map.addLayer({
+        id: 'vietnam-provinces-fill',
+        type: 'fill',
+        source: 'vietnam-provinces-source',
+        paint: {
+          'fill-color': [
+            'case',
+            ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
+            '#f39c12',
+            '#3498db'
+          ],
+          'fill-opacity': [
+            'case',
+            ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
+            0.3,
+            0.08
+          ]
+        }
+      });
 
-    map!.addLayer({
-      id: 'vietnam-provinces-fill',
-      type: 'fill',
-      source: 'vietnam-provinces-source',
-      paint: {
-        'fill-color': [
+      map.addLayer({
+        id: 'vietnam-provinces-outline',
+        type: 'line',
+        source: 'vietnam-provinces-source',
+        paint: {
+          'line-color': [
+            'case',
+            ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
+            '#d35400',
+            '#ffffff'
+          ],
+          'line-width': [
+            'case',
+            ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
+            2.5,
+            1.0
+          ]
+        }
+      });
+
+      // Bind listeners once for provinces
+      map.on('click', 'vietnam-provinces-fill', (e) => {
+        if (!e.features?.length) return;
+        const feature = e.features[0];
+        const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
+        if (name) {
+          emit('change-province', name);
+        }
+      });
+
+      map.on('mouseenter', 'vietnam-provinces-fill', () => {
+        if (map) map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'vietnam-provinces-fill', () => {
+        if (map) map.getCanvas().style.cursor = '';
+      });
+    } else {
+      // Update paint properties in case selected province changed
+      if (map.getLayer('vietnam-provinces-fill')) {
+        map.setPaintProperty('vietnam-provinces-fill', 'fill-color', [
           'case',
           ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           '#f39c12',
           '#3498db'
-        ],
-        'fill-opacity': [
+        ]);
+        map.setPaintProperty('vietnam-provinces-fill', 'fill-opacity', [
           'case',
           ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           0.3,
           0.08
-        ]
+        ]);
       }
-    });
-
-    map!.addLayer({
-      id: 'vietnam-provinces-outline',
-      type: 'line',
-      source: 'vietnam-provinces-source',
-      paint: {
-        'line-color': [
+      if (map.getLayer('vietnam-provinces-outline')) {
+        map.setPaintProperty('vietnam-provinces-outline', 'line-color', [
           'case',
           ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           '#d35400',
           '#ffffff'
-        ],
-        'line-width': [
+        ]);
+        map.setPaintProperty('vietnam-provinces-outline', 'line-width', [
           'case',
           ['==', ['coalesce', ['get', 'adm1_name1'], ['get', 'adm1_name']], targetName || ''],
           2.5,
           1.0
-        ]
+        ]);
       }
-    });
+    }
   }
 
-  // Island text labels are handled by addIslandMarkers() (DOM-based, always visible)
-  // Small dots for individual islets inside each archipelago
+  // 2. Archipelago Islets Layer
   const isletDots: any[] = [];
-  // Hoàng Sa islets (approximate positions of major islands)
   const hoangSaIslets = [
     [112.33, 16.83], [112.19, 16.52], [112.71, 16.47],
     [111.60, 16.52], [112.00, 16.33], [112.50, 16.97],
     [111.75, 16.70], [112.35, 16.08], [112.89, 16.58]
   ];
-  // Trường Sa islets (approximate positions of major reefs/islands)
   const truongSaIslets = [
     [114.36, 11.05], [115.82, 9.68], [113.85, 10.37],
     [114.08, 8.86], [115.55, 10.73], [114.47, 9.20],
@@ -547,33 +597,37 @@ const renderLocations = () => {
     });
   });
 
-  map!.addSource('archipelago-islets-source', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: isletDots }
-  });
+  if (!map.getSource('archipelago-islets-source')) {
+    map.addSource('archipelago-islets-source', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: isletDots }
+    });
 
-  // Small dots representing individual islets
-  map!.addLayer({
-    id: 'archipelago-islet-dots',
-    type: 'circle',
-    source: 'archipelago-islets-source',
-    paint: {
-      'circle-radius': 3,
-      'circle-color': '#FFF04D',
-      'circle-opacity': 0.8,
-      'circle-stroke-width': 1,
-      'circle-stroke-color': 'rgba(255, 240, 77, 0.4)'
-    }
-  });
+    map.addLayer({
+      id: 'archipelago-islet-dots',
+      type: 'circle',
+      source: 'archipelago-islets-source',
+      paint: {
+        'circle-radius': 3,
+        'circle-color': '#FFF04D',
+        'circle-opacity': 0.8,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': 'rgba(255, 240, 77, 0.4)'
+      }
+    });
+  }
 
-  // Add Polygon layer
-  if (polygonFeatures.length) {
-    map!.addSource('farm-polygons-source', {
+  // 3. Polygon Layer
+  const polySource = map.getSource('farm-polygons-source') as mapboxgl.GeoJSONSource;
+  if (polySource) {
+    polySource.setData({ type: 'FeatureCollection', features: polygonFeatures });
+  } else {
+    map.addSource('farm-polygons-source', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: polygonFeatures },
     });
 
-    map!.addLayer({
+    map.addLayer({
       id: 'farm-polygons-fill',
       type: 'fill',
       source: 'farm-polygons-source',
@@ -583,7 +637,7 @@ const renderLocations = () => {
       },
     });
 
-    map!.addLayer({
+    map.addLayer({
       id: 'farm-polygons-outline',
       type: 'line',
       source: 'farm-polygons-source',
@@ -592,16 +646,41 @@ const renderLocations = () => {
         'line-width': 2.5,
       },
     });
+
+    // Bind listeners
+    map.on('click', 'farm-polygons-fill', (e) => {
+      if (!e.features?.length) return;
+      const props_data = e.features[0].properties;
+      const loc = rebuildLocation(props_data);
+
+      if (popup) popup.remove();
+      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+        .setLngLat(e.lngLat)
+        .setHTML(buildPopupHTML(loc))
+        .addTo(map!);
+
+      emit('select', loc);
+    });
+
+    map.on('mouseenter', 'farm-polygons-fill', () => {
+      if (map) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'farm-polygons-fill', () => {
+      if (map) map.getCanvas().style.cursor = '';
+    });
   }
 
-  // Add Point layer
-  if (pointFeatures.length) {
-    map!.addSource('farm-points-source', {
+  // 4. Point Layer
+  const ptSource = map.getSource('farm-points-source') as mapboxgl.GeoJSONSource;
+  if (ptSource) {
+    ptSource.setData({ type: 'FeatureCollection', features: pointFeatures });
+  } else {
+    map.addSource('farm-points-source', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: pointFeatures },
     });
 
-    map!.addLayer({
+    map.addLayer({
       id: 'farm-points',
       type: 'circle',
       source: 'farm-points-source',
@@ -613,16 +692,42 @@ const renderLocations = () => {
         'circle-opacity': 0.9,
       },
     });
+
+    // Bind listeners
+    map.on('click', 'farm-points', (e) => {
+      if (!e.features?.length) return;
+      const props_data = e.features[0].properties;
+      const loc = rebuildLocation(props_data);
+      const coordinates = (e.features[0].geometry as any).coordinates.slice();
+
+      if (popup) popup.remove();
+      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+        .setLngLat(coordinates)
+        .setHTML(buildPopupHTML(loc))
+        .addTo(map!);
+
+      emit('select', loc);
+    });
+
+    map.on('mouseenter', 'farm-points', () => {
+      if (map) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'farm-points', () => {
+      if (map) map.getCanvas().style.cursor = '';
+    });
   }
 
-  // Add Scan layer
-  if (scanFeatures.length) {
-    map!.addSource('farm-scans-source', {
+  // 5. Scan Layer
+  const scanSource = map.getSource('farm-scans-source') as mapboxgl.GeoJSONSource;
+  if (scanSource) {
+    scanSource.setData({ type: 'FeatureCollection', features: scanFeatures });
+  } else {
+    map.addSource('farm-scans-source', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: scanFeatures },
     });
 
-    map!.addLayer({
+    map.addLayer({
       id: 'farm-scans',
       type: 'circle',
       source: 'farm-scans-source',
@@ -634,112 +739,38 @@ const renderLocations = () => {
         'circle-opacity': 0.9,
       },
     });
-  }
 
-  if (!mapListenersAdded) {
-    // Click and hover on province boundaries
-    if (map!.getLayer('vietnam-provinces-fill')) {
-      map!.on('click', 'vietnam-provinces-fill', (e) => {
-        if (!e.features?.length) return;
-        const feature = e.features[0];
-        const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';
-        if (name) {
-          emit('change-province', name);
-        }
-      });
+    // Bind listeners
+    map.on('click', 'farm-scans', (e) => {
+      if (!e.features?.length) return;
+      const scan = e.features[0].properties as any;
+      const coordinates = (e.features[0].geometry as any).coordinates.slice();
 
-      map!.on('mouseenter', 'vietnam-provinces-fill', () => {
-        if (map) map.getCanvas().style.cursor = 'pointer';
-      });
-      map!.on('mouseleave', 'vietnam-provinces-fill', () => {
-        if (map) map.getCanvas().style.cursor = '';
-      });
-    }
+      if (popup) popup.remove();
+      
+      const scanDate = new Date(scan.createdAt).toLocaleDateString() + ' ' + new Date(scan.createdAt).toLocaleTimeString();
+      const codeString = scan.codeString || scan.code_string || 'N/A';
+      
+      const popupHtml = `
+        <div class="mapbox-popup-content">
+          <div class="popup-title text-red-600">Quét mã: ${codeString}</div>
+          ${scan.address ? `<div class="popup-row popup-address">📍 ${scan.address}</div>` : ''}
+          <div class="popup-row mt-2 text-gray-500">🕒 ${scanDate}</div>
+        </div>
+      `;
 
-    // Click on polygon
-    if (map!.getLayer('farm-polygons-fill')) {
-      map!.on('click', 'farm-polygons-fill', (e) => {
-        if (!e.features?.length) return;
-        const props_data = e.features[0].properties;
-        const loc = rebuildLocation(props_data);
+      popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
+        .setLngLat(coordinates as [number, number])
+        .setHTML(popupHtml)
+        .addTo(map!);
+    });
 
-        if (popup) popup.remove();
-        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-          .setLngLat(e.lngLat)
-          .setHTML(buildPopupHTML(loc))
-          .addTo(map!);
-
-        emit('select', loc);
-      });
-
-      map!.on('mouseenter', 'farm-polygons-fill', () => {
-        if (map) map.getCanvas().style.cursor = 'pointer';
-      });
-      map!.on('mouseleave', 'farm-polygons-fill', () => {
-        if (map) map.getCanvas().style.cursor = '';
-      });
-    }
-
-    // Click on points
-    if (map!.getLayer('farm-points')) {
-      map!.on('click', 'farm-points', (e) => {
-        if (!e.features?.length) return;
-        const props_data = e.features[0].properties;
-        const loc = rebuildLocation(props_data);
-        const coordinates = (e.features[0].geometry as any).coordinates.slice();
-
-        if (popup) popup.remove();
-        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-          .setLngLat(coordinates)
-          .setHTML(buildPopupHTML(loc))
-          .addTo(map!);
-
-        emit('select', loc);
-      });
-
-      map!.on('mouseenter', 'farm-points', () => {
-        if (map) map.getCanvas().style.cursor = 'pointer';
-      });
-      map!.on('mouseleave', 'farm-points', () => {
-        if (map) map.getCanvas().style.cursor = '';
-      });
-    }
-
-    // Click on scans
-    if (map!.getLayer('farm-scans')) {
-      map!.on('click', 'farm-scans', (e) => {
-        if (!e.features?.length) return;
-        const scan = e.features[0].properties as any;
-        const coordinates = (e.features[0].geometry as any).coordinates.slice();
-
-        if (popup) popup.remove();
-        
-        const scanDate = new Date(scan.createdAt).toLocaleDateString() + ' ' + new Date(scan.createdAt).toLocaleTimeString();
-        const codeString = scan.codeString || scan.code_string || 'N/A';
-        
-        const popupHtml = `
-          <div class="mapbox-popup-content">
-            <div class="popup-title text-red-600">Quét mã: ${codeString}</div>
-            ${scan.address ? `<div class="popup-row popup-address">📍 ${scan.address}</div>` : ''}
-            <div class="popup-row mt-2 text-gray-500">🕒 ${scanDate}</div>
-          </div>
-        `;
-
-        popup = new mapboxgl.Popup({ maxWidth: '320px', closeButton: true })
-          .setLngLat(coordinates as [number, number])
-          .setHTML(popupHtml)
-          .addTo(map!);
-      });
-
-      map!.on('mouseenter', 'farm-scans', () => {
-        if (map) map.getCanvas().style.cursor = 'pointer';
-      });
-      map!.on('mouseleave', 'farm-scans', () => {
-        if (map) map.getCanvas().style.cursor = '';
-      });
-    }
-    
-    mapListenersAdded = true;
+    map.on('mouseenter', 'farm-scans', () => {
+      if (map) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'farm-scans', () => {
+      if (map) map.getCanvas().style.cursor = '';
+    });
   }
 
 

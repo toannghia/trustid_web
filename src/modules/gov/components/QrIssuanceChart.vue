@@ -10,7 +10,7 @@ import { ref, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
-const props = defineProps<{ province?: string }>();
+const props = defineProps<{ province?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const qrData = ref<{ month: number; total: number; activated: number }[]>([]);
@@ -20,6 +20,7 @@ const fetchData = async () => {
   try {
     const params: any = {};
     if (props.province) params.province = props.province;
+    if (props.ward) params.ward = props.ward;
     const res = await api.get('/api/gov/qr-monthly', { params });
     qrData.value = res.data.months || [];
     await nextTick();
@@ -40,8 +41,8 @@ const renderChart = () => {
     xAxis: { type: 'category', data: months.map(m => monthLabels[m.month - 1]), axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
     series: [
-      { name: 'Phát hành', type: 'bar', data: months.map(m => m.total), itemStyle: { color: '#6366f1', borderRadius: [4,4,0,0] }, barGap: '20%' },
-      { name: 'Kích hoạt', type: 'bar', data: months.map(m => m.activated), itemStyle: { color: '#10b981', borderRadius: [4,4,0,0] } },
+      { name: 'Phát hành', type: 'bar', data: months.map(m => m.total), itemStyle: { color: '#0F2B46', borderRadius: [4,4,0,0] }, barGap: '20%' },
+      { name: 'Kích hoạt', type: 'bar', data: months.map(m => m.activated), itemStyle: { color: '#00875A', borderRadius: [4,4,0,0] } },
     ],
   });
 };
@@ -63,7 +64,7 @@ onUnmounted(() => {
   }
 });
 
-watch(() => props.province, fetchData);
+watch(() => [props.province, props.ward], fetchData);
 </script>
 
 <style scoped>

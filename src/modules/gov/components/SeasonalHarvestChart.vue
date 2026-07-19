@@ -13,7 +13,7 @@ import { ref, onMounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
-const props = defineProps<{ province?: string; tenantId?: string }>();
+const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
 const selectedYear = ref(String(new Date().getFullYear()));
@@ -24,6 +24,7 @@ const fetchData = async () => {
     const params: any = { year: selectedYear.value };
     if (props.province) params.province = props.province;
     if (props.tenantId) params.tenantId = props.tenantId;
+    if (props.ward) params.ward = props.ward;
     const { data: res } = await api.get('/api/gov/seasonal-harvest', { params });
     seasons.value = res.seasons;
     await nextTick();
@@ -36,7 +37,7 @@ const renderChart = () => {
   if (!chart) chart = echarts.init(chartRef.value);
   const names = Object.keys(seasons.value);
   const values = Object.values(seasons.value);
-  const colors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444'];
+  const colors = ['#0F2B46', '#00875A', '#24a0ed', '#e67e22'];
   chart.setOption({
     tooltip: { trigger: 'axis' },
     grid: { top: 20, right: 16, bottom: 28, left: 56 },
@@ -47,7 +48,7 @@ const renderChart = () => {
 };
 
 onMounted(fetchData);
-watch(() => [props.province, props.tenantId], fetchData);
+watch(() => [props.province, props.tenantId, props.ward], fetchData);
 </script>
 
 <style scoped>

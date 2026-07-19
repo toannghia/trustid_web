@@ -582,6 +582,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/modules/core/views/AdminDbTools.vue'),
         meta: { roles: ['ADMIN'], title: 'Công cụ Database' }
       },
+      {
+        path: 'admin/consumer-display',
+        name: 'consumer-display-config',
+        component: () => import('@/modules/core/views/ConsumerDisplayConfig.vue'),
+        meta: { roles: ['ADMIN'], title: 'Cấu hình hiển thị SP' }
+      },
       // BLOCKCHAIN STAMP
       {
         path: '/blockchain/dashboard',
