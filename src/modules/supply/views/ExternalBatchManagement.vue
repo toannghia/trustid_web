@@ -156,6 +156,16 @@ const getImageUrl = (path: string) => {
   return `${baseUrl}${path}`;
 };
 
+const uploadActionUrl = computed(() => {
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  return `${baseUrl}/files/upload?folder=batch-docs`;
+});
+
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+});
+
 const activeSections = ref(['general', 'origin']);
 const showCertMediaManager = ref(false);
 
@@ -516,6 +526,7 @@ const handleEdit = (row: any) => {
       customBlocks: customBlocksArr
     }
   };
+
 
   activeSections.value = ['general', 'origin'];
   showBatchDialog.value = true;

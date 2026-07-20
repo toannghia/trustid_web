@@ -18,6 +18,7 @@ const currentDetail = ref<any>(null);
 const selectedShipmentForScan = ref<any>(null);
 
 const statusFilter = ref('');
+const typeFilter = ref('');
 const search = ref('');
 
 const canAction = computed(() => {
@@ -102,10 +103,10 @@ const loadShipments = async () => {
     try {
         const res = await shipmentV2Api.getShipments({
             status: statusFilter.value || undefined,
+            type: typeFilter.value || undefined,
             search: search.value || undefined,
             page: currentPage.value,
-            limit: pageSize.value,
-            type: undefined
+            limit: pageSize.value
         });
         const data = res.data;
         if (data && Array.isArray(data)) {
@@ -167,6 +168,8 @@ const getStatusType = (status: string) => {
 const getStatusLabel = (status: string) => {
     switch (status) {
         case 'CREATED': return 'Chờ quét hàng';
+        case 'SCANNING': return 'Đang quét hàng';
+        case 'READY': return 'Sẵn sàng';
         case 'WAITING_DRIVER': return 'Chờ tài xế nhận';
         case 'READY_FOR_PICKUP': return 'Sẵn sàng giao';
         case 'IN_TRANSIT': return 'Đang vận chuyển';
@@ -218,13 +221,27 @@ const receiverConfirm = async () => {
 
     <!-- FILTERS -->
     <div class="mb-4 flex flex-wrap gap-4 items-center">
-        <el-radio-group v-model="statusFilter" @change="handleFilterChange">
-            <el-radio-button label="">Tất cả</el-radio-button>
-            <el-radio-button label="CREATED">Mới tạo</el-radio-button>
-            <el-radio-button label="READY_FOR_PICKUP">Sẵn sàng giao</el-radio-button>
-            <el-radio-button label="IN_TRANSIT">Đang đi</el-radio-button>
-            <el-radio-button label="DELIVERED">Hoàn thành</el-radio-button>
-        </el-radio-group>
+        <el-select v-model="statusFilter" placeholder="Trạng thái" popper-class="status-select-popper" clearable class="w-56" @change="handleFilterChange">
+            <el-option label="Tất cả trạng thái" value="" />
+            <el-option label="Chờ quét hàng" value="CREATED" />
+            <el-option label="Đang quét hàng" value="SCANNING" />
+            <el-option label="Sẵn sàng" value="READY" />
+            <el-option label="Sẵn sàng giao" value="READY_FOR_PICKUP" />
+            <el-option label="Chờ tài xế nhận" value="WAITING_DRIVER" />
+            <el-option label="Đang vận chuyển" value="IN_TRANSIT" />
+            <el-option label="Chờ đại lý xác nhận" value="PENDING_DEALER_CONFIRM" />
+            <el-option label="Đã hoàn thành" value="DELIVERED" />
+            <el-option label="Đã nhập kho đại lý" value="AT_DEALER" />
+            <el-option label="Đã hủy" value="CANCELLED" />
+        </el-select>
+
+        <el-select v-model="typeFilter" placeholder="Loại vận đơn" clearable class="w-48" @change="handleFilterChange">
+            <el-option label="Tất cả loại" value="" />
+            <el-option label="Chuyển kho nội bộ" value="INTERNAL_TRANSFER" />
+            <el-option label="Xuất bán Đại lý" value="DEALER_EXPORT" />
+            <el-option label="Trả hàng thu hồi" value="RECALL_RETURN" />
+        </el-select>
+
         <el-input v-model="search" placeholder="Mã vận đơn..." class="w-64" prefix-icon="Search" clearable @input="handleFilterChange" />
     </div>
 
@@ -267,7 +284,7 @@ const receiverConfirm = async () => {
                     </div>
                     <div class="flex items-center mt-2 text-gray-500 gap-3">
                       <span v-if="row.vehiclePlate"><el-icon class="mr-1"><Van /></el-icon>{{ row.vehiclePlate }}</span>
-                      <span v-if="row.sender?.fullName || row.vehiclePlate"><el-icon class="mr-1"><User /></el-icon>{{ row.sender?.fullName || '---' }}</span>
+                      <span><el-icon class="mr-1"><User /></el-icon>{{ row.externalDriverName || row.driver?.fullName || '---' }}</span>
                     </div>
                 </div>
             </template>
@@ -353,7 +370,7 @@ const receiverConfirm = async () => {
                                 <el-tag size="small" type="warning" class="ml-1">Thuê ngoài</el-tag>
                             </template>
                             <template v-else>
-                                {{ currentDetail.sender?.fullName || '---' }}
+                                {{ currentDetail.driver?.fullName || '---' }}
                             </template>
                         </span>
                     </div>
@@ -515,5 +532,11 @@ const receiverConfirm = async () => {
 }
 .custom-dialog :deep(.el-dialog__body) {
     padding-top: 10px;
+}
+</style>
+
+<style>
+.status-select-popper .el-select-dropdown__wrap {
+    max-height: 480px !important;
 }
 </style>
