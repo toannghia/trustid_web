@@ -157,7 +157,7 @@ const getImageUrl = (path: string) => {
 };
 
 const activeSections = ref(['general', 'origin']);
-const uploadFileList = ref<any[]>([]);
+const showCertMediaManager = ref(false);
 
 const selectedBatchToCopy = ref('');
 
@@ -233,15 +233,22 @@ const handleCopyStructure = (batchId: string) => {
   selectedBatchToCopy.value = ''; // Reset selection
 };
 
-const handleUploadSuccess = (res: any) => {
-  if (res.url) {
-    batchForm.value.images.push(res.url);
+const handleCertMediaSelect = (selected: any) => {
+  if (!batchForm.value.images) {
+    batchForm.value.images = [];
   }
-};
-
-const handleRemoveImage = (file: any) => {
-  const url = file.url || file.response?.url;
-  batchForm.value.images = batchForm.value.images.filter((u: string) => u !== url);
+  
+  if (Array.isArray(selected)) {
+    selected.forEach(url => {
+      if (!batchForm.value.images.includes(url)) {
+        batchForm.value.images.push(url);
+      }
+    });
+  } else {
+    if (!batchForm.value.images.includes(selected)) {
+      batchForm.value.images.push(selected);
+    }
+  }
 };
 
 const showExportDialog = ref(false);
@@ -429,7 +436,6 @@ const handleAdd = () => {
     images: [],
     edit_reason: ''
   };
-  uploadFileList.value = [];
   activeSections.value = ['general', 'origin'];
   displayQuantity.value = 1;
   inputUnit.value = 'ton';
@@ -511,11 +517,6 @@ const handleEdit = (row: any) => {
     }
   };
 
-  uploadFileList.value = (row.images || []).map((url: string) => ({
-    name: url.split('/').pop(),
-    url: url
-  }));
-  
   activeSections.value = ['general', 'origin'];
   showBatchDialog.value = true;
 };
@@ -1575,15 +1576,31 @@ onMounted(fetchData);
                 <el-icon><Picture /></el-icon> HÌNH ẢNH & CHỨNG NHẬN
               </div>
             </template>
-            <el-upload
-              action="/files/upload?folder=batch-docs"
-              list-type="picture-card"
-              :on-success="handleUploadSuccess"
-              :on-remove="handleRemoveImage"
-              :file-list="uploadFileList"
-            >
-              <el-icon><Plus /></el-icon>
-            </el-upload>
+            <div class="flex flex-wrap gap-3 mt-2">
+              <div 
+                v-for="(img, imgIndex) in batchForm.images" 
+                :key="imgIndex" 
+                class="relative group w-32 h-32 border rounded overflow-hidden shadow-sm"
+              >
+                <el-image :src="getImageUrl(img)" class="w-full h-full object-cover" fit="cover" />
+                <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
+                  <el-button 
+                    type="danger" 
+                    :icon="Delete" 
+                    circle 
+                    @click="batchForm.images.splice(imgIndex, 1)" 
+                  />
+                </div>
+              </div>
+              
+              <div 
+                class="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all bg-gray-50"
+                @click="showCertMediaManager = true"
+              >
+                <el-icon class="text-2xl text-gray-400"><Plus /></el-icon>
+                <span class="text-sm text-gray-500 mt-2">Chọn ảnh</span>
+              </div>
+            </div>
           </el-collapse-item>
         </el-collapse>
 
@@ -1824,6 +1841,13 @@ onMounted(fetchData);
       v-model="showLogMediaManager" 
       :multiple="true"
       @select="handleLogMediaSelect"
+    />
+
+    <!-- Popup Media Manager cho Hình ảnh Chứng nhận -->
+    <MediaManager 
+      v-model="showCertMediaManager" 
+      :multiple="true" 
+      @select="handleCertMediaSelect" 
     />
   </div>
 </template>
