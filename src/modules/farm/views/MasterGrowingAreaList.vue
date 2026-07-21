@@ -77,7 +77,7 @@
       </div>
     </el-card>
 
-    <MasterGrowingAreaModal ref="modalRef" @created="loadData" />
+    <MasterGrowingAreaModal ref="modalRef" @created="loadData" @updated="loadData" />
   </div>
 </template>
 
@@ -144,8 +144,8 @@ const loadData = async () => {
     
     const { data } = await farmApi.getMasterGrowingAreas(params);
     if (data && typeof data === 'object' && 'data' in data) {
-      areas.value = data.data || [];
-      totalAreas.value = data.total || 0;
+      areas.value = (data as any).data || [];
+      totalAreas.value = (data as any).total || 0;
     } else {
       areas.value = data || [];
       totalAreas.value = areas.value.length;
