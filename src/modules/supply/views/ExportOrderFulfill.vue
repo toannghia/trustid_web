@@ -178,7 +178,15 @@
                                 </div>
                             </div>
                             <div class="flex gap-2">
-                                <el-button type="info" plain icon="Printer" @click="printTicket">In Phiếu</el-button>
+                                <el-button 
+                                    type="info" 
+                                    plain 
+                                    icon="Printer" 
+                                    @click="printTicket"
+                                    :disabled="selectedOrder.status !== 'EXPORTED'"
+                                >
+                                    In Phiếu
+                                </el-button>
                                 <el-button 
                                     v-if="selectedOrder.status !== 'EXPORTED'"
                                     type="danger" 
@@ -346,19 +354,21 @@
                     <p class="text-sm">Ngày In: {{ new Date().toLocaleDateString('vi-VN') }} - {{ new Date().toLocaleTimeString('vi-VN') }}</p>
                 </div>
                 
-                <div class="flex justify-between items-start mb-6">
-                    <div class="w-2/3 border rounded p-4">
+                <div class="grid grid-cols-[1fr_auto] gap-4 items-start mb-6">
+                    <div class="border rounded p-4">
                         <table class="w-full text-sm">
-                            <tr><td class="w-1/3 py-1 text-gray-600">Đơn vị nhận hàng:</td> <td class="font-bold">{{ getDealerName(selectedOrder.dealerId) }}</td></tr>
-                            <tr><td class="py-1 text-gray-600">Địa chỉ:</td> <td class="italic">{{ getDealerAddress(selectedOrder.dealerId) }}</td></tr>
-                            <tr><td class="py-1 text-gray-600">Kho xuất:</td> <td>{{ getWarehouseName(selectedOrder.sourceWarehouseId) }}</td></tr>
-                            <tr><td class="py-1 text-gray-600">Người xuất:</td> <td>{{ authStore.user?.fullName || authStore.user?.username || 'Thủ kho' }}</td></tr>
+                            <tbody>
+                                <tr><td class="w-1/3 py-1 text-gray-600">Đơn vị nhận hàng:</td> <td class="font-bold">{{ getDealerName(selectedOrder.dealerId) }}</td></tr>
+                                <tr><td class="py-1 text-gray-600">Người nhận & Địa chỉ:</td> <td class="italic">{{ getDealerAddress(selectedOrder.dealerId) }}</td></tr>
+                                <tr><td class="py-1 text-gray-600">Kho xuất:</td> <td>{{ getWarehouseName(selectedOrder.sourceWarehouseId) }}</td></tr>
+                                <tr><td class="py-1 text-gray-600">Người xuất:</td> <td>{{ authStore.user?.fullName || authStore.user?.username || 'Thủ kho' }}</td></tr>
+                            </tbody>
                         </table>
                     </div>
-                    <div class="w-1/3 text-right">
-                        <div><b>Số Phiếu:</b> <span class="text-lg font-bold">{{ getPXKCode(selectedOrder.orderCode) }}</span></div>
-                        <div class="text-sm mt-1 mb-2">Số Lệnh(LXH): {{ selectedOrder.orderCode }}</div>
-                        <canvas id="qrCanvas" class="ml-auto block border"></canvas>
+                    <div class="text-right">
+                        <div class="whitespace-nowrap"><b>Số Phiếu:</b> <span class="text-lg font-bold">{{ getPXKCode(selectedOrder.orderCode) }}</span></div>
+                        <div class="text-sm mt-1 mb-2 whitespace-nowrap">Số Lệnh(LXH): {{ selectedOrder.orderCode }}</div>
+                        <img v-if="qrCodeUrl" :src="qrCodeUrl" class="ml-auto block border w-[100px] h-[100px]" alt="QR" />
                     </div>
                 </div>
 
@@ -598,6 +608,7 @@ const route = useRoute();
 const router = useRouter();
 
 const loading = ref(false);
+const qrCodeUrl = ref('');
 const pendingOrders = ref<any[]>([]);
 const exportedOrders = ref<any[]>([]);
 
@@ -1046,16 +1057,56 @@ const getProgress = (order: any) => {
 
 const printTicket = async () => {
     if (!selectedOrder.value) return;
+    
+    if (selectedOrder.value.status !== 'EXPORTED') {
+        ElMessage.warning('Chỉ được in phiếu sau khi Hoàn tất xuất kho!');
+        return;
+    }
+
     // Tạo link cho Receiver quét nhận hàng
     const receiveLink = `https://app.trustid.com.vn/receive?pxk=${getPXKCode(selectedOrder.value.orderCode)}`;
     
-    // Tạo QR code dán vào canvas Print
-    const canvas = document.getElementById('qrCanvas') as HTMLCanvasElement;
-    if (canvas) {
-        await QRCode.toCanvas(canvas, receiveLink, { width: 100, margin: 1 });
-    }
+    // Tạo QR code image URL
+    qrCodeUrl.value = await QRCode.toDataURL(receiveLink, { width: 100, margin: 1 });
     
-    window.print();
+    await nextTick();
+    const printElement = document.querySelector('.print-only');
+    if (!printElement) return;
+    
+    const printContent = printElement.innerHTML;
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+                        .map(s => s.outerHTML).join('');
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const pri = iframe.contentWindow;
+    if (!pri) return;
+    
+    pri.document.open();
+    pri.document.write(`
+        <html>
+            <head>
+                <title>In Phiếu Xuất Kho</title>
+                ${styles}
+                <style>
+                    @page { size: A4; margin: 15mm; }
+                    body { background: white; margin: 0; padding: 0; }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+            </body>
+        </html>
+    `);
+    pri.document.close();
+    
+    pri.focus();
+    setTimeout(() => {
+        pri.print();
+        document.body.removeChild(iframe);
+    }, 500);
 };
 
 onMounted(() => {
@@ -1073,31 +1124,5 @@ onMounted(() => {
 <style scoped>
 .print-only {
     display: none;
-}
-
-@media print {
-    body * {
-        visibility: hidden;
-    }
-    .no-print, .el-dialog {
-        display: none !important;
-    }
-    .print-container {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-    }
-    .print-only, .print-only * {
-        visibility: visible;
-        color: #000 !important;
-    }
-    .print-only {
-        display: block !important;
-        position: relative;
-        padding: 20px 40px;
-        background: white;
-        height: auto;
-    }
 }
 </style>
