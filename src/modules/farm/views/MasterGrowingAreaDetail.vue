@@ -162,6 +162,15 @@ const initMap = async () => {
         }
     }
 
+    const popupContent = `
+      <div class="text-sm">
+        <p class="font-bold text-base mb-1">${loc.name}</p>
+        <p><strong>Nông hộ:</strong> ${loc.farmer?.fullName || '—'}</p>
+        <p><strong>Đội trưởng:</strong> ${loc.leader?.fullName || '—'}</p>
+        <p><strong>Diện tích:</strong> ${loc.areaM2 ? loc.areaM2.toLocaleString() : 0} m2</p>
+      </div>
+    `;
+
     if (parsedBoundary && parsedBoundary.length > 0) {
       const polyCoords = parsedBoundary[0].map((coord: number[]) => [coord[1], coord[0]]);
       const polygon = L.polygon(polyCoords, {
@@ -169,35 +178,17 @@ const initMap = async () => {
         fillOpacity: 0.3,
         weight: 2
       });
-
-      const popupContent = `
-        <div class="text-sm">
-          <p class="font-bold text-base mb-1">${loc.name}</p>
-          <p><strong>Nông hộ:</strong> ${loc.farmer?.fullName || '—'}</p>
-          <p><strong>Đội trưởng:</strong> ${loc.leader?.fullName || '—'}</p>
-          <p><strong>Diện tích:</strong> ${loc.areaM2 ? loc.areaM2.toLocaleString() : 0} m2</p>
-        </div>
-      `;
-
       polygon.bindPopup(popupContent);
       drawnItems.addLayer(polygon);
       bounds.extend(polygon.getBounds());
-    } else if (loc.coordinate && loc.coordinate.coordinates) {
+    } 
+    
+    if (loc.coordinate && loc.coordinate.coordinates) {
       const point = [loc.coordinate.coordinates[1], loc.coordinate.coordinates[0]] as L.LatLngExpression;
-      const marker = L.circleMarker(point, {
-        color: '#2563eb',
-        radius: 8,
-        fillOpacity: 0.8
-      });
-      const popupContent = `
-        <div class="text-sm">
-          <p class="font-bold text-base mb-1">${loc.name}</p>
-          <p><strong>Nông hộ:</strong> ${loc.farmer?.fullName || '—'}</p>
-        </div>
-      `;
+      const marker = L.marker(point);
       marker.bindPopup(popupContent);
       drawnItems.addLayer(marker);
-      bounds.extend([point]);
+      bounds.extend(point);
     }
   });
 
