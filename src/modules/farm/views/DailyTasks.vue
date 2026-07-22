@@ -767,6 +767,14 @@ const submitCompletion = async () => {
     // Validate materials
     const validMaterials = materialsUsed.value.filter(m => m.material_id && m.quantity > 0);
     
+    for (const mat of validMaterials) {
+        const materialInfo = materialsList.value.find(x => x.id === mat.material_id);
+        if (materialInfo && mat.quantity > materialInfo.stockQuantity) {
+            ElMessage.error(`Số lượng vật tư "${materialInfo.name}" vượt quá tồn kho (${materialInfo.stockQuantity} ${materialInfo.unit})`);
+            return;
+        }
+    }
+    
     submitting.value = true;
     try {
         await farmApi.updateTaskStatus(selectedTask.value.id, {
