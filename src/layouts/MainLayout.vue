@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useAuthStore } from '@/modules/core/store/auth';
 import Sidebar from './components/Sidebar.vue';
 import Header from './components/Header.vue';
+import CopyrightDialog from './components/CopyrightDialog.vue';
 import { Expand, Fold, Loading } from '@element-plus/icons-vue';
 
 const authStore = useAuthStore();
@@ -12,6 +13,7 @@ const isLocal = computed(() => {
 });
 const isCollapse = ref(false);
 const isMobileOpen = ref(false);
+const showCopyrightDialog = ref(false);
 
 /**
  * 1. Logic kiểm soát hiển thị (isLoaded):
@@ -94,10 +96,18 @@ const toggleSidebar = () => {
         </div>
         
         <footer class="mt-8 py-4 border-t border-gray-200 text-center text-xs text-gray-400">
-          <strong>TrustID Admin</strong> &copy; 2026. Phát triển bởi <b>TrustID Team</b>.
+          <button 
+            type="button" 
+            class="hover:text-blue-600 transition-colors cursor-pointer inline-flex items-center gap-1 focus:outline-none focus:underline"
+            title="Xem thông tin bản quyền phần mềm"
+            @click="showCopyrightDialog = true"
+          >
+            <strong>TrustID Admin</strong> &copy; 2026. Phát triển bởi <b>TrustID Team</b>.
+          </button>
         </footer>
       </main>
-      
+
+      <CopyrightDialog v-model="showCopyrightDialog" />
     </div>
   </div>
 

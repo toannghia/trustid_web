@@ -60,28 +60,44 @@
 
           <el-divider />
 
-          <!-- Surplus weight section -->
-          <div v-if="calculatedSurplus > 0" class="space-y-2 bg-amber-50 border border-amber-200 rounded p-3">
-            <h5 class="text-xs font-semibold uppercase text-amber-700">📦 Khối lượng dư thừa</h5>
-            <div class="flex justify-between text-xs text-gray-600">
-              <span>KL dư (tự tính):</span>
-              <strong>{{ calculatedSurplus.toFixed(1) }} kg</strong>
-            </div>
+          <!-- Surplus & Loss section -->
+          <div class="space-y-3 bg-amber-50 border border-amber-200 rounded p-3">
+            <h5 class="text-xs font-semibold uppercase text-amber-700 flex items-center justify-between">
+              <span>📦 Khai báo Dở Dang & Hao Hụt</span>
+              <el-tooltip content="Số KG thừa sẽ tự động tạo Phiếu Nhập Kho Hoàn Trả ngầm về Mã Lô Nguồn" placement="top">
+                <el-tag size="small" type="warning" effect="dark">Tự động hoàn kho ngầm</el-tag>
+              </el-tooltip>
+            </h5>
+
             <div class="space-y-1">
-              <label class="text-xs text-gray-500 font-medium">KL dư thực tế (kg)</label>
+              <div class="flex justify-between items-center">
+                <label class="text-xs text-gray-700 font-medium">Số KG thừa (Dở dang / WIP)</label>
+                <span class="text-2xs text-gray-400">Chờ gom mẻ sau</span>
+              </div>
               <el-input-number
                 v-model="executionForm.actual_surplus_kg"
                 :min="0"
-                :max="calculatedSurplus"
+                :max="maxAllowedSurplus"
                 :precision="1"
                 :step="0.5"
                 class="w-full"
                 controls-position="right"
+                placeholder="Nhập số KG dở dang còn dùng được"
               />
             </div>
-            <div v-if="surplusLoss > 0" class="flex justify-between text-xs text-orange-600 font-semibold">
-              <span>Hao hụt sơ chế:</span>
-              <strong>{{ surplusLoss.toFixed(1) }} kg ({{ surplusLossPct }}%)</strong>
+
+            <div class="pt-2 border-t border-amber-200/60 space-y-1">
+              <div class="flex justify-between text-xs text-gray-600">
+                <span>Tổng chênh lệch (Input - Output):</span>
+                <strong>{{ totalDiff.toFixed(1) }} kg</strong>
+              </div>
+              <div class="flex justify-between text-xs font-semibold" :class="surplusLoss > 0 ? 'text-orange-600' : 'text-emerald-600'">
+                <span>Hao hụt thực tế (Phế phẩm):</span>
+                <strong>{{ surplusLoss.toFixed(1) }} kg ({{ surplusLossPct }}%)</strong>
+              </div>
+              <div class="text-2xs text-gray-400 italic">
+                *Công thức: Hao hụt = Input ({{ ticket?.plannedWeightKg }}kg) - Output ({{ executionForm.actual_weight_kg }}kg) - WIP ({{ executionForm.actual_surplus_kg }}kg)
+              </div>
             </div>
           </div>
 
@@ -262,13 +278,17 @@ const isWeightOutOfRange = computed(() => {
   return w < minWeight.value || w > maxWeight.value;
 });
 
-const calculatedSurplus = computed(() => {
+const totalDiff = computed(() => {
   if (!ticket.value) return 0;
   return Math.max(0, ticket.value.plannedWeightKg - executionForm.actual_weight_kg);
 });
 
+const maxAllowedSurplus = computed(() => {
+  return totalDiff.value;
+});
+
 const surplusLoss = computed(() => {
-  return Math.max(0, calculatedSurplus.value - executionForm.actual_surplus_kg);
+  return Math.max(0, totalDiff.value - executionForm.actual_surplus_kg);
 });
 
 const surplusLossPct = computed(() => {
@@ -372,7 +392,7 @@ const completeProduction = async () => {
   try {
     const payload = {
       actual_weight_kg: executionForm.actual_weight_kg,
-      actual_surplus_kg: calculatedSurplus.value > 0 ? executionForm.actual_surplus_kg : undefined,
+      actual_surplus_kg: executionForm.actual_surplus_kg > 0 ? executionForm.actual_surplus_kg : undefined,
       serials: ticket.value.ticketType !== 'PALLET' ? scannedSerials.value : undefined,
       child_serials: ticket.value.ticketType === 'PALLET' ? scannedSerials.value : undefined
     };

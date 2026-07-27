@@ -116,7 +116,14 @@
 
         <!-- Entries table -->
         <el-table :data="detailEntries" stripe size="small" max-height="400">
-          <el-table-column label="Nguồn (Lệnh SX)" min-width="140">
+          <el-table-column label="Mã Lô Nguồn" min-width="130">
+            <template #default="{ row }">
+              <el-tag size="small" type="warning" effect="plain" class="font-mono">
+                {{ row.sourceBatchCode || row.sourceOrder?.sourceBatch?.batchCode || row.sourceOrder?.orderCode || 'N/A' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Nguồn (Lệnh SX)" min-width="130">
             <template #default="{ row }">
               <span class="font-mono text-xs">{{ row.sourceOrder?.orderCode || row.sourceOrderId?.slice(0, 8) }}</span>
             </template>

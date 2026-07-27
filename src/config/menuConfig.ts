@@ -40,6 +40,7 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
       { title: 'Mã vùng lớn', path: '/farm/master-areas', permission: 'FARM_AREA_MANAGE', icon: OfficeBuilding },
       { title: 'Đội trưởng', path: '/farm/team-leaders', permission: 'FARM_LEADER_MANAGE', icon: UserFilled },
       { title: 'Nhân viên KCS', path: '/farm/kcs-staff', permission: 'FARM_KCS_MANAGE', icon: UserFilled },
+      { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', permission: 'FARM_APPROVAL_MANAGE', icon: Check },
     ]
   },
   {
@@ -47,7 +48,6 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     icon: Management,
     items: [
       { title: 'Vật tư & Kho nông trại', path: '/farm/materials', permission: 'FARM_MATERIAL_VIEW', icon: Box },
-      { title: 'Duyệt vùng trồng', path: '/admin/farm-approvals', permission: 'FARM_APPROVAL_MANAGE', icon: Check },
       { title: 'Mùa vụ', path: '/farm/cycles', permission: 'FARM_CYCLE_VIEW', icon: Calendar },
       { title: 'Quy trình mẫu', path: '/farm/templates', permission: 'FARM_TEMPLATE_MANAGE', icon: Document },
       { title: 'Nhật ký điện tử', path: '/farm/tasks', permission: 'FARM_TASK_VIEW', icon: List },
