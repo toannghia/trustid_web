@@ -1596,8 +1596,26 @@ const submit = async () => {
     ElMessage.success('Thành công: Đã tạo lô bán thành phẩm và nhập kho hoàn tất.');
     router.push('/supply/semi-finished');
   } catch (e: any) {
-    const errorMsg = e?.response?.data?.message || e.message || 'Lỗi hệ thống không xác định';
-    ElMessage.error(`Lưu thất bại: ${errorMsg}`);
+    let errorMsg = '';
+    const resData = e?.response?.data;
+    if (resData) {
+      if (Array.isArray(resData.message)) {
+        errorMsg = resData.message.join('; ');
+      } else if (typeof resData.message === 'string') {
+        errorMsg = resData.message;
+      } else if (typeof resData.error === 'string') {
+        errorMsg = resData.error;
+      }
+    }
+    if (!errorMsg) {
+      errorMsg = e?.message || 'Lỗi hệ thống không xác định';
+    }
+
+    ElMessage.error({
+      message: `Lưu thất bại: ${errorMsg}`,
+      duration: 6000,
+      showClose: true
+    });
   } finally {
     saving.value = false;
   }
