@@ -71,14 +71,14 @@
           </div>
         </div>
       </template>
-      <el-form :model="form" label-position="top" @submit.prevent style="padding: 24px 24px 8px;">
-        <el-form-item label="Tên nhóm" required>
-          <el-input v-model="form.name" placeholder="VD: Khách VIP, Đại lý cấp 2..." />
+      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent style="padding: 24px 24px 8px;">
+        <el-form-item label="Tên nhóm" prop="name">
+          <el-input v-model="form.name" placeholder="VD: Khách VIP, Đại lý cấp 2..." @blur="form.name = form.name?.trim()" />
         </el-form-item>
-        <el-form-item label="Mô tả">
-          <el-input v-model="form.description" type="textarea" placeholder="Mô tả ngắn về nhóm..." />
+        <el-form-item label="Mô tả" prop="description">
+          <el-input v-model="form.description" type="textarea" placeholder="Mô tả ngắn về nhóm..." @blur="form.description = form.description?.trim()" />
         </el-form-item>
-        <el-form-item label="Chiết khấu mặc định (%)">
+        <el-form-item label="Chiết khấu mặc định (%)" prop="discountPercent">
           <el-input-number v-model="form.discountPercent" :min="0" :max="100" :precision="1" :step="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="Màu nhãn">
@@ -107,7 +107,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, User } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
@@ -117,6 +118,7 @@ const groups = ref<any[]>([]);
 const loading = ref(false);
 const dialogVisible = ref(false);
 const saving = ref(false);
+const formRef = ref<FormInstance>();
 
 const colorPresets = [
   '#1890ff', '#00875A', '#FF6B35', '#E53935',
@@ -129,6 +131,32 @@ const form = ref({
   description: '',
   discountPercent: 0,
   color: '#1890ff'
+});
+
+const validateGroupName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên nhóm'));
+  }
+  const regex = /^[\p{L}0-9\s\-\(\)]+$/u;
+  if (!regex.test(value)) {
+    return callback(new Error('Tên nhóm chỉ chứa chữ, số, khoảng trắng, gạch ngang và ngoặc đơn'));
+  }
+  if (value.length < 2 || value.length > 50) {
+    return callback(new Error('Tên nhóm phải từ 2 đến 50 ký tự'));
+  }
+  callback();
+};
+
+const validateGroupDescription = (rule: any, value: any, callback: any) => {
+  if (value && value.length > 255) {
+    return callback(new Error('Mô tả tối đa 255 ký tự'));
+  }
+  callback();
+};
+
+const rules = reactive<FormRules>({
+  name: [{ required: true, validator: validateGroupName, trigger: 'blur' }],
+  description: [{ validator: validateGroupDescription, trigger: 'blur' }]
 });
 
 const loadGroups = async () => {
@@ -144,6 +172,9 @@ const loadGroups = async () => {
 };
 
 const showForm = (row?: any) => {
+  if (formRef.value) {
+    formRef.value.clearValidate();
+  }
   if (row) {
     form.value = {
       id: row.id,
@@ -159,25 +190,30 @@ const showForm = (row?: any) => {
 };
 
 const save = async () => {
-  if (!form.value.name?.trim()) {
-    ElMessage.warning('Vui lòng nhập tên nhóm');
-    return;
-  }
-  saving.value = true;
-  try {
-    if (form.value.id) {
-      await api.put(`/customer-groups/${form.value.id}`, form.value);
-    } else {
-      await api.post('/customer-groups', form.value);
+  if (!formRef.value) return;
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      saving.value = true;
+      try {
+        if (!colorPresets.includes(form.value.color)) {
+          form.value.color = '#1890ff';
+        }
+
+        if (form.value.id) {
+          await api.put(`/customer-groups/${form.value.id}`, form.value);
+        } else {
+          await api.post('/customer-groups', form.value);
+        }
+        ElMessage.success('Lưu thành công');
+        dialogVisible.value = false;
+        loadGroups();
+      } catch (err: any) {
+        ElMessage.error(err.response?.data?.message || 'Lỗi khi lưu');
+      } finally {
+        saving.value = false;
+      }
     }
-    ElMessage.success('Lưu thành công');
-    dialogVisible.value = false;
-    loadGroups();
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Lỗi khi lưu');
-  } finally {
-    saving.value = false;
-  }
+  });
 };
 
 const deleteGroup = async (row: any) => {

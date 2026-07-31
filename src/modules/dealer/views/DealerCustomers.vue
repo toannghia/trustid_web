@@ -57,7 +57,7 @@
             <span v-else class="text-gray-400 text-xs">—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="Ngày Tảo" width="160">
+        <el-table-column prop="createdAt" label="Ngày Tạo" width="160">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
@@ -112,17 +112,17 @@
           </div>
         </div>
       </template>
-      <el-form :model="form" label-position="top" @submit.prevent style="padding: 24px 24px 8px;">
-        <el-form-item label="Tên khách hàng" required>
-          <el-input v-model="form.name" placeholder="Ví dụ: Nguyễn Văn A" />
+      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent style="padding: 24px 24px 8px;">
+        <el-form-item label="Tên khách hàng" prop="name">
+          <el-input v-model="form.name" placeholder="Ví dụ: Nguyễn Văn A" @blur="form.name = form.name?.trim()" />
         </el-form-item>
-        <el-form-item label="Số điện thoại" required>
-          <el-input v-model="form.phone" placeholder="Nhập số điện thoại" />
+        <el-form-item label="Số điện thoại" prop="phone">
+          <el-input v-model="form.phone" placeholder="Nhập số điện thoại" @blur="form.phone = form.phone?.trim()" onkeypress="return event.charCode >= 48 && event.charCode <= 57" />
         </el-form-item>
-        <el-form-item label="Địa chỉ">
-          <el-input v-model="form.address" type="textarea" placeholder="Số nhà, đường, phường, quận..." />
+        <el-form-item label="Địa chỉ" prop="address">
+          <el-input v-model="form.address" type="textarea" placeholder="Số nhà, đường, phường, quận..." @blur="form.address = form.address?.trim()" />
         </el-form-item>
-        <el-form-item label="Nhóm khách hàng">
+        <el-form-item label="Nhóm khách hàng" prop="groupId">
           <el-select v-model="form.groupId" placeholder="Chọn nhóm (tùy chọn)" clearable class="w-full">
             <el-option
               v-for="g in customerGroups"
@@ -152,7 +152,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import type { FormInstance, FormRules } from 'element-plus';
 import { Search, Plus, Collection } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/common/utils/api';
@@ -168,8 +169,47 @@ const searchQuery = ref('');
 
 const dialogVisible = ref(false);
 const saving = ref(false);
+const formRef = ref<FormInstance>();
 const form = ref({ id: '', name: '', phone: '', address: '', groupId: '' });
 const customerGroups = ref<any[]>([]);
+
+const validateName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên khách hàng'));
+  }
+  const regex = /^[\p{L}\s]+$/u;
+  if (!regex.test(value)) {
+    return callback(new Error('Tên chỉ được chứa chữ cái và khoảng trắng'));
+  }
+  if (value.length < 2 || value.length > 100) {
+    return callback(new Error('Tên phải từ 2 đến 100 ký tự'));
+  }
+  callback();
+};
+
+const validatePhone = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập số điện thoại'));
+  }
+  const regex = /^0[0-9]{9}$/;
+  if (!regex.test(value)) {
+    return callback(new Error('Số điện thoại không hợp lệ (Bắt đầu bằng 0, gồm 10 chữ số)'));
+  }
+  callback();
+};
+
+const validateAddress = (rule: any, value: any, callback: any) => {
+  if (value && value.length > 255) {
+    return callback(new Error('Địa chỉ tối đa 255 ký tự'));
+  }
+  callback();
+};
+
+const rules = reactive<FormRules>({
+  name: [{ required: true, validator: validateName, trigger: 'blur' }],
+  phone: [{ required: true, validator: validatePhone, trigger: 'blur' }],
+  address: [{ validator: validateAddress, trigger: 'blur' }]
+});
 
 const formatDate = (val: string) => {
   if (!val) return '';
@@ -193,6 +233,9 @@ const loadData = async (page = currentPage.value) => {
 };
 
 const showForm = (row?: any) => {
+  if (formRef.value) {
+    formRef.value.clearValidate();
+  }
   if (row) {
     form.value = { id: row.id, name: row.name, phone: row.phone, address: row.address, groupId: row.groupId || '' };
   } else {
@@ -202,27 +245,27 @@ const showForm = (row?: any) => {
 };
 
 const save = async () => {
-  if (!form.value.name || !form.value.phone) {
-    ElMessage.warning('Vui lòng nhập đầy đủ tên và số điện thoại');
-    return;
-  }
-
-  saving.value = true;
-  try {
-    const payload = { ...form.value, groupId: form.value.groupId || null };
-    if (form.value.id) {
-      await api.put(`/dealer-customers/${form.value.id}`, payload);
-    } else {
-      await api.post('/dealer-customers', payload);
+  if (!formRef.value) return;
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      saving.value = true;
+      try {
+        const payload = { ...form.value, groupId: form.value.groupId || null };
+        if (form.value.id) {
+          await api.put(`/dealer-customers/${form.value.id}`, payload);
+        } else {
+          await api.post('/dealer-customers', payload);
+        }
+        ElMessage.success('Lưu thành công');
+        dialogVisible.value = false;
+        loadData();
+      } catch (err: any) {
+        ElMessage.error(err.response?.data?.message || 'Lỗi khi lưu');
+      } finally {
+        saving.value = false;
+      }
     }
-    ElMessage.success('Lưu thành công');
-    dialogVisible.value = false;
-    loadData();
-  } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || 'Lỗi khi lưu');
-  } finally {
-    saving.value = false;
-  }
+  });
 };
 
 // Phân quyền cho dealer: Admin doanh nghiệp có xem được không? => Theo spec thì API yêu cầu Role DEALER.
