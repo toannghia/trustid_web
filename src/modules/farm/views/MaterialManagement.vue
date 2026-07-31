@@ -71,11 +71,11 @@
                     <el-tooltip content="Sửa thông tin">
                         <el-button type="primary" link :icon="Edit" @click="openEditModal(row)" />
                     </el-tooltip>
-                    <el-tooltip content="Nhập kho">
-                        <el-button type="success" link :icon="Download" @click="openImport(row)" />
+                    <el-tooltip :content="row.isActive ? 'Nhập kho' : 'Không thể nhập kho vật tư đang bị khóa'">
+                        <el-button type="success" link :icon="Download" @click="openImport(row)" :disabled="!row.isActive" />
                     </el-tooltip>
-                    <el-tooltip content="Phân bổ / Xuất kho">
-                        <el-button type="warning" link :icon="Share" @click="openAllocate(row)" />
+                    <el-tooltip :content="row.isActive ? 'Phân bổ / Xuất kho' : 'Không thể phân bổ vật tư đang bị khóa'">
+                        <el-button type="warning" link :icon="Share" @click="openAllocate(row)" :disabled="!row.isActive" />
                     </el-tooltip>
                 </div>
             </template>
@@ -144,13 +144,15 @@
         </el-row>
 
         <el-form-item label="Tên vật tư" prop="name">
-          <el-input v-model="createForm.name" placeholder="VD: Phân Ure" />
+          <el-input v-model="createForm.name" placeholder="VD: Phân Ure" @blur="createForm.name = createForm.name?.trim()" />
         </el-form-item>
         
         <el-row :gutter="20">
           <el-col :span="12">
              <el-form-item label="Đơn vị tính" prop="unit">
-               <el-input v-model="createForm.unit" placeholder="VD: kg, lít" />
+               <el-select v-model="createForm.unit" filterable allow-create default-first-option placeholder="Chọn hoặc nhập đơn vị" class="w-full" @change="formatUnit" @blur="formatUnit">
+                  <el-option v-for="u in standardUnits" :key="u" :label="u" :value="u" />
+               </el-select>
              </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -161,7 +163,7 @@
         </el-row>
 
         <el-form-item label="Mô tả" prop="description">
-          <el-input v-model="createForm.description" type="textarea" />
+          <el-input v-model="createForm.description" type="textarea" @blur="createForm.description = createForm.description?.trim()" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -170,6 +172,7 @@
           <el-button 
             type="primary" 
             :loading="submitting" 
+            :disabled="isEditing && !isCreateFormChanged"
             @click="submitCreateForm"
             style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
           >
@@ -209,10 +212,10 @@
 
         <el-form :model="inventoryForm" label-position="top" :rules="inventoryRules" ref="inventoryFormRef">
           <el-form-item :label="inventoryForm.type === 'IMPORT' ? 'Số lượng nhập' : 'Số lượng phân bổ'" prop="quantity">
-             <el-input-number v-model="inventoryForm.quantity" :min="0.1" class="w-full" style="--el-border-radius-base: 8px;" />
+             <el-input-number v-model="inventoryForm.quantity" class="w-full" style="--el-border-radius-base: 8px;" />
           </el-form-item>
-          <el-form-item label="Ghi chú">
-             <el-input v-model="inventoryForm.notes" type="textarea" style="--el-border-radius-base: 8px;" />
+          <el-form-item label="Ghi chú" prop="notes">
+             <el-input v-model="inventoryForm.notes" type="textarea" style="--el-border-radius-base: 8px;" @blur="inventoryForm.notes = inventoryForm.notes?.trim()" />
           </el-form-item>
         </el-form>
       </div>
@@ -323,10 +326,74 @@ const createForm = reactive({
   isActive: true
 });
 
+const originalCreateForm = reactive({ ...createForm });
+
+const isCreateFormChanged = computed(() => {
+    return (
+        createForm.code !== originalCreateForm.code ||
+        createForm.name !== originalCreateForm.name ||
+        createForm.type !== originalCreateForm.type ||
+        createForm.unit !== originalCreateForm.unit ||
+        createForm.description !== originalCreateForm.description ||
+        createForm.isActive !== originalCreateForm.isActive
+    );
+});
+
+const standardUnits = ['kg', 'lít', 'bao', 'chai', 'hộp', 'gói', 'ml', 'gram'];
+
+const formatUnit = () => {
+  if (createForm.unit) {
+    createForm.unit = createForm.unit.toLowerCase().trim();
+  }
+};
+
+const validateCode = (rule: any, value: any, callback: any) => {
+  if (value) {
+    const regex = /^[a-zA-Z0-9_\-]+$/;
+    if (!regex.test(value)) {
+      return callback(new Error('Mã vật tư chỉ chứa chữ, số, _, -'));
+    }
+    if (value.length > 50) {
+      return callback(new Error('Mã vật tư tối đa 50 ký tự'));
+    }
+  }
+  callback();
+};
+
+const validateName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên vật tư'));
+  }
+  if (value.length < 2 || value.length > 150) {
+    return callback(new Error('Tên vật tư phải từ 2 đến 150 ký tự'));
+  }
+  callback();
+};
+
+const validateType = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng chọn loại vật tư'));
+  }
+  const allowedTypes = ['FERTILIZER', 'PESTICIDE', 'SEED', 'OTHER'];
+  if (!allowedTypes.includes(value)) {
+    return callback(new Error('Loại vật tư không hợp lệ'));
+  }
+  callback();
+};
+
+const validateDescription = (rule: any, value: any, callback: any) => {
+  if (value && value.length > 255) {
+    return callback(new Error('Mô tả tối đa 255 ký tự'));
+  }
+  callback();
+};
+
 const createRules = reactive<FormRules>({
-  name: [{ required: true, message: 'Nhập tên vật tư', trigger: 'blur' }],
-  type: [{ required: true, message: 'Chọn loại', trigger: 'change' }],
-  unit: [{ required: true, message: 'Nhập đơn vị tính', trigger: 'blur' }]
+  type: [{ required: true, validator: validateType, trigger: 'change' }],
+  code: [{ validator: validateCode, trigger: 'blur' }],
+  name: [{ required: true, validator: validateName, trigger: 'blur' }],
+  unit: [{ required: true, message: 'Nhập đơn vị tính', trigger: 'change' }],
+  description: [{ validator: validateDescription, trigger: 'blur' }]
 });
 
 // Inventory Modal State
@@ -339,9 +406,31 @@ const inventoryForm = reactive({
     quantity: 0,
     notes: ''
 });
+
+const validateQuantity = (rule: any, value: any, callback: any) => {
+    if (value === undefined || value === null || value <= 0) {
+        return callback(new Error('Số lượng phải lớn hơn 0'));
+    }
+    if (inventoryForm.type === 'ALLOCATE' && selectedMaterial.value) {
+        const stock = Number(selectedMaterial.value.stockQuantity) || 0;
+        if (value > stock) {
+            return callback(new Error(`Vượt quá số lượng tồn kho (${stock})`));
+        }
+    }
+    callback();
+};
+
+const validateNotes = (rule: any, value: any, callback: any) => {
+    if (value && value.length > 255) {
+        return callback(new Error('Ghi chú tối đa 255 ký tự'));
+    }
+    callback();
+};
+
 const inventoryRules = reactive<FormRules>({
     material_id: [{ required: true, message: 'Chọn vật tư', trigger: 'change' }],
-    quantity: [{ required: true, message: 'Nhập số lượng', trigger: 'blur' }]
+    quantity: [{ validator: validateQuantity, trigger: 'blur' }],
+    notes: [{ validator: validateNotes, trigger: 'blur' }]
 });
 
 const loadData = async () => {
@@ -399,8 +488,9 @@ const openEditModal = (row: Material) => {
     createForm.name = row.name;
     createForm.type = row.type;
     createForm.unit = row.unit;
-    createForm.description = row.description;
+    createForm.description = row.description || '';
     createForm.isActive = row.isActive;
+    Object.assign(originalCreateForm, createForm);
     showCreateModal.value = true;
 };
 
@@ -424,6 +514,10 @@ const submitCreateForm = async () => {
     if (valid) {
       submitting.value = true;
       try {
+        createForm.name = createForm.name?.trim();
+        createForm.unit = createForm.unit?.toLowerCase().trim();
+        createForm.description = createForm.description?.trim();
+
         const payload: any = {
             name: createForm.name,
             type: createForm.type,
@@ -453,6 +547,10 @@ const submitCreateForm = async () => {
 };
 
 const openImport = (row: any) => {
+    if (!row.isActive) {
+        ElMessage.warning('Vật tư đang bị khóa, không thể giao dịch');
+        return;
+    }
     selectedMaterial.value = row;
     inventoryForm.material_id = row.id;
     inventoryForm.type = 'IMPORT';
@@ -462,6 +560,14 @@ const openImport = (row: any) => {
 };
 
 const openAllocate = (row: any) => {
+    if (!row.isActive) {
+        ElMessage.warning('Vật tư đang bị khóa, không thể giao dịch');
+        return;
+    }
+    if (Number(row.stockQuantity) <= 0) {
+        ElMessage.warning('Vật tư đã hết trong kho, không thể phân bổ');
+        return;
+    }
     selectedMaterial.value = row;
     inventoryForm.material_id = row.id;
     inventoryForm.type = 'ALLOCATE';
