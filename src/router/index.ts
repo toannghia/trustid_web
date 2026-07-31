@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '../modules/core/store/auth';
+import { ElMessage } from 'element-plus';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/login',
@@ -672,6 +673,17 @@ router.beforeEach(async (to, from, next) => {
     }
     if (role === 'TEAM_LEADER') {
       return next({ name: 'leader-dashboard' });
+    }
+  }
+
+  // 5. Kiểm tra phân quyền (RBAC) dựa trên to.meta.roles
+  if (to.meta.roles && authStore.user) {
+    const userRole = authStore.user.role;
+    const allowedRoles = to.meta.roles as string[];
+    
+    if (!allowedRoles.includes(userRole)) {
+      ElMessage.error('Bạn không có quyền truy cập chức năng này!');
+      return next('/'); // Sẽ kích hoạt logic đá về đúng Dashboard của rule số 4
     }
   }
 
