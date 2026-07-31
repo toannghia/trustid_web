@@ -172,17 +172,17 @@
             <div class="flow-label">Tạo phiếu</div>
           </div>
           <div class="flow-line" :class="{ active: currentShipment.status !== 'WAITING_DRIVER' && currentShipment.status !== 'READY_FOR_PICKUP' }"></div>
-          <div :class="['flow-step', { active: ['IN_TRANSIT','PENDING_DEALER_CONFIRM','DELIVERED'].includes(currentShipment.status) }]">
+          <div :class="['flow-step', { active: ['IN_TRANSIT','PENDING_DEALER_CONFIRM','DELIVERED','AT_DEALER'].includes(currentShipment.status) }]">
             <div class="flow-dot">2</div>
             <div class="flow-label">Tài xế nhận</div>
           </div>
-          <div class="flow-line" :class="{ active: ['PENDING_DEALER_CONFIRM','DELIVERED'].includes(currentShipment.status) }"></div>
-          <div :class="['flow-step', { active: ['PENDING_DEALER_CONFIRM','DELIVERED'].includes(currentShipment.status) }]">
+          <div class="flow-line" :class="{ active: ['PENDING_DEALER_CONFIRM','DELIVERED','AT_DEALER'].includes(currentShipment.status) }"></div>
+          <div :class="['flow-step', { active: ['PENDING_DEALER_CONFIRM','DELIVERED','AT_DEALER'].includes(currentShipment.status) }]">
             <div class="flow-dot">3</div>
             <div class="flow-label">Tài xế giao</div>
           </div>
-          <div class="flow-line" :class="{ active: currentShipment.status === 'DELIVERED' }"></div>
-          <div :class="['flow-step', { active: currentShipment.status === 'DELIVERED' }]">
+          <div class="flow-line" :class="{ active: ['DELIVERED','AT_DEALER'].includes(currentShipment.status) }"></div>
+          <div :class="['flow-step', { active: ['DELIVERED','AT_DEALER'].includes(currentShipment.status) }]">
             <div class="flow-dot">4</div>
             <div class="flow-label">Đại lý nhận</div>
           </div>

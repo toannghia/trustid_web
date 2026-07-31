@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, nextTick } from 'vue';
 import { userApi } from '../api/user';
 import { tenantApi } from '../api/tenant';
 import { dealerApi } from '@/modules/supply/api/dealerApi';
 import type { Tenant } from '@/types/core';
-import { ElMessage } from 'element-plus';
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import { Search, Filter, Delete, Edit, Unlock } from '@element-plus/icons-vue';
@@ -69,6 +69,79 @@ const userForm = reactive({
   tenant_id: ''
 });
 
+const formRef = ref<FormInstance>();
+
+const validateFullName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập họ tên'));
+  }
+  const regex = /^[\p{L}\s]+$/u;
+  if (!regex.test(value)) {
+    return callback(new Error('Họ tên chỉ được chứa chữ cái và khoảng trắng'));
+  }
+  if (value.length < 2 || value.length > 50) {
+    return callback(new Error('Họ tên phải từ 2 đến 50 ký tự'));
+  }
+  callback();
+};
+
+const validateUsername = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên đăng nhập'));
+  }
+  
+  const isPhonePattern = /^[\+\d]/;
+  const phoneRegex = /^(\+?\d{1,3})?\d{9,11}$/;
+  const usernameRegex = /^[a-zA-Z_][a-zA-Z0-9_]{3,19}$/;
+  
+  if (isPhonePattern.test(value)) {
+    if (!phoneRegex.test(value)) {
+      return callback(new Error('Số điện thoại không hợp lệ (Yêu cầu từ 9-15 số)'));
+    }
+  } else {
+    if (!usernameRegex.test(value)) {
+      return callback(new Error('Username: 4–20 ký tự, bắt đầu bằng chữ cái hoặc "_", chỉ chứa chữ, số và "_"'));
+    }
+  }
+  callback();
+};
+
+const validatePassword = (rule: any, value: any, callback: any) => {
+  if (isEdit.value && !value) {
+    return callback();
+  }
+  if (!value) {
+    return callback(new Error('Vui lòng nhập mật khẩu'));
+  }
+  const regex = /^.{6,}$/;
+  if (!regex.test(value)) {
+    return callback(new Error('Mật khẩu phải có ít nhất 6 ký tự'));
+  }
+  if (userForm.username && value.toLowerCase() === userForm.username.toLowerCase()) {
+    return callback(new Error('Mật khẩu không được trùng với tên đăng nhập'));
+  }
+  callback();
+};
+
+const rules = computed<FormRules>(() => ({
+  full_name: [
+    { required: true, validator: validateFullName, trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: 'Vui lòng nhập email', trigger: 'blur' },
+    { type: 'email', message: 'Email không đúng định dạng', trigger: ['blur', 'change'] }
+  ],
+  username: [
+    { required: true, validator: validateUsername, trigger: 'blur' }
+  ],
+  password: [
+    { required: !isEdit.value, validator: validatePassword, trigger: 'blur' }
+  ],
+  role: [
+    { required: true, message: 'Vui lòng chọn vai trò', trigger: 'change' }
+  ]
+}));
+
 // Bộ lọc nâng cao
 const filter = reactive({
   page: 1,
@@ -120,6 +193,9 @@ const openCreateModal = () => {
     tenant_id: ''
   });
   showModal.value = true;
+  nextTick(() => {
+    formRef.value?.clearValidate();
+  });
 };
 
 const handleEditUser = (user: any) => {
@@ -135,7 +211,9 @@ const handleEditUser = (user: any) => {
     tenant_id: user.tenant_id || user.tenant?.id || ''
   });
   showModal.value = true;
-  showModal.value = true;
+  nextTick(() => {
+    formRef.value?.clearValidate();
+  });
 };
 
 const handleUnlockUser = async (user: any) => {
@@ -171,41 +249,41 @@ const confirmDelete = async () => {
 };
 
 const handleSubmit = async () => {
-  if (!userForm.username || !userForm.full_name || !userForm.role) {
-    ElMessage.warning('Vui lòng điền đủ thông tin');
-    return;
-  }
-  
-  submitting.value = true;
-  try {
-    const payload: any = {
-      fullName: userForm.full_name,
-      email: userForm.email,
-      username: userForm.username,
-      roleName: userForm.role, // Must match CreateUserDto.roleName
-      tenantId: userForm.tenant_id || null
-    };
+  if (!formRef.value) return;
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return;
+    
+    submitting.value = true;
+    try {
+      const payload: any = {
+        fullName: userForm.full_name,
+        email: userForm.email,
+        username: userForm.username,
+        roleName: userForm.role, // Must match CreateUserDto.roleName
+        tenantId: userForm.tenant_id || null
+      };
 
-    if (userForm.password) {
-      payload.password = userForm.password;
-    }
+      if (userForm.password) {
+        payload.password = userForm.password;
+      }
 
-    if (isEdit.value && currentUser.value) {
-       await userApi.update(currentUser.value.id, payload);
-       ElMessage.success('Cập nhật thành công');
-    } else {
-       await userApi.create(payload);
-       ElMessage.success('Tạo người dùng thành công');
+      if (isEdit.value && currentUser.value) {
+         await userApi.update(currentUser.value.id, payload);
+         ElMessage.success('Cập nhật thành công');
+      } else {
+         await userApi.create(payload);
+         ElMessage.success('Tạo người dùng thành công');
+      }
+      showModal.value = false;
+      fetchUsers();
+    } catch (error: any) {
+      console.error(error);
+      const msg = error.response?.data?.message || error.message || 'Có lỗi xảy ra';
+      ElMessage.error(msg);
+    } finally {
+      submitting.value = false;
     }
-    showModal.value = false;
-    fetchUsers();
-  } catch (error: any) {
-    console.error(error);
-    const msg = error.response?.data?.message || error.message || 'Có lỗi xảy ra';
-    ElMessage.error(msg);
-  } finally {
-    submitting.value = false;
-  }
+  });
 };
 
 const fetchUsers = async () => {
@@ -394,25 +472,25 @@ onMounted(() => {
         </div>
       </template>
 
-      <el-form label-position="top" style="padding: 24px 24px 8px;">
-        <el-form-item label="Họ tên" required>
-          <el-input v-model="userForm.full_name" placeholder="Nhập họ tên" style="--el-border-radius-base: 8px;" />
+      <el-form ref="formRef" :model="userForm" :rules="rules" label-position="top" style="padding: 24px 24px 8px;" @submit.prevent>
+        <el-form-item label="Họ tên" prop="full_name">
+          <el-input v-model="userForm.full_name" placeholder="Nhập họ tên" @blur="userForm.full_name = userForm.full_name.trim()" style="--el-border-radius-base: 8px;" />
         </el-form-item>
-        <el-form-item label="Email" required>
+        <el-form-item label="Email" prop="email">
           <el-input v-model="userForm.email" placeholder="Nhập email" style="--el-border-radius-base: 8px;" />
         </el-form-item>
-        <el-form-item label="Tên đăng nhập" required>
-          <el-input v-model="userForm.username" placeholder="Nhập username" :disabled="isEdit" style="--el-border-radius-base: 8px;" />
+        <el-form-item label="Tên đăng nhập" prop="username">
+          <el-input v-model="userForm.username" placeholder="Nhập SĐT/Username" :disabled="isEdit" style="--el-border-radius-base: 8px;" />
         </el-form-item>
-        <el-form-item label="Mật khẩu" :required="!isEdit">
+        <el-form-item label="Mật khẩu" prop="password">
           <el-input v-model="userForm.password" type="password" placeholder="Nhập mật khẩu" show-password style="--el-border-radius-base: 8px;" />
         </el-form-item>
-        <el-form-item label="Vai trò" required>
+        <el-form-item label="Vai trò" prop="role">
           <el-select v-model="userForm.role" placeholder="Chọn vai trò" class="w-full" style="--el-border-radius-base: 8px;">
             <el-option v-for="r in availableRoles" :key="r.name" :label="r.displayName || r.name" :value="r.name" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Doanh nghiệp" v-if="isSystemAdmin">
+        <el-form-item label="Doanh nghiệp" prop="tenant_id" v-if="isSystemAdmin">
           <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable style="--el-border-radius-base: 8px;">
              <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>

@@ -24,9 +24,44 @@ const form = reactive({
 
 const formRef = ref<any>(null);
 
+const validateFullName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập họ tên'));
+  }
+  const regex = /^[\p{L}\s]+$/u;
+  if (!regex.test(value)) {
+    return callback(new Error('Họ tên chỉ được chứa chữ cái và khoảng trắng'));
+  }
+  if (value.length < 2 || value.length > 50) {
+    return callback(new Error('Họ tên phải từ 2 đến 50 ký tự'));
+  }
+  callback();
+};
+
+const validateUsername = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên đăng nhập'));
+  }
+  
+  const isPhonePattern = /^[\+\d]/;
+  const phoneRegex = /^(\+?\d{1,3})?\d{9,11}$/;
+  const usernameRegex = /^[a-zA-Z_][a-zA-Z0-9_]{3,19}$/;
+  
+  if (isPhonePattern.test(value)) {
+    if (!phoneRegex.test(value)) {
+      return callback(new Error('Số điện thoại không hợp lệ (Yêu cầu từ 9-15 số)'));
+    }
+  } else {
+    if (!usernameRegex.test(value)) {
+      return callback(new Error('Username: 4–20 ký tự, bắt đầu bằng chữ cái hoặc "_", chỉ chứa chữ, số và "_"'));
+    }
+  }
+  callback();
+};
+
 const rules = {
-  fullName: [{ required: true, message: 'Vui lòng nhập họ tên', trigger: 'blur' }],
-  username: [{ required: true, message: 'Vui lòng nhập tên đăng nhập', trigger: 'blur' }],
+  fullName: [{ required: true, validator: validateFullName, trigger: 'blur' }],
+  username: [{ required: true, validator: validateUsername, trigger: 'blur' }],
   email: [
     { required: true, message: 'Vui lòng nhập email', trigger: 'blur' },
     { type: 'email', message: 'Email không hợp lệ', trigger: 'blur' }
@@ -100,7 +135,7 @@ defineExpose({ open });
       class="mt-2"
     >
       <el-form-item label="Họ tên đầy đủ" prop="fullName">
-        <el-input v-model="form.fullName" placeholder="VD: Nguyễn Văn A" :prefix-icon="User" />
+        <el-input v-model="form.fullName" placeholder="VD: Nguyễn Văn A" :prefix-icon="User" @blur="form.fullName = form.fullName.trim()" />
       </el-form-item>
       
       <div class="grid grid-cols-2 gap-4">

@@ -21,7 +21,7 @@
     </template>
     <el-form :model="form" :rules="rules" ref="formRef" label-position="top" style="padding: 24px 24px 8px;">
       <el-form-item label="Tên đầy đủ" prop="fullName">
-        <el-input v-model="form.fullName" placeholder="Nhập họ và tên" />
+        <el-input v-model="form.fullName" placeholder="Nhập họ và tên" @blur="form.fullName = form.fullName.trim()" />
       </el-form-item>
       <el-form-item label="Số điện thoại / Tên đăng nhập" prop="username">
         <el-input v-model="form.username" placeholder="Nhập số điện thoại" />
@@ -65,9 +65,45 @@ const form = reactive({
   password: ''
 });
 
+const validateFullName = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập tên đầy đủ'));
+  }
+  const regex = /^[\p{L}\s]+$/u;
+  if (!regex.test(value)) {
+    return callback(new Error('Tên chỉ được chứa chữ cái và khoảng trắng'));
+  }
+  if (value.length < 2 || value.length > 50) {
+    return callback(new Error('Tên phải từ 2 đến 50 ký tự'));
+  }
+  callback();
+};
+
+const validateUsername = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng nhập SĐT/Username'));
+  }
+  
+  const isPhonePattern = /^[\+\d]/;
+  const phoneRegex = /^(\+?\d{1,3})?\d{9,11}$/;
+  const usernameRegex = /^[a-zA-Z_][a-zA-Z0-9_]{3,19}$/;
+  
+  if (isPhonePattern.test(value)) {
+    if (!phoneRegex.test(value)) {
+      return callback(new Error('Số điện thoại không hợp lệ (Yêu cầu từ 9-15 số)'));
+    }
+  } else {
+    if (!usernameRegex.test(value)) {
+      return callback(new Error('Username: 4–20 ký tự, bắt đầu bằng chữ cái hoặc "_", chỉ chứa chữ, số và "_"'));
+    }
+  }
+  callback();
+};
+
 const rules = reactive<FormRules>({
-  fullName: [{ required: true, message: 'Vui lòng nhập tên', trigger: 'blur' }],
-  username: [{ required: true, message: 'Vui lòng nhập SĐT/Username', trigger: 'blur' }]
+  fullName: [{ required: true, validator: validateFullName, trigger: 'blur' }],
+  username: [{ required: true, validator: validateUsername, trigger: 'blur' }],
+  password: [{ min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự', trigger: 'blur' }]
 });
 
 const open = () => {
