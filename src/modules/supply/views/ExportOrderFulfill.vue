@@ -299,7 +299,7 @@
                                 </el-table-column>
                                 <el-table-column label="Đã quét" width="80" align="center">
                                     <template #default="{row}">
-                                        <b :class="row.scannedQuantity >= row.expectedQuantity ? 'text-green-600' : 'text-orange-600'">
+                                        <b :class="row.scannedQuantity >= row.expectedQuantity * (row.conversionFactor || 1) ? 'text-green-600' : 'text-orange-600'">
                                             {{ row.scannedQuantity }}
                                         </b>
                                     </template>
@@ -918,10 +918,10 @@ const handleScan = async () => {
             // NORMAL SCAN MODE
             const res = await exportOrderApi.scanItem(selectedOrder.value.id, scanInput.value.trim());
             await viewDetail({ id: selectedOrder.value.id });
-            const overItems = (selectedOrder.value?.items || []).filter((i: any) => i.scannedQuantity > i.expectedQuantity);
+            const overItems = (selectedOrder.value?.items || []).filter((i: any) => i.scannedQuantity > i.expectedQuantity * (i.conversionFactor || 1));
             
             if (overItems.length > 0) {
-                ElMessage.warning(`⚠️ Vượt số lượng yêu cầu: ${overItems.map((i: any) => `${i.product?.name}: ${i.scannedQuantity}/${i.expectedQuantity}`).join(', ')}`);
+                ElMessage.warning(`⚠️ Vượt số lượng yêu cầu: ${overItems.map((i: any) => `${i.product?.name}: ${i.scannedQuantity}/${i.expectedQuantity * (i.conversionFactor || 1)} gói`).join(', ')}`);
             } else if (res.data.invalidCount > 0) {
                ElMessage.warning(`Quét thành công ${res.data.validCount} mã. Lỗi ${res.data.invalidCount} mã: ${res.data.invalidReasons.join(', ')}`);
             } else {
