@@ -167,7 +167,19 @@
             <h4 class="font-bold text-gray-700 mt-4">Danh sách sản phẩm xuất</h4>
             <el-table :data="selectedOrder.items" border size="small">
                 <el-table-column prop="product.name" label="Sản phẩm" />
-                <el-table-column prop="expectedQuantity" label="Yêu cầu" width="100" align="center" />
+                <el-table-column label="Đơn vị" width="140" align="center">
+                    <template #default="{ row }">
+                        {{ row.unitName || 'Gói' }}
+                    </template>
+                </el-table-column>
+                <el-table-column label="Yêu cầu" width="120" align="center">
+                    <template #default="{ row }">
+                        <span>{{ row.expectedQuantity }}</span>
+                        <div v-if="row.conversionFactor > 1" class="text-xs text-blue-500">
+                            = {{ row.expectedQuantity * row.conversionFactor }} gói
+                        </div>
+                    </template>
+                </el-table-column>
                 <el-table-column prop="scannedQuantity" label="Đã lấy" width="100" align="center" />
                 <el-table-column prop="notes" label="Ghi chú" />
             </el-table>

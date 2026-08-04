@@ -288,7 +288,15 @@
                             </h4>
                             <el-table :data="selectedOrder.items || []" border size="small" class="rounded-lg overflow-hidden mb-6 bg-white">
                                 <el-table-column prop="product.name" label="Sản phẩm" />
-                                <el-table-column prop="expectedQuantity" label="Yêu cầu" width="80" align="center" />
+                                <el-table-column label="ĐV" width="100" align="center">
+                                    <template #default="{row}">{{ row.unitName || 'Gói' }}</template>
+                                </el-table-column>
+                                <el-table-column label="Yêu cầu" width="100" align="center">
+                                    <template #default="{row}">
+                                        {{ row.expectedQuantity }}
+                                        <div v-if="row.conversionFactor > 1" class="text-xs text-blue-500">= {{ row.expectedQuantity * row.conversionFactor }} gói</div>
+                                    </template>
+                                </el-table-column>
                                 <el-table-column label="Đã quét" width="80" align="center">
                                     <template #default="{row}">
                                         <b :class="row.scannedQuantity >= row.expectedQuantity ? 'text-green-600' : 'text-orange-600'">
@@ -378,6 +386,7 @@
                         <tr>
                             <th class="border p-2 text-left w-12">STT</th>
                             <th class="border p-2 text-left">Tên hàng hóa, quy cách</th>
+                            <th class="border p-2 text-center w-20">ĐV tính</th>
                             <th class="border p-2 text-center w-24">Yêu cầu</th>
                             <th class="border p-2 text-center w-24">Thực xuất</th>
                             <th class="border p-2 text-center">Ghi chú</th>
@@ -387,6 +396,7 @@
                         <tr v-for="(item, idx) in (selectedOrder.items || [])" :key="idx">
                             <td class="border p-2 text-center">{{ Number(idx) + 1 }}</td>
                             <td class="border p-2">{{ item.product?.name }}</td>
+                            <td class="border p-2 text-center">{{ item.unitName || 'Gói' }}</td>
                             <td class="border p-2 text-center">{{ item.expectedQuantity }}</td>
                             <td class="border p-2 text-center font-bold">{{ item.scannedQuantity }}</td>
                             <td class="border p-2"></td>
@@ -427,7 +437,15 @@
                 <h4 class="font-bold mt-6 mb-2">Danh sách Sản phẩm Yêu cầu</h4>
                 <el-table :data="readonlyOrder.items" border size="small">
                     <el-table-column prop="product.name" label="Sản phẩm" />
-                    <el-table-column prop="expectedQuantity" label="Yêu cầu" width="120" />
+                    <el-table-column label="Đơn vị" width="120" align="center">
+                        <template #default="{row}">{{ row.unitName || 'Gói' }}</template>
+                    </el-table-column>
+                    <el-table-column label="Yêu cầu" width="120">
+                        <template #default="{row}">
+                            {{ row.expectedQuantity }}
+                            <span v-if="row.conversionFactor > 1" class="text-xs text-blue-500 ml-1">(={{ row.expectedQuantity * row.conversionFactor }} gói)</span>
+                        </template>
+                    </el-table-column>
                     <el-table-column prop="scannedQuantity" label="Đã lấy" width="120" />
                 </el-table>
             </div>
