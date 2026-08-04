@@ -86,6 +86,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('../modules/gateway-dashboard/views/GatewayDashboard.vue'),
         meta: { roles: ['ADMIN'] }
       },
+      {
+        path: 'txng-dashboard',
+        name: 'txng-dashboard',
+        component: () => import('../modules/txng-dashboard/views/TxngDashboard.vue'),
+        meta: { roles: ['ADMIN'], title: 'TXNG Quốc gia' }
+      },
       // QUẢN LÝ TÀI KHOẢN APP (ADMIN Only)
       {
         path: 'app-users',

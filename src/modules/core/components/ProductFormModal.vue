@@ -33,12 +33,49 @@ const showQuillMediaManager = ref(false);
 // NDA Logic
 const currentTenantNdaEnabled = ref(false);
 
+const displayTenants = computed(() => {
+    const list = Array.isArray(props.tenants) ? [...props.tenants] : [];
+    if (props.productData?.tenant && props.productData.tenant.id) {
+        if (!list.some(t => t.id === props.productData.tenant.id)) {
+            list.unshift(props.productData.tenant);
+        }
+    }
+    return list;
+});
+
+import { txngApi } from '@/api/txngApi';
+import { onMounted } from 'vue';
+
+const txngCatalogs = ref<any[]>([]);
+
+const fetchTxngCatalogs = async () => {
+    try {
+        const res = await txngApi.getCatalogs();
+        txngCatalogs.value = res.data?.nganhHang || [];
+    } catch {
+        txngCatalogs.value = [
+            { id: 'NH01', ma: 'NH01', ten: 'Nông sản - Trồng trọt (Lúa gạo, Cà phê, Trái cây, Rau củ)' },
+            { id: 'NH02', ma: 'NH02', ten: 'Nông sản - Chăn nuôi (Thịt lợn, Thịt bò, Gia cầm, Trứng)' },
+            { id: 'NH03', ma: 'NH03', ten: 'Thủy sản - Hải sản (Tôm, Cá tra, Mực, Hải sản đông lạnh)' },
+            { id: 'NH04', ma: 'NH04', ten: 'Lâm sản - Dược liệu (Gỗ, Mây tre, Dược liệu tự nhiên)' },
+            { id: 'NH05', ma: 'NH05', ten: 'Thực phẩm chế biến & Đồ uống' },
+            { id: 'NH06', ma: 'NH06', ten: 'Dược phẩm & Mỹ phẩm thiên nhiên' },
+            { id: 'NH07', ma: 'NH07', ten: 'Hàng tiêu dùng & Tiểu thủ công nghiệp' },
+        ];
+    }
+};
+
+onMounted(() => {
+    fetchTxngCatalogs();
+});
+
 const productForm = reactive({
     id: '',
     name: '',
     gtin_code: '',
     gpc_code: '', 
     category_id: '',
+    txng_category: '',
     tenant_id: '',
     attributes: {},
     price: 0,
@@ -206,6 +243,7 @@ const initCreate = () => {
     productForm.gtin_code = '';
     productForm.gpc_code = '';
     productForm.category_id = '';
+    productForm.txng_category = '';
     productForm.tenant_id = props.isSystemAdmin ? '' : (authStore.user?.tenant_id || '');
     productForm.price = 0;
     productForm.expiryDuration = 0;
@@ -230,6 +268,7 @@ const initEdit = (row: any) => {
     productForm.hasNoGtin = !gtin;
     productForm.gpc_code = row.gpcCode || row.gpc_code || '';
     productForm.category_id = row.category?.id || row.categoryId;
+    productForm.txng_category = row.attributes?.txngCategory || '';
     productForm.price = row.price || 0;
     productForm.expiryDuration = row.expiryDuration || row.expiry_duration || 0;
     productForm.expiryUnit = row.expiryUnit || row.expiry_unit || 'MONTH';
@@ -249,6 +288,8 @@ const initEdit = (row: any) => {
         Object.entries(row.attributes).forEach(([key, value]) => {
             if (key === 'batchTemplate' && Array.isArray(value)) {
                 batchTemplate.value = JSON.parse(JSON.stringify(value));
+            } else if (key === 'txngCategory') {
+                productForm.txng_category = String(value);
             } else {
                 dynamicAttrs.value.push({ key, value: String(value) });
             }
@@ -329,6 +370,9 @@ const handleSubmit = async () => {
     dynamicAttrs.value.forEach(item => {
         if (item.key) attrObject[item.key] = item.value;
     });
+    if (productForm.txng_category) {
+        attrObject.txngCategory = productForm.txng_category;
+    }
 
     const cleanTemplate = batchTemplate.value
         .map(block => ({
@@ -495,12 +539,24 @@ const handleSubmitWithSync = async () => {
         class="responsive-dialog branded-product-dialog"
     >
         <template #header>
-            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
-                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
-                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
-                <span style="color: #fff; font-size: 16px; font-weight: 600;">
-                    {{ isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
-                </span>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                    <span style="color: #fff; font-size: 16px; font-weight: 600;">
+                        {{ isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
+                    </span>
+                </div>
+                <button 
+                    type="button"
+                    @click="handleClose"
+                    style="background: transparent; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;"
+                    onmouseover="this.style.color='#fff'"
+                    onmouseout="this.style.color='rgba(255,255,255,0.7)'"
+                    title="Đóng"
+                >
+                    ✕
+                </button>
             </div>
         </template>
 
@@ -508,31 +564,66 @@ const handleSubmitWithSync = async () => {
         <div class="flex flex-col gap-4">
             <!-- Row 1: Name & Category -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <el-form-item label="Tên sản phẩm" required class="col-span-2">
-                    <el-input v-model="productForm.name" />
+                <el-form-item class="col-span-2">
+                    <template #label>
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-700">Tên sản phẩm <span class="text-red-500 ml-0.5">*</span></span>
+                                <el-tag v-if="currentTenantNdaEnabled" size="small" type="success" effect="light" class="font-semibold ml-2">
+                                    ✓ NDA Enabled
+                                </el-tag>
+                            </div>
+                        </div>
+                    </template>
+                    <el-input v-model="productForm.name" placeholder="Nhập tên sản phẩm..." />
                 </el-form-item>
-                <el-form-item label="Danh mục" required class="col-span-1">
+
+                <el-form-item label="Danh mục nội bộ" required class="col-span-1">
                     <el-tree-select v-model="productForm.category_id" :data="categories" :props="{ label: 'name', value: 'id' }" class="w-full" check-strictly />
                 </el-form-item>
             </div>
-            
-            <!-- Row 2: GTIN & GPC -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <el-form-item class="col-span-1 mb-2 sm:mb-4">
+
+            <!-- Row 2: Mã GTIN (Trái 5/12) & Ngành hàng Cổng TXNG Quốc gia (Phải 7/12) -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                <el-form-item class="col-span-1 sm:col-span-5 mb-2 sm:mb-0">
                     <template #label>
-                        <div class="flex items-center justify-between w-full min-h-[24px]">
-                            <span class="whitespace-nowrap">Mã GTIN <span class="text-xs text-gray-400 font-normal ml-1 sm:inline hidden">(Mã vạch GS1)</span></span>
-                            <el-checkbox v-model="productForm.hasNoGtin" size="small" class="!mr-0">Không có mã GTIN</el-checkbox>
-                        </div>
-                        <div class="flex items-center mt-[-4px]">
-                            <span v-if="currentTenantNdaEnabled && !productForm.hasNoGtin" class="text-red-500 ml-1">*</span>
-                            <el-tag v-if="currentTenantNdaEnabled && !productForm.hasNoGtin" size="small" type="success" class="ml-2 py-0 h-4 leading-4">NDA Enabled</el-tag>
+                        <div class="flex items-center justify-between w-full min-h-[24px] gap-1">
+                            <span class="whitespace-nowrap">
+                                <span v-if="currentTenantNdaEnabled && !productForm.hasNoGtin" class="text-red-500 mr-0.5">*</span>
+                                Mã GTIN <span class="text-xs text-gray-400 font-normal ml-0.5 sm:inline hidden">(GS1)</span>
+                            </span>
+                            <el-checkbox v-model="productForm.hasNoGtin" size="small" class="!mr-0 ml-1">Không có GTIN</el-checkbox>
                         </div>
                     </template>
                     <el-input v-model="productForm.gtin_code" :disabled="productForm.hasNoGtin" maxlength="14" placeholder="VD: 893..." show-word-limit />
                 </el-form-item>
 
-                <el-form-item class="col-span-1">
+                <el-form-item class="col-span-1 sm:col-span-7">
+                    <template #label>
+                        <div class="flex items-center justify-between w-full min-h-[24px]">
+                            <span class="font-medium text-gray-700">Ngành hàng Cổng TXNG Quốc gia</span>
+                        </div>
+                    </template>
+                    <el-select 
+                        v-model="productForm.txng_category" 
+                        placeholder="-- Chọn ngành hàng / nhóm sản phẩm theo Cổng TXNG Quốc gia --" 
+                        filterable 
+                        clearable 
+                        class="w-full"
+                    >
+                        <el-option 
+                            v-for="cat in txngCatalogs" 
+                            :key="cat.id || cat.ma" 
+                            :label="cat.ten || cat.name" 
+                            :value="cat.ten || cat.name" 
+                        />
+                    </el-select>
+                </el-form-item>
+            </div>
+            
+            <!-- Row 3: GPC Code (Trái 5/12) & Doanh nghiệp (Phải 7/12) -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                <el-form-item class="col-span-1 sm:col-span-5">
                     <template #label>
                         <div class="flex items-center min-h-[24px]">
                             <span class="whitespace-nowrap">GPC Code <span class="text-xs text-gray-400 font-normal ml-1 sm:inline hidden">(Phân loại Global)</span></span>
@@ -540,9 +631,15 @@ const handleSubmitWithSync = async () => {
                     </template>
                     <el-input v-model="productForm.gpc_code" placeholder="VD: 10000045" />
                 </el-form-item>
+
+                <el-form-item label="Doanh nghiệp" v-if="isSystemAdmin" required class="col-span-1 sm:col-span-7">
+                    <el-select v-model="productForm.tenant_id" placeholder="Chọn doanh nghiệp" class="w-full" filterable :disabled="!isSystemAdmin">
+                        <el-option v-for="t in displayTenants" :key="t.id" :label="t.name || t.id" :value="t.id" />
+                    </el-select>
+                </el-form-item>
             </div>
 
-            <!-- Row 3: Price, Weight, Packaging, Shelf Life -->
+            <!-- Row 4: Price, Weight, Packaging, Shelf Life -->
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                  <el-form-item label="Giá bán" class="col-span-1">
                     <el-input 
@@ -585,12 +682,7 @@ const handleSubmitWithSync = async () => {
                     </div>
                 </el-form-item>
             </div>
-            
-             <el-form-item label="Doanh nghiệp" v-if="isSystemAdmin" required>
-                <el-select v-model="productForm.tenant_id" placeholder="Chọn doanh nghiệp" class="w-full" filterable :disabled="!isSystemAdmin">
-                    <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
-                </el-select>
-            </el-form-item>
+
 
             <el-form-item 
                 label="Mô tả ngắn" 

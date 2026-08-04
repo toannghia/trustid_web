@@ -151,6 +151,7 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     items: [
       { title: 'Danh sách Doanh nghiệp', path: '/tenants', permission: 'SYSTEM_TENANT_MANAGE', icon: Operation },
       { title: 'NDA Gateway', path: '/gateway-dashboard', permission: 'SYSTEM_GATEWAY', icon: Connection },
+      { title: 'TXNG Quốc gia', path: '/txng-dashboard', permission: 'SYSTEM_GATEWAY', icon: Connection },
       { title: 'Người dùng', path: '/users', permission: 'USER_VIEW', icon: User },
       { title: 'Gửi Thông báo', path: '/notifications/send', permission: 'SYSTEM_NOTIFICATION', icon: Bell },
       { title: 'Phân quyền (Roles)', path: '/admin/roles', permission: 'ROLE_VIEW', icon: Key },
