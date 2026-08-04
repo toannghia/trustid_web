@@ -116,9 +116,9 @@
       <el-table :data="form.items" stripe style="width: 100%" class="grid-style-table">
         <el-table-column type="index" label="STT" width="60" align="center" />
         
-        <el-table-column label="Mã SP / Tên Sản Phẩm" min-width="350">
+        <el-table-column label="Mã SP / Tên Sản Phẩm" min-width="300">
           <template #default="{ row }">
-            <el-select v-model="row.productId" class="w-full custom-product-select" filterable placeholder="Tra cứu theo tên hoặc mã SP...">
+            <el-select v-model="row.productId" class="w-full custom-product-select" filterable placeholder="Tra cứu theo tên hoặc mã SP..." @change="onProductChange(row)">
               <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id">
                 <div class="flex justify-between w-full pr-4">
                   <span class="font-semibold text-gray-800">{{ p.name }}</span>
@@ -128,10 +128,32 @@
             </el-select>
           </template>
         </el-table-column>
+
+        <el-table-column label="Đơn vị" width="180">
+          <template #default="{ row }">
+            <el-select
+              v-model="row.unitType"
+              class="w-full"
+              placeholder="Chọn ĐV"
+              :disabled="!row.productId"
+              @change="onUnitChange(row)"
+            >
+              <el-option
+                v-for="u in getAvailableUnits(row.productId)"
+                :key="u.unitType"
+                :label="u.unitName"
+                :value="u.unitType"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
         
-        <el-table-column label="Số Lượng (Cái/Thùng)" width="200" align="center">
+        <el-table-column label="Số Lượng" width="200" align="center">
           <template #default="{ row }">
             <el-input-number v-model="row.expectedQuantity" :min="1" class="!w-full" />
+            <div v-if="row.conversionFactor > 1" class="text-xs text-blue-500 mt-1">
+              = {{ row.expectedQuantity * row.conversionFactor }} gói
+            </div>
           </template>
         </el-table-column>
 
@@ -215,9 +237,9 @@ const form = reactive({
   priority: 'MEDIUM',
   notes: '',
   items: [
-    { productId: '', expectedQuantity: 1, notes: '' },
-    { productId: '', expectedQuantity: 1, notes: '' },
-    { productId: '', expectedQuantity: 1, notes: '' } // default 3 rows layout cho đẹp
+    { productId: '', expectedQuantity: 1, unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1, notes: '' },
+    { productId: '', expectedQuantity: 1, unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1, notes: '' },
+    { productId: '', expectedQuantity: 1, unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1, notes: '' }
   ]
 });
 
@@ -248,6 +270,9 @@ const loadMasterData = async () => {
       form.items = data.items.map((item: any) => ({
         productId: item.productId,
         expectedQuantity: item.expectedQuantity,
+        unitType: item.unitType || 'PACKET',
+        unitName: item.unitName || 'Gói',
+        conversionFactor: item.conversionFactor || 1,
         notes: item.notes
       }));
     } else {
@@ -262,7 +287,50 @@ const loadMasterData = async () => {
 };
 
 const addItemRow = () => {
-  form.items.push({ productId: '', expectedQuantity: 1, notes: '' });
+  form.items.push({ productId: '', expectedQuantity: 1, unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1, notes: '' });
+};
+
+const getAvailableUnits = (productId: string) => {
+  const defaultUnit = [{ unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1 }];
+  if (!productId) return defaultUnit;
+  const product = products.value.find((p: any) => p.id === productId);
+  if (!product) return defaultUnit;
+  
+  // Ưu tiên packagingUnits JSONB nếu đã cấu hình
+  if (product.packagingUnits && product.packagingUnits.length > 0) {
+    const units = [...product.packagingUnits];
+    if (!units.find((u: any) => u.unitType === 'PACKET')) {
+      units.unshift({ unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1 });
+    }
+    return units;
+  }
+  
+  // Auto-derive từ defaultPackagingSpec (quy cách đóng bao)
+  const units: any[] = [{ unitType: 'PACKET', unitName: 'Gói', conversionFactor: 1 }];
+  if (product.defaultPackagingSpec && product.defaultPackagingSpec > 1) {
+    units.push({
+      unitType: 'BAG',
+      unitName: `Bao (${product.defaultPackagingSpec} gói/bao)`,
+      conversionFactor: product.defaultPackagingSpec
+    });
+  }
+  return units;
+};
+
+const onProductChange = (row: any) => {
+  const units = getAvailableUnits(row.productId);
+  row.unitType = units[0].unitType;
+  row.unitName = units[0].unitName;
+  row.conversionFactor = units[0].conversionFactor;
+};
+
+const onUnitChange = (row: any) => {
+  const units = getAvailableUnits(row.productId);
+  const selected = units.find((u: any) => u.unitType === row.unitType);
+  if (selected) {
+    row.unitName = selected.unitName;
+    row.conversionFactor = selected.conversionFactor;
+  }
 };
 
 const removeItemRow = (idx: number) => {
