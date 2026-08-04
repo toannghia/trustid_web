@@ -2,7 +2,7 @@
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-900">Quản lý Thửa</h1>
-      <el-button type="primary" @click="showCreateModal = true">
+      <el-button type="primary" @click="openCreateModal">
         <el-icon class="mr-2"><Plus /></el-icon>
         Thêm thửa
       </el-button>
@@ -198,20 +198,26 @@
           </el-col>
           <el-col :xs="24" :sm="12">
              <el-form-item label="Diện tích (m2)" prop="area_m2">
-               <el-input-number 
+               <el-input 
                   v-model="form.area_m2" 
-                  :min="500" 
-                  class="w-full" 
-                  :precision="1" 
-                  :formatter="(value: string) => `${value}`.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',')"
-                  :parser="(value: string) => value.replace(/\\$\\s?|(,*)/g, '')"
-               />
+                  class="w-full"
+                  type="number"
+                  :min="0"
+                  onkeypress="return event.charCode >= 48 && event.charCode <= 57 || event.charCode === 46"
+                  placeholder="Nhập diện tích trên giấy tờ"
+                  @input="isAreaAutoFilled = false"
+               >
+                 <template #append>m²</template>
+               </el-input>
              </el-form-item>
           </el-col>
         </el-row>
 
-        <div id="map" style="height: 350px; margin-top: 10px; border-radius: 4px; z-index: 1;"></div>
-        <div class="flex items-center justify-between mt-2 mb-4">
+        <div style="position: relative;">
+            <div id="map" style="height: 350px; margin-top: 10px; border-radius: 4px; z-index: 1;"></div>
+        </div>
+        
+        <div class="flex items-center justify-between mt-2 mb-2">
           <div class="text-xs text-gray-500">
             * Sử dụng công cụ vẽ (hình ngũ giác) bên trái bản đồ để khoanh vùng diện tích.
           </div>
@@ -220,35 +226,111 @@
           </el-button>
         </div>
 
-        <el-divider content-position="left">Tọa độ (GPS)</el-divider>
-        <el-row :gutter="20" class="mb-2">
-          <el-col :xs="24" :sm="12">
-            <el-form-item label="Dịch chuyển nhanh bản đồ tới (Tỉnh/Thành)">
-              <el-select v-model="searchMapProvince" placeholder="Chọn Tỉnh/Thành phố" filterable @change="onSearchProvinceChange" class="w-full">
+        <!-- Tolerance Engine Display -->
+        <div v-if="drawnAreaM2 > 0 && form.area_m2 > 0" class="mb-4">
+            <el-alert
+                v-if="areaDifferenceStatus === 'MATCH'"
+                title="Diện tích bản đồ khớp với sổ đỏ (Độ lệch an toàn)"
+                :description="`Diện tích vẽ: ${drawnAreaM2} m² (Lệch: ${areaDifferencePercent.toFixed(1)}%)`"
+                type="success"
+                show-icon
+                :closable="false"
+            />
+            <el-alert
+                v-else-if="areaDifferenceStatus === 'NEGATIVE_WARNING'"
+                title="Chú ý: Diện tích vẽ hơi nhỏ so với Sổ đỏ"
+                :description="`Vùng trồng được vẽ ${drawnAreaM2} m², nhỏ hơn Sổ đỏ khoảng ${Math.abs(areaDifferencePercent).toFixed(1)}%. Hệ thống vẫn cho phép lưu, nhưng hãy kiểm tra lại xem có vẽ thiếu không nhé.`"
+                type="warning"
+                show-icon
+                :closable="false"
+            />
+            <el-alert
+                v-else-if="areaDifferenceStatus === 'NEGATIVE_ERROR'"
+                title="Lỗi: Hình vẽ quá nhỏ so với Sổ đỏ!"
+                :description="`Vùng trồng được vẽ ${drawnAreaM2} m², thiếu hụt hơn ${Math.abs(areaDifferencePercent).toFixed(1)}% so với Sổ đỏ. Vui lòng bấm vào biểu tượng 'Cục tẩy' để xóa hình và khoanh vẽ lại bao quát hơn.`"
+                type="error"
+                show-icon
+                :closable="false"
+            />
+            <el-alert
+                v-else-if="areaDifferenceStatus === 'POSITIVE_ERROR'"
+                title="Lỗi: Diện tích vẽ trên bản đồ lớn hơn Sổ đỏ!"
+                :description="`Vùng trồng được vẽ ${drawnAreaM2} m², lớn hơn Sổ đỏ khoảng ${areaDifferencePercent.toFixed(1)}%. Hệ thống không cho phép khoanh lấn chiếm quá 5%. Vui lòng bấm vào biểu tượng 'Cục tẩy' xóa hình đi và vẽ lại nhỏ gọn hơn cho khớp.`"
+                type="error"
+                show-icon
+                :closable="false"
+            />
+        </div>
+
+        <!-- Overlap Display -->
+        <div v-if="overlapWarning && form.boundary.length > 0" class="mb-4">
+            <el-alert
+                title="Cảnh báo: Chồng lấn ranh giới!"
+                :description="overlapWarning"
+                type="warning"
+                show-icon
+                :closable="false"
+            />
+        </div>
+
+        <!-- Realtime Geofencing Display -->
+        <div v-if="geofencingDistanceStatus && form.boundary.length > 0" class="mb-4">
+            <el-alert
+                v-if="geofencingDistanceStatus.status === 'ERROR'"
+                title="Lỗi: Thửa đất bị vẽ sai vị trí!"
+                :description="`Thửa đất bạn vẽ đang cách trung tâm Vùng trồng hơn 20km (${geofencingDistanceStatus.distance.toFixed(1)}km). Vui lòng bấm vào biểu tượng 'Cục tẩy' để xóa hình này đi, hệ thống sẽ tự đưa bạn về đúng vị trí để vẽ lại.`"
+                type="error"
+                show-icon
+                :closable="false"
+            />
+            <el-alert
+                v-else-if="geofencingDistanceStatus.status === 'WARNING'"
+                title="Chú ý: Thửa đất nằm khá xa trung tâm Vùng trồng"
+                :description="`Vị trí bạn vẽ cách tâm Vùng trồng khoảng ${geofencingDistanceStatus.distance.toFixed(1)}km. Nếu bạn chắc chắn thửa đất này nằm ở vị trí giáp ranh, bạn vẫn có thể bấm Lưu.`"
+                type="warning"
+                show-icon
+                :closable="false"
+            />
+        </div>
+
+        <div v-loading="reverseGeocodingLoading" element-loading-text="Đang phân tích địa chỉ tự động...">
+          <el-divider content-position="left">Địa chỉ & Tọa độ (GPS)</el-divider>
+          <el-row :gutter="20" class="mb-2">
+            <el-col :xs="24" :sm="12">
+            <el-form-item label="Tỉnh/Thành phố" prop="province">
+              <el-select v-model="form.province" placeholder="Chọn Tỉnh/Thành phố" filterable @change="onSearchProvinceChange" class="w-full" clearable :disabled="form.boundary.length > 0">
                 <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12">
-            <el-form-item label="Dịch chuyển nhanh bản đồ tới (Phường/Xã)">
-              <el-select v-model="searchMapWard" placeholder="Chọn Phường/Xã" filterable @change="onSearchWardChange" class="w-full" :disabled="!searchMapProvince">
+            <el-form-item label="Phường/Xã" prop="ward">
+              <el-select v-model="form.ward" placeholder="Chọn Phường/Xã" filterable @change="onSearchWardChange" class="w-full" :disabled="!form.province || form.boundary.length > 0" clearable>
                 <el-option v-for="w in searchMapWards" :key="w.name" :label="w.name" :value="w.name" />
               </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20" class="mb-2">
+          <el-col :span="24">
+            <el-form-item label="Địa chỉ chi tiết" prop="address">
+              <el-input v-model="form.address" placeholder="VD: Thôn A, Xã B..." @blur="form.address = form.address?.trim()" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :xs="24" :sm="12">
             <el-form-item label="Vĩ độ (Lat)" prop="lat">
-              <el-input-number v-model="form.lat" :precision="6" class="w-full" />
+              <el-input v-model="form.lat" type="number" step="0.000001" class="w-full" disabled placeholder="VD: 21.0" />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12">
             <el-form-item label="Kinh độ (Long)" prop="long">
-              <el-input-number v-model="form.long" :precision="6" class="w-full" />
+              <el-input v-model="form.long" type="number" step="0.000001" class="w-full" disabled placeholder="VD: 105.8" />
             </el-form-item>
           </el-col>
         </el-row>
+        </div>
 
         <el-alert 
             v-if="isEditing && currentApprovalStatus === 'PENDING'"
@@ -259,15 +341,15 @@
             :closable="false"
         />
 
-        <el-form-item v-if="isEditing" label="Lý do cập nhật ranh giới (NẾU CÓ THAY ĐỔI TRÊN BẢN ĐỒ)" prop="updateReason">
-           <el-input v-model="form.updateReason" type="textarea" placeholder="Nhập lý do thay đổi để Admin phê duyệt..." />
+        <el-form-item v-if="isEditing" :label="`Lý do cập nhật ${isFormChanged ? '(Bắt buộc)' : ''}`" prop="updateReason" :required="isFormChanged">
+           <el-input v-model="form.updateReason" type="textarea" placeholder="Nhập lý do thay đổi dữ liệu..." />
         </el-form-item>
         
       </el-form>
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
           <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+          <el-button type="primary" :loading="submitting" :disabled="(isEditing && !isFormChanged) || areaDifferenceStatus === 'POSITIVE_ERROR' || areaDifferenceStatus === 'NEGATIVE_ERROR' || (geofencingDistanceStatus && geofencingDistanceStatus.status === 'ERROR')" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
         </div>
@@ -347,7 +429,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, nextTick, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Plus, Search, Loading, WarningFilled } from '@element-plus/icons-vue';
+import { Plus, Search, Loading, WarningFilled, Lock } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { farmApi, type Location, type MasterGrowingArea } from '../api/farmApi';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
@@ -390,6 +472,89 @@ const quickUserModalRef = ref<any>();
 const currentQuickRole = ref('FARMER');
 const show3DDrawer = ref(false);
 
+const isAreaAutoFilled = ref(true);
+const drawnAreaM2 = ref(0);
+const existingLocations = ref<any[]>([]);
+const overlapWarning = ref<string | null>(null);
+
+const checkOverlap = () => {
+    overlapWarning.value = null;
+    if (form.boundary.length === 0) return;
+    
+    try {
+        const currentPoly = turf.polygon(form.boundary);
+        const overlapNames: string[] = [];
+        let totalOverlapM2 = 0;
+        
+        for (const loc of existingLocations.value) {
+            if (isEditing.value && loc.id === currentId.value) continue;
+            
+            let parsedBoundary = [];
+            const boundarySource = (loc.approvalStatus === 'PENDING' && loc.pendingBoundary)
+                ? loc.pendingBoundary 
+                : loc.boundary;
+
+            if (boundarySource) {
+                if (typeof boundarySource === 'string' && boundarySource.startsWith('{')) {
+                    try { parsedBoundary = JSON.parse(boundarySource).coordinates; } catch(e) {}
+                } else if (typeof boundarySource === 'object' && boundarySource.coordinates) {
+                    parsedBoundary = boundarySource.coordinates;
+                }
+            }
+            
+            if (parsedBoundary && parsedBoundary.length > 0) {
+                try {
+                    const targetPoly = turf.polygon(parsedBoundary);
+                    const intersection = turf.intersect(turf.featureCollection([currentPoly, targetPoly]));
+                    if (intersection) {
+                        const area = turf.area(intersection);
+                        if (area > 1) { // > 1 m2
+                            overlapNames.push(loc.name || loc.code || 'Thửa hàng xóm');
+                            totalOverlapM2 += area;
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+        
+        if (overlapNames.length > 0) {
+    overlapWarning.value = `Cảnh báo: Thửa đất bạn vẽ đang chồng lấn với thửa ${overlapNames.join(', ')} (tổng diện tích chồng lấn: ${totalOverlapM2.toFixed(1)} m²). Bạn vẫn có thể lưu, nhưng nên kiểm tra lại trước khi tiếp tục.`;
+        }
+    } catch(e) {
+        console.error('Lỗi tính toán chồng lấn', e);
+    }
+};
+
+const areaDifferencePercent = computed(() => {
+    if (!form.area_m2 || form.area_m2 <= 0) return 0;
+    return (Math.abs(drawnAreaM2.value - form.area_m2) / form.area_m2) * 100;
+});
+const areaDifferenceStatus = computed(() => {
+    if (!form.area_m2 || form.area_m2 <= 0) return 'MATCH';
+    const diff = (drawnAreaM2.value - form.area_m2) / form.area_m2 * 100;
+    
+    if (diff > 5) return 'POSITIVE_ERROR'; // Lệch dương > 5% -> Đỏ (Chặn)
+    if (diff < -20) return 'NEGATIVE_ERROR'; // Lệch âm > 20% -> Đỏ (Chặn)
+    if (diff < -5) return 'NEGATIVE_WARNING'; // Lệch âm 5-20% -> Vàng (Cho phép)
+    return 'MATCH'; // -5% đến 5% -> Xanh (An toàn)
+});
+
+const masterAnchorPoint = ref<{lng: number, lat: number} | null>(null);
+
+const geofencingDistanceStatus = computed(() => {
+    if (!form.masterGrowingAreaId || !masterAnchorPoint.value || form.boundary.length === 0) return null;
+    
+    const distanceKm = turf.distance(
+        [form.long, form.lat], 
+        [masterAnchorPoint.value.lng, masterAnchorPoint.value.lat], 
+        { units: 'kilometers' }
+    );
+    
+    if (distanceKm > 20) return { status: 'ERROR', distance: distanceKm };
+    if (distanceKm > 5) return { status: 'WARNING', distance: distanceKm };
+    return { status: 'OK', distance: distanceKm };
+});
+
 // Build a temporary location object for the 3D drawer
 const editing3DLocation = computed(() => {
   const loc: any = {
@@ -406,8 +571,12 @@ const editing3DLocation = computed(() => {
 
 const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number }) => {
   form.boundary = data.coordinates;
-  form.area_m2 = Math.round(data.areaM2 * 10) / 10;
+  drawnAreaM2.value = Math.round(data.areaM2 * 10) / 10;
+  if (isAreaAutoFilled.value) {
+      form.area_m2 = drawnAreaM2.value;
+  }
   boundaryChanged.value = true;
+  checkOverlap();
 
   // Update center point from polygon
   if (data.coordinates[0]?.length >= 3) {
@@ -426,7 +595,7 @@ const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number
       }
     });
     const polyCoords = data.coordinates[0].map((coord: number[]) => [coord[1], coord[0]]);
-    const polygon = L.polygon(polyCoords as any, { color: '#16a34a', fillOpacity: 0.2 });
+    const polygon = L.polygon(polyCoords as any, { color: '#3b82f6', fillOpacity: 0.2 });
     polygon.addTo(map);
     map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
     if (marker) marker.setLatLng([form.lat, form.long]);
@@ -494,11 +663,52 @@ const onQuickUserCreated = async (user: any) => {
 const onMasterAreaChange = async (val: string) => {
     form.leaderId = '';
     teamLeaders.value = [];
+    masterAnchorPoint.value = null;
     if (!val) {
         if (existingLocationsLayer) existingLocationsLayer.clearLayers();
+        form.province = '';
+        form.ward = '';
+        searchMapWards.value = [];
         return;
     }
     
+    // Geofencing: Auto-fill province and ward
+    const masterArea = masterGrowingAreas.value.find(a => a.id === val);
+    if (masterArea) {
+        if (masterArea.province) {
+            form.province = masterArea.province;
+            // Load wards for the new province
+            const prov = provinces.value.find(p => p.name === masterArea.province);
+            if (prov) {
+                searchMapWards.value = prov.wards;
+            }
+            
+            // Tải trước Tọa độ Tâm (Anchor Point) để dùng cho Realtime Geofencing
+            const addressToGeocode = masterArea.ward 
+                ? `${masterArea.ward}, ${masterArea.province}, Vietnam` 
+                : `${masterArea.province}, Vietnam`;
+            fetchGeocodeCoords(addressToGeocode).then(coords => {
+                if (coords) masterAnchorPoint.value = { lng: coords[0], lat: coords[1] };
+            });
+        }
+        if (masterArea.ward) {
+            setTimeout(() => {
+                form.ward = masterArea.ward || '';
+                // Fly map to ward
+                if (form.ward && form.province && form.boundary.length === 0) {
+                    geocodeAddress(`${form.ward}, ${form.province}, Vietnam`, 14);
+                }
+            }, 100);
+        } else if (masterArea.province) {
+            // Fly map to province if no ward is set
+            setTimeout(() => {
+                if (form.province && form.boundary.length === 0) {
+                    geocodeAddress(`${form.province}, Vietnam`, 10);
+                }
+            }, 100);
+        }
+    }
+
     try {
         const { data } = await farmApi.getMasterGrowingAreaLeaders(val);
         teamLeaders.value = data || [];
@@ -567,46 +777,129 @@ const handleFilterProvinceChange = () => {
 };
 
 // Map Search Helpers
-const searchMapProvince = ref('');
-const searchMapWard = ref('');
 const searchMapWards = ref<any[]>([]);
 
 const onSearchProvinceChange = () => {
-    searchMapWard.value = '';
-    const prov = provinces.value.find(p => p.name === searchMapProvince.value);
+    form.ward = '';
+    const prov = provinces.value.find(p => p.name === form.province);
     searchMapWards.value = prov ? prov.wards : [];
     
-    if (searchMapProvince.value) {
-        geocodeAddress(`${searchMapProvince.value}, Vietnam`, 10);
+    // Chỉ dịch chuyển bản đồ nếu chưa vẽ ranh giới
+    if (form.province && form.boundary.length === 0) {
+        geocodeAddress(`${form.province}, Vietnam`, 10);
     }
 };
 
 const onSearchWardChange = () => {
-    if (searchMapWard.value && searchMapProvince.value) {
-        geocodeAddress(`${searchMapWard.value}, ${searchMapProvince.value}, Vietnam`, 14);
+    // Chỉ dịch chuyển bản đồ nếu chưa vẽ ranh giới
+    if (form.ward && form.province && form.boundary.length === 0) {
+        geocodeAddress(`${form.ward}, ${form.province}, Vietnam`, 14);
     }
 };
 
-const geocodeAddress = async (address: string, zoomLevel: number) => {
+const fetchGeocodeCoords = async (address: string): Promise<[number, number] | null> => {
     try {
         const token = import.meta.env.VITE_MAPBOX_TOKEN;
-        if (!token) return;
+        if (!token) return null;
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&country=vn`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.features && data.features.length > 0) {
-            const [lng, lat] = data.features[0].center;
-            form.lat = Number(lat.toFixed(6));
-            form.long = Number(lng.toFixed(6));
-            
-            if (map && marker) {
-                 const newPos = new L.LatLng(form.lat, form.long);
-                 marker.setLatLng(newPos);
-                 map.setView(newPos, zoomLevel);
-            }
+            return data.features[0].center;
         }
     } catch (e) {
         console.error('Lỗi lấy tọa độ từ Mapbox:', e);
+    }
+    return null;
+};
+
+const geocodeAddress = async (address: string, zoomLevel: number) => {
+    const coords = await fetchGeocodeCoords(address);
+    if (coords) {
+        const [lng, lat] = coords;
+        form.lat = Number(lat.toFixed(6));
+        form.long = Number(lng.toFixed(6));
+        
+        if (map && marker) {
+             const newPos = new L.LatLng(form.lat, form.long);
+             marker.setLatLng(newPos);
+             map.setView(newPos, zoomLevel);
+        }
+    }
+};
+
+const reverseGeocodingLoading = ref(false);
+
+const reverseGeocodeToForm = async (lng: number, lat: number) => {
+    try {
+        reverseGeocodingLoading.value = true;
+        const token = import.meta.env.VITE_MAPBOX_TOKEN;
+        if (!token) return;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&country=vn&language=vi`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.features && data.features.length > 0) {
+            const feature = data.features[0];
+            
+            // Fix 2: Chỉ lấy tên đường/số nhà, không lấy full chuỗi dài thò lò
+            let shortAddress = feature.text || '';
+            if (feature.address) {
+                shortAddress = `${feature.address} ${shortAddress}`;
+            }
+            form.address = shortAddress;
+            
+            let mbProvince = '';
+            
+            if (feature.context) {
+                const regionCtx = feature.context.find((c: any) => c.id.startsWith('region') || c.id.startsWith('place'));
+                if (regionCtx) mbProvince = regionCtx.text;
+            }
+            
+            const normalize = (s: string) => s.toLowerCase().replace(/^(tỉnh|thành phố|thành phố trung ương|tp|xã|phường|thị trấn|quận|huyện)\s+/i, '').trim();
+            
+            // Khớp Tỉnh/Thành
+            let matchedProv = null;
+            if (mbProvince) {
+                const normMbProv = normalize(mbProvince);
+                matchedProv = provinces.value.find(p => normalize(p.name).includes(normMbProv) || normMbProv.includes(normalize(p.name)));
+            }
+            
+            // Nếu mapbox nhận vùng region sai, thử lục lại toàn bộ place_name
+            if (!matchedProv) {
+                const fullPlace = (feature.place_name || '').toLowerCase();
+                matchedProv = provinces.value.find(p => fullPlace.includes(normalize(p.name)));
+            }
+            
+            if (matchedProv) {
+                // Nếu không có Vùng trồng lớn HOẶC đang trống thì mới update Tỉnh
+                if (!form.masterGrowingAreaId || !form.province) {
+                    form.province = matchedProv.name;
+                    searchMapWards.value = matchedProv.wards;
+                }
+                
+                // Fix 1: Gom toàn bộ context và text lại để soi tìm Phường/Xã (vì Mapbox rất hay để lộn xộn ở Vietnam)
+                const allTexts = (feature.context || []).map((c: any) => normalize(c.text));
+                allTexts.push(normalize(feature.text));
+                
+                let foundWard = false;
+                for (const w of matchedProv.wards) {
+                    const normW = normalize(w.name);
+                    if (allTexts.some((t: string) => t === normW || t.includes(normW) || normW.includes(t))) {
+                        // Nếu không chọn Vùng trồng lớn, HOẶC đang trống, thì mới update Xã
+                        if (!form.masterGrowingAreaId || !form.ward) {
+                            form.ward = w.name;
+                        }
+                        foundWard = true;
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi Reverse Geocoding:', e);
+    } finally {
+        reverseGeocodingLoading.value = false;
     }
 };
 
@@ -622,7 +915,8 @@ const loadExistingLocationsOnMap = async (masterGrowingAreaId: string) => {
 
     try {
         const { data } = await farmApi.getLocations({ masterGrowingAreaId });
-        const locationsToDraw = data || [];
+        existingLocations.value = data || [];
+        const locationsToDraw = existingLocations.value;
         
         let bounds = L.latLngBounds([]);
 
@@ -646,10 +940,10 @@ const loadExistingLocationsOnMap = async (masterGrowingAreaId: string) => {
             if (parsedBoundary && parsedBoundary.length > 0) {
                 const polyCoords = parsedBoundary[0].map((coord: number[]) => [coord[1], coord[0]]);
                 const polygon = L.polygon(polyCoords, { 
-                    color: '#6b7280', // gray-500
-                    fillColor: '#9ca3af', // gray-400
+                    color: '#16a34a', // green-600
+                    fillColor: '#22c55e', // green-500
                     fillOpacity: 0.3,
-                    weight: 1,
+                    weight: 2,
                     interactive: true // Set to true to allow tooltip on hover
                 });
                 polygon.bindTooltip(loc.name || loc.code || 'Thửa', { permanent: false, direction: 'center' });
@@ -745,6 +1039,11 @@ const downloadEudrReport = async (row: Location) => {
     }
 };
 
+const originalForm = ref<any>({});
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== JSON.stringify(originalForm.value);
+});
+
 const form = reactive({
   name: '',
   code: '',
@@ -755,15 +1054,94 @@ const form = reactive({
   updateReason: '',
   masterGrowingAreaId: '',
   farmerId: '',
-  leaderId: ''
+  leaderId: '',
+  address: '',
+  province: '',
+  ward: ''
 });
 
+const validateName = (rule: any, value: any, callback: any) => {
+    if (!value || value.trim().length < 3) {
+        callback(new Error('Tên thửa phải có ít nhất 3 ký tự'));
+        return;
+    }
+    if (/^[\d\W_]+$/.test(value)) {
+        callback(new Error('Tên thửa không hợp lệ (không được chỉ chứa số hoặc ký tự đặc biệt)'));
+        return;
+    }
+    callback();
+};
+
+const validateCode = (rule: any, value: any, callback: any) => {
+    if (value && !/^[a-zA-Z0-9_-]+$/.test(value)) {
+        callback(new Error('Mã thửa chỉ được chứa chữ không dấu, số, dấu gạch ngang, gạch dưới'));
+        return;
+    }
+    callback();
+};
+
+const validateLat = (rule: any, value: any, callback: any) => {
+    if (value < 8.0 || value > 24.0) {
+        callback(new Error('Vĩ độ phải nằm trong lãnh thổ Việt Nam (8.0 đến 24.0)'));
+        return;
+    }
+    callback();
+};
+
+const validateLong = (rule: any, value: any, callback: any) => {
+    if (value < 102.0 || value > 110.0) {
+        callback(new Error('Kinh độ phải nằm trong lãnh thổ Việt Nam (102.0 đến 110.0)'));
+        return;
+    }
+    callback();
+};
+
+const validateUpdateReason = (rule: any, value: any, callback: any) => {
+    if (isEditing.value && isFormChanged.value && (!value || value.trim() === '')) {
+        callback(new Error('Vui lòng nhập lý do cập nhật dữ liệu'));
+        return;
+    }
+    callback();
+};
+
+const validateArea = (rule: any, value: any, callback: any) => {
+    if (value === '' || value === null || value === undefined) {
+        callback(new Error('Vui lòng nhập diện tích pháp lý (Sổ đỏ)'));
+        return;
+    }
+    if (Number(value) < 0) {
+        callback(new Error('Diện tích không được là số âm'));
+        return;
+    }
+    callback();
+};
+
 const rules = reactive<FormRules>({
-  name: [{ required: true, message: 'Vui lòng nhập tên', trigger: 'blur' }],
+  name: [
+      { required: true, message: 'Vui lòng nhập tên thửa', trigger: 'blur' },
+      { validator: validateName, trigger: 'blur' }
+  ],
+  code: [
+      { validator: validateCode, trigger: 'blur' }
+  ],
+  area_m2: [
+      { required: true, message: 'Vui lòng nhập diện tích pháp lý (Sổ đỏ)', trigger: 'blur' },
+      { validator: validateArea, trigger: 'blur' }
+  ],
   masterGrowingAreaId: [{ required: true, message: 'Vui lòng chọn Mã vùng trồng lớn', trigger: 'change' }],
   farmerId: [{ required: !isFarmerRole.value, message: 'Vui lòng chọn Nông hộ', trigger: 'change' }],
-  lat: [{ required: true, message: 'Nhập Vĩ độ', trigger: 'blur' }],
-  long: [{ required: true, message: 'Nhập Kinh độ', trigger: 'blur' }]
+  address: [{ required: true, message: 'Vui lòng nhập địa chỉ chi tiết', trigger: 'blur' }],
+  lat: [
+      { required: true, message: 'Vui lòng nhập Vĩ độ', trigger: 'blur' },
+      { validator: validateLat, trigger: 'blur' }
+  ],
+  long: [
+      { required: true, message: 'Vui lòng nhập Kinh độ', trigger: 'blur' },
+      { validator: validateLong, trigger: 'blur' }
+  ],
+  updateReason: [
+      { validator: validateUpdateReason, trigger: 'blur' }
+  ]
 });
 
 const initMap = async () => {
@@ -801,8 +1179,8 @@ const initMap = async () => {
     map.pm.setLang('vi' as any);
 
     // Add marker for point (optional, mostly for backward compatibility)
-    // We will focus on Polygons for boundaries now
-    marker = L.marker([form.lat, form.long], { draggable: true }).addTo(map);
+    // pmIgnore prevents Geoman from deleting the marker when using the Removal tool
+    marker = L.marker([form.lat, form.long], { draggable: true, pmIgnore: true } as any).addTo(map);
     
     // Layer group for polygon
     const drawnItems = new L.FeatureGroup();
@@ -818,7 +1196,7 @@ const initMap = async () => {
         
         // Show differently if it's pending approval
         const isPending = isEditing.value && currentApprovalStatus.value === 'PENDING';
-        const color = isPending ? '#f59e0b' : '#16a34a'; // Orange if pending, green if approved
+        const color = isPending ? '#f59e0b' : '#3b82f6'; // Orange if pending, blue if approved/creating
         
         const polygon = L.polygon(polyCoords, { color, fillOpacity: isPending ? 0.3 : 0.2, dashArray: isPending ? '5, 5' : '' });
         drawnItems.addLayer(polygon);
@@ -830,25 +1208,41 @@ const initMap = async () => {
     // Geoman Events
     map.on('pm:create', (e: any) => {
         drawnItems.clearLayers(); // Only 1 polygon allowed
+        e.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.2 }); // Ensure it stays blue
         drawnItems.addLayer(e.layer);
         
         const geojson = e.layer.toGeoJSON();
         const areaSqMeters = turf.area(geojson);
-        form.area_m2 = Math.round(areaSqMeters * 10) / 10;
+        drawnAreaM2.value = Math.round(areaSqMeters * 10) / 10;
+        if (isAreaAutoFilled.value) {
+            form.area_m2 = drawnAreaM2.value;
+        }
         form.boundary = geojson.geometry.coordinates; // [ [ [lng, lat], ... ] ]
         boundaryChanged.value = true;
+        checkOverlap();
         
         // Update marker to center of polygon
         const center = turf.centerOfMass(geojson);
         form.long = Number(center.geometry.coordinates[0].toFixed(6));
         form.lat = Number(center.geometry.coordinates[1].toFixed(6));
         if (marker) marker.setLatLng([form.lat, form.long]);
+        
+        reverseGeocodeToForm(form.long, form.lat);
     });
 
     map.on('pm:remove', () => {
         drawnItems.clearLayers();
         form.boundary = [];
+        drawnAreaM2.value = 0; // Reset area
         boundaryChanged.value = true;
+        overlapWarning.value = null;
+        
+        // UX Improvement: Fly to the currently selected Ward/Province if exists
+        if (form.ward && form.province) {
+            geocodeAddress(`${form.ward}, ${form.province}, Vietnam`, 14);
+        } else if (form.province) {
+            geocodeAddress(`${form.province}, Vietnam`, 10);
+        }
     });
 
     // Also handle edits to the drawn layer
@@ -860,23 +1254,32 @@ const initMap = async () => {
                 const layer = layers[0] as any;
                 const geojson = layer.toGeoJSON();
                 const areaSqMeters = turf.area(geojson);
-                form.area_m2 = Math.round(areaSqMeters * 10) / 10;
+                drawnAreaM2.value = Math.round(areaSqMeters * 10) / 10;
+                if (isAreaAutoFilled.value) {
+                    form.area_m2 = drawnAreaM2.value;
+                }
                 form.boundary = geojson.geometry.coordinates;
                 boundaryChanged.value = true;
+                checkOverlap();
                 
                 const center = turf.centerOfMass(geojson);
                 form.long = Number(center.geometry.coordinates[0].toFixed(6));
                 form.lat = Number(center.geometry.coordinates[1].toFixed(6));
                 if (marker) marker.setLatLng([form.lat, form.long]);
+                
+                reverseGeocodeToForm(form.long, form.lat);
             }
         }
     });
 
     // Event: Marker Drag
     marker.on('dragend', (e) => {
-        const latLng = e.target.getLatLng();
-        form.lat = Number(latLng.lat.toFixed(6));
-        form.long = Number(latLng.lng.toFixed(6));
+        if (form.boundary.length === 0) {
+            const latLng = e.target.getLatLng();
+            form.lat = Number(latLng.lat.toFixed(6));
+            form.long = Number(latLng.lng.toFixed(6));
+            reverseGeocodeToForm(form.long, form.lat);
+        }
     });
 
     // Event: Map Click (fallback if no polygon)
@@ -885,6 +1288,7 @@ const initMap = async () => {
             form.lat = Number(e.latlng.lat.toFixed(6));
             form.long = Number(e.latlng.lng.toFixed(6));
             if (marker) marker.setLatLng(e.latlng);
+            reverseGeocodeToForm(form.long, form.lat);
         }
     });
 
@@ -918,6 +1322,11 @@ watch(() => [form.lat, form.long], ([newLat, newLong]) => {
              const newPos = new L.LatLng(newLat as number, newLong as number);
              marker.setLatLng(newPos);
              map.setView(newPos, map.getZoom()); 
+             
+             // Reverse geocode if no boundary drawn
+             if (form.boundary.length === 0) {
+                 reverseGeocodeToForm(newLong as number, newLat as number);
+             }
         }
     }
 });
@@ -975,7 +1384,31 @@ const loadData = async () => {
   }
 };
 
+const openCreateModal = () => {
+    isAreaAutoFilled.value = true;
+    isEditing.value = false;
+    currentId.value = '';
+    
+    form.name = '';
+    form.code = '';
+    form.area_m2 = 0;
+    form.lat = 21.0;
+    form.long = 105.8;
+    form.boundary = [];
+    form.updateReason = '';
+    form.masterGrowingAreaId = '';
+    form.farmerId = '';
+    form.leaderId = '';
+    form.address = '';
+    form.province = '';
+    form.ward = '';
+    
+    originalForm.value = JSON.parse(JSON.stringify(form));
+    showCreateModal.value = true;
+};
+
 const openEditModal = async (row: Location) => {
+    isAreaAutoFilled.value = false;
     isEditing.value = true;
     currentId.value = row.id;
     
@@ -991,6 +1424,17 @@ const openEditModal = async (row: Location) => {
 
     form.farmerId = row.farmerId || '';
     form.leaderId = row.leaderId || '';
+    
+    // Additional address fields
+    form.address = row.address || '';
+    form.province = row.province || '';
+    
+    if (form.province) {
+        const prov = provinces.value.find(p => p.name === form.province);
+        searchMapWards.value = prov ? prov.wards : [];
+    }
+    
+    form.ward = row.ward || '';
     
     // Handle coordinates (GeoJSON Point)
     if (row.coordinate && row.coordinate.coordinates) {
@@ -1016,6 +1460,17 @@ const openEditModal = async (row: Location) => {
         }
     }
     form.boundary = parsedBoundary;
+    if (parsedBoundary.length > 0) {
+        try {
+            const poly = turf.polygon(parsedBoundary);
+            const areaSqMeters = turf.area(poly);
+            drawnAreaM2.value = Math.round(areaSqMeters * 10) / 10;
+        } catch(e) {
+            drawnAreaM2.value = 0;
+        }
+    } else {
+        drawnAreaM2.value = 0;
+    }
     form.updateReason = ''; // Reset update reason
     boundaryChanged.value = false; // Reset modification flag
     currentApprovalStatus.value = row.approvalStatus || 'APPROVED';
@@ -1067,14 +1522,49 @@ const submitForm = async () => {
         }
       }
 
+      // 3. Ràng buộc ranh giới và dung sai
+      if (form.boundary.length === 0) {
+        ElMessage.error('Vui lòng khoanh vẽ ranh giới thửa đất trên bản đồ!');
+        return;
+      }
+      if (areaDifferencePercent.value > 20) {
+        ElMessage.error('Sai lệch diện tích quá lớn (> 20%). Vui lòng xóa hình vẽ lại cho chuẩn khớp với Sổ đỏ!');
+        return;
+      }
+
+      // 4. Geofencing Radial Distance
+      if (form.masterGrowingAreaId && geofencingDistanceStatus.value) {
+          if (geofencingDistanceStatus.value.status === 'ERROR') {
+              ElMessage.error(`Lỗi: Vùng trồng cách quá xa vùng trồng lớn (> 20km). Vui lòng di chuyển bản đồ về đúng vị trí!`);
+              return;
+          } else if (geofencingDistanceStatus.value.status === 'WARNING') {
+              try {
+                  await ElMessageBox.confirm(
+                      `Khoảng cách từ thửa đất đến trung tâm Vùng trồng đang là ${geofencingDistanceStatus.value.distance.toFixed(1)}km. Bạn có chắc chắn hình vẽ này là chính xác và không bị vẽ nhầm sang khu vực khác không?`,
+                      'Xác nhận vị trí thửa đất',
+                      {
+                          confirmButtonText: 'Tôi chắc chắn, Lưu lại',
+                          cancelButtonText: 'Để tôi xóa vẽ lại',
+                          type: 'warning',
+                      }
+                  );
+              } catch {
+                  return;
+              }
+          }
+      }
+
       submitting.value = true;
       try {
         const payload: any = {
             ...form,
             leaderId: form.leaderId || null,
             code: form.code || undefined,
-            updateReason: form.updateReason || undefined
+            updateReason: form.updateReason || undefined,
+            address: form.address || undefined
         };
+        delete payload.province;
+        delete payload.ward;
         
         // Only send boundary if user modified it
         if (boundaryChanged.value) {
@@ -1108,6 +1598,7 @@ const submitForm = async () => {
 const resetForm = () => {
   if (formRef.value) formRef.value.resetFields();
   form.area_m2 = 0;
+  drawnAreaM2.value = 0;
   form.boundary = [];
   form.updateReason = '';
   boundaryChanged.value = false;

@@ -115,6 +115,24 @@ export interface KcsInspection {
     inspector?: any;
 }
 
+export interface LocationPayload {
+    name: string;
+    lat: number;
+    long: number;
+    area_m2?: number;
+    code?: string;
+    address?: string;
+    plant_type?: string;
+    manager_name?: string;
+    province?: string;
+    ward?: string;
+    masterGrowingAreaId?: string;
+    farmerId?: string;
+    leaderId?: string | null;
+    boundary?: any;
+    updateReason?: string;
+}
+
 export const farmApi = {
     // Locations
     getLocations(params?: any) {
@@ -123,10 +141,10 @@ export const farmApi = {
     getLocationById(id: string) {
         return api.get<Location>(`${baseUrl}/locations/${id}`);
     },
-    createLocation(data: { name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string }) {
+    createLocation(data: LocationPayload) {
         return api.post<Location>(`${baseUrl}/locations`, data);
     },
-    updateLocation(id: string, data: Partial<{ name: string; address?: string; area_m2?: number; lat: number; long: number; code?: string; plant_type?: string; manager_name?: string; province?: string; ward?: string; masterGrowingAreaId?: string; farmerId?: string; leaderId?: string; }>) {
+    updateLocation(id: string, data: Partial<LocationPayload>) {
         return api.patch<Location>(`${baseUrl}/locations/${id}`, data);
     },
     deleteLocation(id: string) {
