@@ -646,50 +646,59 @@ router.beforeEach(async (to, from, next) => {
 
   // 3. Nếu đã đăng nhập mà cố quay lại trang login -> Đẩy về Dashboard tương ứng
   if (to.name === 'login' && token) {
-    const role = authStore.user?.role;
-    if (role === 'TENANT_ADMIN' || role === 'TENANT') {
-      return next({ name: 'tenant-dashboard' });
-    }
-    if (role === 'REGULATOR') {
-      return next({ name: 'regulator-audit' });
-    }
-    if (role === 'DEALER') {
-      return next({ name: 'dealer-dashboard' });
-    }
-    if (role === 'DRIVER') {
-      return next({ name: 'driver-dashboard' });
-    }
+    const perms = authStore.user?.permissions || [];
+    const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
+
+    if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
+    if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
+    if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
+    if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next({ name: 'dashboard' });
+    
+    // Fallback nếu không có quyền xem bất kỳ Dashboard nào
+    if (perms.includes('FARM_LOCATION_VIEW') && !hidden.includes('/farm/locations')) return next({ path: '/farm/locations' });
+    if (perms.includes('USER_VIEW') && !hidden.includes('/system/users')) return next({ path: '/system/users' });
+    
     return next({ name: 'dashboard' });
   }
 
   // 4. Redirect root path
   if (to.path === '/' && token) {
-    const role = authStore.user?.role;
-    if (role === 'TENANT_ADMIN' || role === 'TENANT') {
-      return next({ name: 'tenant-dashboard' });
-    }
-    if (role === 'REGULATOR') {
-      return next({ name: 'regulator-audit' });
-    }
-    if (role === 'DEALER') {
-      return next({ name: 'dealer-dashboard' });
-    }
-    if (role === 'DRIVER') {
-      return next({ name: 'driver-dashboard' });
-    }
-    if (role === 'TEAM_LEADER') {
-      return next({ name: 'leader-dashboard' });
-    }
+    const perms = authStore.user?.permissions || [];
+    const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
+
+    if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
+    if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
+    if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
+    if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next();
+    
+    // Fallback nếu không có quyền xem bất kỳ Dashboard nào
+    if (perms.includes('FARM_LOCATION_VIEW') && !hidden.includes('/farm/locations')) return next({ path: '/farm/locations' });
+    if (perms.includes('USER_VIEW') && !hidden.includes('/system/users')) return next({ path: '/system/users' });
   }
 
-  // 5. Kiểm tra phân quyền (RBAC) dựa trên to.meta.roles
+  // 5. Kiểm tra Menu bị ẩn
+  const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
+  if (hidden.includes(to.path)) {
+    ElMessage.error('Trang này đã bị vô hiệu hóa!');
+    return next(false);
+  }
+
+  // 6. Kiểm tra phân quyền (RBAC) dựa trên to.meta.roles
   if (to.meta.roles && authStore.user) {
     const userRole = authStore.user.role;
     const allowedRoles = to.meta.roles as string[];
+    const perms = authStore.user.permissions || [];
     
-    if (!allowedRoles.includes(userRole)) {
+    let hasAccess = allowedRoles.includes(userRole);
+    
+    // Bypass cho Role động có cấu hình permissions
+    if (!hasAccess && perms.length > 0) {
+      hasAccess = true;
+    }
+    
+    if (!hasAccess) {
       ElMessage.error('Bạn không có quyền truy cập chức năng này!');
-      return next('/'); // Sẽ kích hoạt logic đá về đúng Dashboard của rule số 4
+      return next(false); // Fix: Sử dụng next(false) để chặn vòng lặp
     }
   }
 
