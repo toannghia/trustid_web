@@ -131,11 +131,16 @@ const initMap = async () => {
     map.remove();
   }
 
-  map = L.map('master-map').setView([14.0583, 108.2772], 6);
+  map = L.map('master-map', {
+    minZoom: 4,
+    maxBounds: [[-90, -180], [90, 180]],
+    maxBoundsViscosity: 1.0
+  }).setView([14.0583, 108.2772], 6);
 
   L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=' + import.meta.env.VITE_MAPBOX_TOKEN, {
     maxZoom: 20,
-    attribution: '© Mapbox'
+    attribution: '© Mapbox',
+    noWrap: true
   }).addTo(map);
 
   const drawnItems = new L.FeatureGroup();

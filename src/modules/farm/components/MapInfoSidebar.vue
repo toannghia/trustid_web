@@ -1,17 +1,32 @@
 <template>
   <div class="info-sidebar">
-    <!-- Section: Thông tin vùng trồng -->
-    <div class="sec" v-if="location">
+    <!-- Section: Thông tin vùng trồng lớn -->
+    <div class="sec" v-if="location && mode === 'view'">
       <div class="sec-t">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
         </svg>
         Thông tin vùng trồng lớn
       </div>
-      <div class="row"><span class="rl">Mã số</span><span class="rv">{{ location.code || '—' }}</span></div>
-      <div class="row"><span class="rl">Loại cây</span><span class="rv">{{ location.plantType || '—' }}</span></div>
-      <div class="row"><span class="rl">Người quản lý</span><span class="rv">{{ location.managerName || '—' }}</span></div>
-      <div class="row"><span class="rl">Tỉnh / Xã</span><span class="rv">{{ locationAddress }}</span></div>
+      <div class="row"><span class="rl">Mã số</span><span class="rv">{{ location.masterGrowingArea?.code || '—' }}</span></div>
+      <div class="row"><span class="rl">Loại cây</span><span class="rv">{{ location.masterGrowingArea?.plantType || '—' }}</span></div>
+      <div class="row"><span class="rl">Người quản lý</span><span class="rv">{{ location.masterGrowingArea?.managerName || '—' }}</span></div>
+      <div class="row"><span class="rl">Tỉnh / Xã</span><span class="rv">{{ masterAddress }}</span></div>
+    </div>
+
+    <!-- Section: Thông tin Thửa đất -->
+    <div class="sec" v-if="location">
+      <div class="sec-t">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+        Thông tin thửa đất
+      </div>
+      <div class="row"><span class="rl">Mã thửa</span><span class="rv">{{ location.code || '—' }}</span></div>
+      <div class="row" v-if="mode === 'view'"><span class="rl">Đội trưởng</span><span class="rv">{{ location.leader?.fullName || '—' }}</span></div>
+      <div class="row" v-if="mode === 'view'"><span class="rl">Nông hộ</span><span class="rv">{{ location.farmer?.fullName || '—' }}</span></div>
+      <div class="row"><span class="rl">Diện tích</span><span class="rv">{{ location.areaM2 ? (location.areaM2 / 10000).toFixed(4) : 0 }} ha</span></div>
+      <div class="row" v-if="location.status && mode === 'view'"><span class="rl">Trạng thái</span><span class="rv" :class="location.status === 'ACTIVE' ? 'text-green-500' : ''">{{ location.status }}</span></div>
     </div>
 
     <!-- Section: Danh sách thửa (multi mode) -->
@@ -24,6 +39,8 @@
       </div>
       <div class="row"><span class="rl">Số thửa</span><span class="rv bl">{{ locations.length }}</span></div>
       <div class="row"><span class="rl">Tổng diện tích</span><span class="rv bl">{{ totalAreaHa }} ha</span></div>
+      <div class="row" v-if="uniqueLeaders.length"><span class="rl">Đội trưởng</span><span class="rv">{{ uniqueLeaders.join(', ') }}</span></div>
+      <div class="row" v-if="uniqueFarmers.length"><span class="rl">Nông hộ</span><span class="rv">{{ uniqueFarmers.join(', ') }}</span></div>
     </div>
 
     <!-- Section: So sánh diện tích -->
@@ -155,6 +172,12 @@ const props = defineProps<{
 
 const slopeCanvas = ref<HTMLCanvasElement | null>(null);
 
+const masterAddress = computed(() => {
+  if (!props.location?.masterGrowingArea) return '—';
+  const m = props.location.masterGrowingArea;
+  return [m.ward, m.province].filter(Boolean).join(', ') || '—';
+});
+
 const locationAddress = computed(() => {
   if (!props.location) return '—';
   return [props.location.ward, props.location.province].filter(Boolean).join(', ') || '—';
@@ -164,6 +187,24 @@ const totalAreaHa = computed(() => {
   if (!props.locations) return '0';
   const total = props.locations.reduce((sum, l) => sum + (l.areaM2 || 0), 0);
   return (total / 10000).toFixed(2);
+});
+
+const uniqueLeaders = computed(() => {
+  if (!props.locations) return [];
+  const set = new Set<string>();
+  props.locations.forEach(l => {
+    if (l.leader?.fullName) set.add(l.leader.fullName);
+  });
+  return Array.from(set);
+});
+
+const uniqueFarmers = computed(() => {
+  if (!props.locations) return [];
+  const set = new Set<string>();
+  props.locations.forEach(l => {
+    if (l.farmer?.fullName) set.add(l.farmer.fullName);
+  });
+  return Array.from(set);
 });
 
 const area2DHa = computed(() => (props.currentArea2D / 10000).toFixed(2));

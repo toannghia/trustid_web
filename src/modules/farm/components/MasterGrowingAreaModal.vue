@@ -50,10 +50,6 @@
         </el-col>
       </el-row>
 
-      <el-form-item label="Địa chỉ chi tiết" prop="address">
-        <el-input v-model="form.address" placeholder="Thôn, Xóm, Số nhà..." />
-      </el-form-item>
-
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="Đơn vị sở hữu" prop="ownerName">
@@ -75,7 +71,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="Giới hạn diện tích (m2)" prop="maxAreaM2">
-            <el-input-number v-model="form.maxAreaM2" :min="1000" class="w-full" />
+            <el-input-number v-model="form.maxAreaM2" :min="1" class="w-full" />
             <div class="text-xs text-gray-400 mt-1">Mặc định: 100,000 m2 (10ha)</div>
           </el-form-item>
         </el-col>
@@ -101,7 +97,7 @@
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
         <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-        <el-button type="primary" :loading="loading" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+        <el-button type="primary" :loading="loading" :disabled="!isFormChanged" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
           {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
         </el-button>
       </div>
@@ -112,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { farmApi } from '../api/farmApi';
@@ -138,7 +134,6 @@ const formWards = ref<any[]>([]);
 const form = reactive({
   code: '',
   name: '',
-  address: '',
   province: '',
   ward: '',
   ownerName: '',
@@ -149,9 +144,88 @@ const form = reactive({
   maxAreaM2: 100000
 });
 
+const initialFormStr = ref('');
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== initialFormStr.value;
+});
+
+const validateMaxArea = (rule: any, value: any, callback: any) => {
+    if (value === '' || value === null || value === undefined) {
+        callback(new Error('Vui lòng nhập giới hạn diện tích'));
+        return;
+    }
+    if (Number(value) <= 0) {
+        callback(new Error('Diện tích phải lớn hơn 0'));
+        return;
+    }
+    if (Number(value) > 9999999999) {
+        callback(new Error('Diện tích nhập vào quá lớn (Tối đa 9,999,999,999 m²)'));
+        return;
+    }
+    callback();
+};
+
+const validateCode = (rule: any, value: any, callback: any) => {
+    if (!value) {
+        callback(new Error('Vui lòng nhập mã vùng trồng'));
+        return;
+    }
+    if (value.length < 3 || value.length > 50) {
+        callback(new Error('Mã vùng trồng phải từ 3 đến 50 ký tự'));
+        return;
+    }
+    const regex = /^[A-Za-z0-9-_]+$/;
+    if (!regex.test(value)) {
+        callback(new Error('Mã vùng trồng không được chứa khoảng trắng hoặc ký tự đặc biệt'));
+        return;
+    }
+    callback();
+};
+
+const validateManagerName = (rule: any, value: any, callback: any) => {
+    if (!value) {
+        callback(new Error('Vui lòng nhập người quản lý'));
+        return;
+    }
+    if (value.length > 100) {
+        callback(new Error('Tên người quản lý không được vượt quá 100 ký tự'));
+        return;
+    }
+    const regex = /\d/;
+    if (regex.test(value)) {
+        callback(new Error('Tên người quản lý không được chứa số'));
+        return;
+    }
+    callback();
+};
+
 const rules = reactive<FormRules>({
-  code: [{ required: true, message: 'Vui lòng nhập mã', trigger: 'blur' }],
-  name: [{ required: true, message: 'Vui lòng nhập tên', trigger: 'blur' }]
+  code: [
+    { required: true, message: 'Vui lòng nhập mã', trigger: 'blur' },
+    { validator: validateCode, trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: 'Vui lòng nhập tên', trigger: 'blur' },
+    { max: 255, message: 'Tên vùng trồng không được vượt quá 255 ký tự', trigger: 'blur' }
+  ],
+  province: [{ required: true, message: 'Vui lòng chọn Tỉnh/Thành phố', trigger: 'change' }],
+  ward: [{ required: true, message: 'Vui lòng chọn Phường/Xã', trigger: 'change' }],
+  ownerName: [
+    { required: true, message: 'Vui lòng nhập đơn vị sở hữu', trigger: 'blur' },
+    { max: 255, message: 'Tên đơn vị sở hữu không được vượt quá 255 ký tự', trigger: 'blur' }
+  ],
+  managerName: [
+    { required: true, message: 'Vui lòng nhập người quản lý', trigger: 'blur' },
+    { validator: validateManagerName, trigger: 'blur' }
+  ],
+  plantType: [
+    { required: true, message: 'Vui lòng nhập loại cây trồng', trigger: 'blur' },
+    { max: 100, message: 'Loại cây trồng không được vượt quá 100 ký tự', trigger: 'blur' }
+  ],
+  maxAreaM2: [
+    { required: true, message: 'Vui lòng nhập giới hạn diện tích', trigger: 'blur' },
+    { validator: validateMaxArea, trigger: 'blur' }
+  ]
 });
 
 const onProvinceChange = () => {
@@ -195,7 +269,6 @@ const open = async (editData?: any) => {
     currentId.value = editData.id;
     form.code = editData.code || '';
     form.name = editData.name || '';
-    form.address = editData.address || '';
     form.province = editData.province || '';
     form.ward = editData.ward || '';
     form.ownerName = editData.ownerName || '';
@@ -222,12 +295,13 @@ const open = async (editData?: any) => {
     isEdit.value = false;
     currentId.value = '';
     Object.assign(form, {
-      code: '', name: '', address: '', province: '', ward: '',
+      code: '', name: '', province: '', ward: '',
       ownerName: '', managerName: '', plantType: '',
-      leaderIds: [], maxAreaM2: 100000
+      leaderIds: [], kcsStaffIds: [], maxAreaM2: 100000
     });
   }
-  
+
+  initialFormStr.value = JSON.stringify(form);
   visible.value = true;
 };
 

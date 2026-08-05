@@ -46,6 +46,14 @@
               <div class="font-medium">{{ location.masterGrowingArea?.managerName || location.managerName || '—' }}</div>
             </div>
             <div>
+              <div class="text-gray-500">Đội trưởng phụ trách</div>
+              <div class="font-medium">{{ location.leader?.fullName || '—' }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Nông hộ canh tác</div>
+              <div class="font-medium">{{ location.farmer?.fullName || '—' }}</div>
+            </div>
+            <div>
               <div class="text-gray-500">Địa chỉ chi tiết</div>
               <div class="font-medium">{{ location.address || '—' }}</div>
             </div>
@@ -66,7 +74,7 @@
               </div>
               <el-button type="primary" size="small" @click="show3DDrawer = true">
                 <el-icon class="mr-1"><View /></el-icon>
-                Bản đồ 3D & Vẽ polygon
+                Xem bản đồ 3D
               </el-button>
             </div>
           </template>
@@ -252,7 +260,7 @@
     <MapLibre3DDrawer
       v-model="show3DDrawer"
       :location="location"
-      mode="draw"
+      mode="view"
       @boundary-drawn="handleBoundaryDrawn"
     />
   </div>
@@ -265,6 +273,7 @@ import { ArrowLeft, Edit, Coordinate, MapLocation, DataAnalysis, Search, Downloa
 import { ElMessage, ElMessageBox } from 'element-plus';
 import MapLibre3DDrawer from '../components/MapLibre3DDrawer.vue';
 import { farmApi, type Location, type KcsInspection } from '../api/farmApi';
+import { userApi } from '@/modules/core/api/user';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -424,6 +433,26 @@ const loadData = async () => {
         }
       }
     }
+
+    // Load Farmer and Leader if missing
+    if (location.value) {
+      if (location.value.farmerId && !location.value.farmer) {
+        try {
+          const res = await userApi.getList({ page: 1, limit: 1000, roleName: 'FARMER' });
+          const users = res.data?.data || res.data?.items || (Array.isArray(res.data) ? res.data : []);
+          const farmer = users.find((u: any) => u.id === location.value!.farmerId);
+          if (farmer) location.value.farmer = farmer;
+        } catch (e) {}
+      }
+      if (location.value.leaderId && !location.value.leader) {
+        try {
+          const res = await userApi.getList({ page: 1, limit: 1000, roleName: 'TEAM_LEADER' });
+          const users = res.data?.data || res.data?.items || (Array.isArray(res.data) ? res.data : []);
+          const leader = users.find((u: any) => u.id === location.value!.leaderId);
+          if (leader) location.value.leader = leader;
+        } catch (e) {}
+      }
+    }
     
     // Load KCS
     const kcsRes = await farmApi.getKcsInspections(locationId.value);
@@ -460,10 +489,16 @@ const initMap = () => {
     zoom = 15;
   }
 
-  map = L.map('detail-map').setView(center, zoom);
+  map = L.map('detail-map', {
+    minZoom: 4,
+    maxBounds: [[-90, -180], [90, 180]],
+    maxBoundsViscosity: 1.0
+  }).setView(center, zoom);
+  
   L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=' + import.meta.env.VITE_MAPBOX_TOKEN, {
     maxZoom: 20,
-    attribution: '© Mapbox'
+    attribution: '© Mapbox',
+    noWrap: true
   }).addTo(map);
 
   // Draw boundary polygon

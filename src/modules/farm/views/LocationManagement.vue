@@ -1287,9 +1287,15 @@ const validateName = (rule: any, value: any, callback: any) => {
 };
 
 const validateCode = (rule: any, value: any, callback: any) => {
-    if (value && !/^[a-zA-Z0-9_-]+$/.test(value)) {
-        callback(new Error('Mã thửa chỉ được chứa chữ không dấu, số, dấu gạch ngang, gạch dưới'));
-        return;
+    if (value) {
+        if (value.length < 3 || value.length > 50) {
+            callback(new Error('Mã thửa phải từ 3 đến 50 ký tự'));
+            return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+            callback(new Error('Mã thửa chỉ được chứa chữ không dấu, số, dấu gạch ngang, gạch dưới'));
+            return;
+        }
     }
     callback();
 };
@@ -1311,9 +1317,15 @@ const validateLong = (rule: any, value: any, callback: any) => {
 };
 
 const validateUpdateReason = (rule: any, value: any, callback: any) => {
-    if (isEditing.value && isFormChanged.value && (!value || value.trim() === '')) {
-        callback(new Error('Vui lòng nhập lý do cập nhật dữ liệu'));
-        return;
+    if (isEditing.value && isFormChanged.value) {
+        if (!value || value.trim().length < 10) {
+            callback(new Error('Vui lòng nhập lý do cập nhật dữ liệu rõ ràng (ít nhất 10 ký tự)'));
+            return;
+        }
+        if (value.trim().length > 500) {
+            callback(new Error('Lý do cập nhật không được vượt quá 500 ký tự'));
+            return;
+        }
     }
     callback();
 };
@@ -1337,6 +1349,7 @@ const validateArea = (rule: any, value: any, callback: any) => {
 const rules = reactive<FormRules>({
   name: [
       { required: true, message: 'Vui lòng nhập tên thửa', trigger: 'blur' },
+      { max: 255, message: 'Tên thửa không được vượt quá 255 ký tự', trigger: 'blur' },
       { validator: validateName, trigger: 'blur' }
   ],
   code: [
@@ -1348,7 +1361,10 @@ const rules = reactive<FormRules>({
   ],
   masterGrowingAreaId: [{ required: true, message: 'Vui lòng chọn Mã vùng trồng lớn', trigger: 'change' }],
   farmerId: [{ required: !isFarmerRole.value, message: 'Vui lòng chọn Nông hộ', trigger: 'change' }],
-  address: [{ required: true, message: 'Vui lòng nhập địa chỉ chi tiết', trigger: 'blur' }],
+  address: [
+      { required: true, message: 'Vui lòng nhập địa chỉ chi tiết', trigger: 'blur' },
+      { min: 5, max: 255, message: 'Địa chỉ chi tiết phải từ 5 đến 255 ký tự', trigger: 'blur' }
+  ],
   lat: [
       { required: true, message: 'Vui lòng nhập Vĩ độ', trigger: 'blur' },
       { validator: validateLat, trigger: 'blur' }
@@ -1371,11 +1387,16 @@ const initMap = async () => {
         map.remove(); // Clean up existing map
     }
 
-    map = L.map('map').setView([form.lat, form.long], 12);
+    map = L.map('map', {
+        minZoom: 4,
+        maxBounds: [[-90, -180], [90, 180]],
+        maxBoundsViscosity: 1.0
+    }).setView([form.lat, form.long], 12);
     
     L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=' + import.meta.env.VITE_MAPBOX_TOKEN, {
         maxZoom: 20,
-        attribution: '© Mapbox'
+        attribution: '© Mapbox',
+        noWrap: true
     }).addTo(map);
 
     // Geoman controls

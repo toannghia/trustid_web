@@ -1,5 +1,5 @@
 <template>
-  <el-drawer v-model="drawerVisible" size="100%" :with-header="false" :close-on-press-escape="true" :destroy-on-close="true" class="map3d-drawer" @opened="onDrawerOpened" @closed="onDrawerClosed">
+  <el-drawer v-model="drawerVisible" size="100%" :with-header="false" append-to-body :close-on-press-escape="true" :destroy-on-close="true" class="map3d-drawer" @opened="onDrawerOpened" @closed="onDrawerClosed">
     <div class="drawer-layout">
       <!-- Header -->
       <div class="drawer-header">
@@ -139,20 +139,38 @@ const existingArea = computed(() => {
 
 const CTR: [number, number] = [108.2772, 14.0583];
 
+const getParsedBoundary = (loc: any) => {
+  if (!loc) return null;
+  const bnd = (loc.approvalStatus === 'PENDING' && loc.pendingBoundary) ? loc.pendingBoundary : loc.boundary;
+  if (!bnd) return null;
+  if (typeof bnd === 'string' && bnd.startsWith('{')) {
+    try {
+      return JSON.parse(bnd);
+    } catch (e) {
+      return null;
+    }
+  }
+  return bnd;
+};
+
 const getCenter = (): [number, number] => {
   if (props.location?.coordinate?.coordinates) {
     return [props.location.coordinate.coordinates[0], props.location.coordinate.coordinates[1]];
   }
-  if (props.location?.boundary?.coordinates?.[0]?.[0]) {
-    const ring = props.location.boundary.coordinates[0];
-    const fc = turf.featureCollection(ring.map((c: number[]) => turf.point(c)));
-    const center = turf.center(fc);
-    return center.geometry.coordinates as [number, number];
+  if (props.location) {
+    const singleBnd = getParsedBoundary(props.location);
+    if (singleBnd?.coordinates?.[0]?.[0]) {
+      const ring = singleBnd.coordinates[0];
+      const fc = turf.featureCollection(ring.map((c: number[]) => turf.point(c)));
+      const center = turf.center(fc);
+      return center.geometry.coordinates as [number, number];
+    }
   }
   if (props.locations?.length) {
     for (const loc of props.locations) {
       if (loc.coordinate?.coordinates) return [loc.coordinate.coordinates[0], loc.coordinate.coordinates[1]];
-      if (loc.boundary?.coordinates?.[0]?.[0]) return loc.boundary.coordinates[0][0];
+      const bnd = getParsedBoundary(loc);
+      if (bnd?.coordinates?.[0]?.[0]) return bnd.coordinates[0][0];
     }
   }
   return CTR;
@@ -228,8 +246,7 @@ const loadExistingData = () => {
 
   // Single location mode
   if (props.location) {
-    const bnd = (props.location.approvalStatus === 'PENDING' && props.location.pendingBoundary)
-      ? props.location.pendingBoundary : props.location.boundary;
+    const bnd = getParsedBoundary(props.location);
 
     if (bnd?.coordinates) {
       if (props.mode === 'draw') {
@@ -261,12 +278,23 @@ const loadExistingData = () => {
     const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
     props.locations.forEach((loc, i) => {
-      const bnd = (loc.approvalStatus === 'PENDING' && loc.pendingBoundary) ? loc.pendingBoundary : loc.boundary;
+      const bnd = getParsedBoundary(loc);
+      let plotCenter = null;
       if (bnd?.coordinates) {
         features.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: bnd.coordinates }, properties: { name: loc.name, farmer: loc.farmer?.fullName || '—', areaM2: loc.areaM2, colorIdx: i % colors.length } });
         bnd.coordinates[0].forEach((c: number[]) => bounds.extend([c[0], c[1]]));
+        const fc = turf.featureCollection(bnd.coordinates[0].map((c: number[]) => turf.point(c)));
+        plotCenter = turf.center(fc).geometry.coordinates;
       } else if (loc.coordinate?.coordinates) {
-        bounds.extend([loc.coordinate.coordinates[0], loc.coordinate.coordinates[1]]);
+        plotCenter = [loc.coordinate.coordinates[0], loc.coordinate.coordinates[1]];
+        bounds.extend(plotCenter as [number, number]);
+      }
+      
+      if (plotCenter) {
+        const mkEl = document.createElement('div');
+        mkEl.innerHTML = `<svg width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z" fill="#3b82f6" stroke="#fff" stroke-width="2"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>`;
+        mkEl.style.cursor = 'pointer';
+        new maplibregl.Marker({ element: mkEl, anchor: 'bottom' }).setLngLat(plotCenter as [number, number]).addTo(map);
       }
     });
 
