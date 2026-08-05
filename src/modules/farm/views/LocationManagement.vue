@@ -762,7 +762,8 @@ const onQuickUserCreated = async (user: any) => {
 };
 
 const onMasterAreaChange = async (val: string) => {
-    if (form.boundary.length > 0) {
+    // Trường hợp 1: Chuyển từ Vùng này sang Vùng khác và đã có ranh giới
+    if (previousMasterAreaId.value && form.boundary.length > 0) {
         try {
             await ElMessageBox.confirm(
                 'Đổi Vùng trồng lớn sẽ xóa ranh giới bạn đã vẽ hiện tại. Bạn có chắc chắn muốn đổi?',
@@ -781,6 +782,71 @@ const onMasterAreaChange = async (val: string) => {
             // Người dùng chọn Hủy -> Rollback lại giá trị dropdown cũ
             form.masterGrowingAreaId = previousMasterAreaId.value;
             return; 
+        }
+    }
+    // Trường hợp 2: Chọn Vùng lần đầu (từ [Trống]) nhưng đã vẽ ranh giới trước đó
+    else if (!previousMasterAreaId.value && form.boundary.length > 0 && val) {
+        const masterArea = masterGrowingAreas.value.find(a => a.id === val);
+        if (masterArea && masterArea.province) {
+            try {
+                reverseGeocodingLoading.value = true;
+                const token = import.meta.env.VITE_MAPBOX_TOKEN;
+                if (token) {
+                    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${form.long},${form.lat}.json?access_token=${token}&country=vn&language=vi`;
+                    const res = await fetch(url);
+                    const mbData = await res.json();
+                    
+                    if (mbData.features && mbData.features.length > 0) {
+                        const feature = mbData.features[0];
+                        let mbProvince = '';
+                        if (feature.context) {
+                            const regionCtx = feature.context.find((c: any) => c.id.startsWith('region') || c.id.startsWith('place'));
+                            if (regionCtx) mbProvince = regionCtx.text;
+                        }
+                        
+                        let matchedProv = null;
+                        if (mbProvince) {
+                            const normMbProv = normalizeProvinceName(mbProvince);
+                            matchedProv = provinces.value.find(p => normalizeProvinceName(p.name).includes(normMbProv) || normMbProv.includes(normalizeProvinceName(p.name)));
+                        }
+                        if (!matchedProv) {
+                            const fullPlace = (feature.place_name || '').toLowerCase();
+                            matchedProv = provinces.value.find(p => fullPlace.includes(normalizeProvinceName(p.name)));
+                        }
+                        
+                        if (matchedProv) {
+                            const masterProvNorm = normalizeProvinceName(masterArea.province);
+                            const matchedProvNorm = normalizeProvinceName(matchedProv.name);
+                            if (masterProvNorm !== matchedProvNorm) {
+                                reverseGeocodingLoading.value = false;
+                                try {
+                                    await ElMessageBox.confirm(
+                                        `Ranh giới bạn đã vẽ (nằm ở ${matchedProv.name}) không khớp với Vùng trồng (thuộc ${masterArea.province}). Áp dụng Vùng này sẽ xóa ranh giới hiện tại. Bạn có chắc chắn muốn áp dụng?`,
+                                        'Cảnh báo sai tỉnh',
+                                        { confirmButtonText: 'Đồng ý (Xóa hình)', cancelButtonText: 'Hủy', type: 'warning' }
+                                    );
+                                    // Bấm đồng ý -> Xóa hình, cho phép update dropdown
+                                    if (drawnItems) drawnItems.clearLayers();
+                                    form.boundary = [];
+                                    drawnAreaM2.value = 0;
+                                    form.area_m2 = 0;
+                                    isAreaAutoFilled.value = true;
+                                    boundaryChanged.value = true;
+                                    overlapWarning.value = null;
+                                } catch {
+                                    // Hủy dropdown
+                                    form.masterGrowingAreaId = '';
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore
+            } finally {
+                reverseGeocodingLoading.value = false;
+            }
         }
     }
 
