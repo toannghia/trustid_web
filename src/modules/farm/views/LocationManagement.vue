@@ -273,25 +273,17 @@
             />
         </div>
 
-        <!-- Realtime Geofencing Display -->
-        <div v-if="geofencingDistanceStatus && form.boundary.length > 0" class="mb-4">
+        <!-- Spatial Lock Display -->
+        <div v-if="isOutsideProvince && form.boundary.length > 0" class="mb-4">
             <el-alert
-                v-if="geofencingDistanceStatus.status === 'ERROR'"
-                title="Lỗi: Thửa đất bị vẽ sai vị trí!"
-                :description="`Thửa đất bạn vẽ đang cách trung tâm Vùng trồng hơn 20km (${geofencingDistanceStatus.distance.toFixed(1)}km). Vui lòng bấm vào biểu tượng 'Cục tẩy' để xóa hình này đi, hệ thống sẽ tự đưa bạn về đúng vị trí để vẽ lại.`"
+                title="Lỗi: Vẽ sai ranh giới tỉnh!"
+                :description="`Thửa đất bạn vừa vẽ nằm ngoài địa phận tỉnh ${form.province} (thuộc ${drawnProvinceName}). Vui lòng xóa hình và vẽ lại bên trong ranh giới tỉnh.`"
                 type="error"
                 show-icon
                 :closable="false"
             />
-            <el-alert
-                v-else-if="geofencingDistanceStatus.status === 'WARNING'"
-                title="Chú ý: Thửa đất nằm khá xa trung tâm Vùng trồng"
-                :description="`Vị trí bạn vẽ cách tâm Vùng trồng khoảng ${geofencingDistanceStatus.distance.toFixed(1)}km. Nếu bạn chắc chắn thửa đất này nằm ở vị trí giáp ranh, bạn vẫn có thể bấm Lưu.`"
-                type="warning"
-                show-icon
-                :closable="false"
-            />
         </div>
+
 
         <div v-loading="reverseGeocodingLoading" element-loading-text="Đang phân tích địa chỉ tự động...">
           <el-divider content-position="left">Địa chỉ & Tọa độ (GPS)</el-divider>
@@ -349,7 +341,7 @@
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
           <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" :disabled="(isEditing && !isFormChanged) || areaDifferenceStatus === 'POSITIVE_ERROR' || areaDifferenceStatus === 'NEGATIVE_ERROR' || (geofencingDistanceStatus && geofencingDistanceStatus.status === 'ERROR')" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+          <el-button type="primary" :loading="submitting" :disabled="(isEditing && !isFormChanged) || areaDifferenceStatus === 'POSITIVE_ERROR' || areaDifferenceStatus === 'NEGATIVE_ERROR'" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
         </div>
@@ -360,10 +352,14 @@
     <QuickUserModal ref="quickUserModalRef" :role-name="currentQuickRole" @created="onQuickUserCreated" />
 
     <MapLibre3DDrawer
+      ref="map3DDrawerRef"
       v-model="show3DDrawer"
       :location="editing3DLocation"
+      :locations="filteredExistingLocations"
+      :has-error="has3DError"
       mode="draw"
       @boundary-drawn="handle3DBoundaryDrawn"
+      @preview-drawn="handlePreviewDrawn"
     />
 
     <!-- Delete Confirmation Modal -->
@@ -448,6 +444,11 @@ import { vietnamUnits } from '@/common/data/vietnam-units';
 
 const locations = ref<Location[]>([]);
 const loading = ref(false);
+
+const isOutsideProvince = ref(false);
+const drawnProvinceName = ref('');
+const has3DError = ref(false);
+const previousMasterAreaId = ref('');
 const currentPage = ref(1);
 const pageSize = ref(10);
 const totalLocations = ref(0);
@@ -534,34 +535,25 @@ const areaDifferenceStatus = computed(() => {
     const diff = (drawnAreaM2.value - form.area_m2) / form.area_m2 * 100;
     
     if (diff > 5) return 'POSITIVE_ERROR'; // Lệch dương > 5% -> Đỏ (Chặn)
-    if (diff < -20) return 'NEGATIVE_ERROR'; // Lệch âm > 20% -> Đỏ (Chặn)
-    if (diff < -5) return 'NEGATIVE_WARNING'; // Lệch âm 5-20% -> Vàng (Cho phép)
+    if (diff < -15) return 'NEGATIVE_ERROR'; // Lệch âm > 15% -> Đỏ (Chặn)
+    if (diff < -5) return 'NEGATIVE_WARNING'; // Lệch âm 5-15% -> Vàng (Cho phép)
     return 'MATCH'; // -5% đến 5% -> Xanh (An toàn)
 });
 
 const masterAnchorPoint = ref<{lng: number, lat: number} | null>(null);
 
-const geofencingDistanceStatus = computed(() => {
-    if (!form.masterGrowingAreaId || !masterAnchorPoint.value || form.boundary.length === 0) return null;
-    
-    const distanceKm = turf.distance(
-        [form.long, form.lat], 
-        [masterAnchorPoint.value.lng, masterAnchorPoint.value.lat], 
-        { units: 'kilometers' }
-    );
-    
-    if (distanceKm > 20) return { status: 'ERROR', distance: distanceKm };
-    if (distanceKm > 5) return { status: 'WARNING', distance: distanceKm };
-    return { status: 'OK', distance: distanceKm };
-});
 
-// Build a temporary location object for the 3D drawer
+
 const editing3DLocation = computed(() => {
+  const masterArea = masterGrowingAreas.value.find(a => a.id === form.masterGrowingAreaId);
+
   const loc: any = {
-    code: form.code,
-    name: form.name,
-    plantType: '',
-    managerName: '',
+    code: masterArea?.code || form.code,
+    name: masterArea?.name || form.name,
+    plantType: masterArea?.plantType || '',
+    managerName: masterArea?.managerName || '',
+    province: form.province,
+    ward: form.ward,
     areaM2: form.area_m2,
     coordinate: { coordinates: [form.long, form.lat] },
     boundary: form.boundary.length > 0 ? { type: 'Polygon', coordinates: form.boundary } : null,
@@ -590,6 +582,10 @@ const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number
   if (map) {
     // Remove existing drawn layers
     map.eachLayer((layer: any) => {
+      // Bỏ qua không xóa các thửa đất màu xanh lá đang hiển thị
+      if (layer === existingLocationsLayer) return;
+      if (existingLocationsLayer && existingLocationsLayer.hasLayer(layer)) return;
+      
       if (layer.pm && layer !== map) {
         map!.removeLayer(layer);
       }
@@ -602,6 +598,111 @@ const handle3DBoundaryDrawn = (data: { coordinates: number[][][]; areaM2: number
   }
 
   ElMessage.success(`Polygon đã vẽ trên 3D! Diện tích: ${form.area_m2.toLocaleString()} m²`);
+  
+  reverseGeocodeToForm(form.long, form.lat);
+};
+
+const handlePreviewDrawn = async (data: { coordinates: number[][][]; areaM2: number } | null) => {
+    has3DError.value = true; // Khóa nút Lưu trong lúc đang check Mapbox (async)
+    if (!data || data.coordinates.length === 0) {
+        has3DError.value = false;
+        return;
+    }
+
+    const drawnAreaM2 = Math.round(data.areaM2 * 10) / 10;
+    
+    // 1. Check Area (Chỉ cảnh báo nếu người dùng TỰ NHẬP tay diện tích)
+    if (form.area_m2 > 0 && !isAreaAutoFilled.value) {
+        const diff = Math.abs(drawnAreaM2 - form.area_m2) / form.area_m2 * 100;
+        if (diff > 15) {
+            ElMessage.warning(`Chú ý: Diện tích vẽ trên 3D (${drawnAreaM2.toLocaleString()} m²) lệch quá 15% so với diện tích khai báo (${form.area_m2.toLocaleString()} m²)!`);
+        }
+    }
+
+    // 2. Check Overlap
+    const drawnPoly = turf.polygon(data.coordinates as any);
+    let isOverlapping = false;
+    for (const loc of filteredExistingLocations.value) {
+        let parsedBoundary = [];
+        const boundarySource = (loc.approvalStatus === 'PENDING' && loc.pendingBoundary)
+            ? loc.pendingBoundary 
+            : loc.boundary;
+
+        if (boundarySource) {
+            if (typeof boundarySource === 'string' && boundarySource.startsWith('{')) {
+                try { parsedBoundary = JSON.parse(boundarySource).coordinates; } catch(e) {}
+            } else if (typeof boundarySource === 'object' && boundarySource.coordinates) {
+                parsedBoundary = boundarySource.coordinates;
+            }
+        }
+        
+        if (parsedBoundary && parsedBoundary.length > 0) {
+            try {
+                const existingPoly = turf.polygon(parsedBoundary as any);
+                const intersection = turf.intersect(turf.featureCollection([drawnPoly, existingPoly]));
+                if (intersection && intersection.geometry) {
+                    const overlapArea = turf.area(intersection);
+                    if (overlapArea > 0.1) {
+                        isOverlapping = true;
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+
+    if (isOverlapping) {
+        ElMessage.warning('Cảnh báo: Ranh giới vẽ đang bị chồng lấn lên thửa đất khác!');
+    }
+
+    // 3. Check Province Lock
+    if (form.province) {
+        try {
+            const center = turf.centerOfMass(drawnPoly);
+            const lng = center.geometry.coordinates[0];
+            const lat = center.geometry.coordinates[1];
+            
+            const token = import.meta.env.VITE_MAPBOX_TOKEN;
+            if (!token) return;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&country=vn&language=vi`;
+            const res = await fetch(url);
+            const mbData = await res.json();
+            
+            if (mbData.features && mbData.features.length > 0) {
+                const feature = mbData.features[0];
+                let mbProvince = '';
+                
+                if (feature.context) {
+                    const regionCtx = feature.context.find((c: any) => c.id.startsWith('region') || c.id.startsWith('place'));
+                    if (regionCtx) mbProvince = regionCtx.text;
+                }
+                
+                let matchedProv = null;
+                if (mbProvince) {
+                    const normMbProv = normalizeProvinceName(mbProvince);
+                    matchedProv = provinces.value.find(p => normalizeProvinceName(p.name).includes(normMbProv) || normMbProv.includes(normalizeProvinceName(p.name)));
+                }
+                
+                if (!matchedProv) {
+                    const fullPlace = (feature.place_name || '').toLowerCase();
+                    matchedProv = provinces.value.find(p => fullPlace.includes(normalizeProvinceName(p.name)));
+                }
+
+                if (matchedProv) {
+                    const currentProvNorm = normalizeProvinceName(form.province);
+                    const matchedProvNorm = normalizeProvinceName(matchedProv.name);
+                    if (currentProvNorm !== matchedProvNorm) {
+                        ElMessage.error(`Lỗi: Vị trí vẽ nằm ngoài ranh giới tỉnh ${form.province}! (Nằm ở ${matchedProv.name}). Vui lòng xóa hình và vẽ lại bên trong ranh giới tỉnh.`);
+                        return; // Lỗi -> return luôn để has3DError vẫn = true
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Nếu vượt qua được (hoặc không có) bài kiểm tra Tỉnh -> Mở khóa nút Lưu
+    // Cảnh báo chồng lấn vẫn cho phép lưu
+    has3DError.value = false;
 };
 
 const openMasterGrowingAreaModal = () => {
@@ -661,7 +762,31 @@ const onQuickUserCreated = async (user: any) => {
 };
 
 const onMasterAreaChange = async (val: string) => {
+    if (form.boundary.length > 0) {
+        try {
+            await ElMessageBox.confirm(
+                'Đổi Vùng trồng lớn sẽ xóa ranh giới bạn đã vẽ hiện tại. Bạn có chắc chắn muốn đổi?',
+                'Xác nhận chuyển vùng',
+                { confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy', type: 'warning' }
+            );
+            // Người dùng đồng ý -> Xóa ranh giới
+            if (drawnItems) drawnItems.clearLayers();
+            form.boundary = [];
+            drawnAreaM2.value = 0;
+            form.area_m2 = 0;
+            isAreaAutoFilled.value = true;
+            boundaryChanged.value = true;
+            overlapWarning.value = null;
+        } catch {
+            // Người dùng chọn Hủy -> Rollback lại giá trị dropdown cũ
+            form.masterGrowingAreaId = previousMasterAreaId.value;
+            return; 
+        }
+    }
+
+    previousMasterAreaId.value = val;
     form.leaderId = '';
+    form.address = ''; // Reset địa chỉ chi tiết
     teamLeaders.value = [];
     masterAnchorPoint.value = null;
     if (!val) {
@@ -830,6 +955,11 @@ const geocodeAddress = async (address: string, zoomLevel: number) => {
 
 const reverseGeocodingLoading = ref(false);
 
+const normalizeProvinceName = (s: string) => {
+    if (!s) return '';
+    return s.toLowerCase().replace(/^(tỉnh|thành phố|thành phố trung ương|tp|xã|phường|thị trấn|quận|huyện)\s+/i, '').trim();
+};
+
 const reverseGeocodeToForm = async (lng: number, lat: number) => {
     try {
         reverseGeocodingLoading.value = true;
@@ -856,22 +986,34 @@ const reverseGeocodeToForm = async (lng: number, lat: number) => {
                 if (regionCtx) mbProvince = regionCtx.text;
             }
             
-            const normalize = (s: string) => s.toLowerCase().replace(/^(tỉnh|thành phố|thành phố trung ương|tp|xã|phường|thị trấn|quận|huyện)\s+/i, '').trim();
-            
             // Khớp Tỉnh/Thành
             let matchedProv = null;
             if (mbProvince) {
-                const normMbProv = normalize(mbProvince);
-                matchedProv = provinces.value.find(p => normalize(p.name).includes(normMbProv) || normMbProv.includes(normalize(p.name)));
+                const normMbProv = normalizeProvinceName(mbProvince);
+                matchedProv = provinces.value.find(p => normalizeProvinceName(p.name).includes(normMbProv) || normMbProv.includes(normalizeProvinceName(p.name)));
             }
             
             // Nếu mapbox nhận vùng region sai, thử lục lại toàn bộ place_name
             if (!matchedProv) {
                 const fullPlace = (feature.place_name || '').toLowerCase();
-                matchedProv = provinces.value.find(p => fullPlace.includes(normalize(p.name)));
+                matchedProv = provinces.value.find(p => fullPlace.includes(normalizeProvinceName(p.name)));
             }
             
             if (matchedProv) {
+                // Kiểm tra giới hạn tỉnh (Spatial Lock)
+                if (form.province) {
+                    const currentProvNorm = normalizeProvinceName(form.province);
+                    const matchedProvNorm = normalizeProvinceName(matchedProv.name);
+                    if (currentProvNorm !== matchedProvNorm) {
+                        isOutsideProvince.value = true;
+                        drawnProvinceName.value = matchedProv.name;
+                    } else {
+                        isOutsideProvince.value = false;
+                    }
+                } else {
+                    isOutsideProvince.value = false;
+                }
+
                 // Nếu không có Vùng trồng lớn HOẶC đang trống thì mới update Tỉnh
                 if (!form.masterGrowingAreaId || !form.province) {
                     form.province = matchedProv.name;
@@ -879,12 +1021,12 @@ const reverseGeocodeToForm = async (lng: number, lat: number) => {
                 }
                 
                 // Fix 1: Gom toàn bộ context và text lại để soi tìm Phường/Xã (vì Mapbox rất hay để lộn xộn ở Vietnam)
-                const allTexts = (feature.context || []).map((c: any) => normalize(c.text));
-                allTexts.push(normalize(feature.text));
+                const allTexts = (feature.context || []).map((c: any) => normalizeProvinceName(c.text));
+                allTexts.push(normalizeProvinceName(feature.text));
                 
                 let foundWard = false;
                 for (const w of matchedProv.wards) {
-                    const normW = normalize(w.name);
+                    const normW = normalizeProvinceName(w.name);
                     if (allTexts.some((t: string) => t === normW || t.includes(normW) || normW.includes(t))) {
                         // Nếu không chọn Vùng trồng lớn, HOẶC đang trống, thì mới update Xã
                         if (!form.masterGrowingAreaId || !form.ward) {
@@ -907,6 +1049,7 @@ const reverseGeocodeToForm = async (lng: number, lat: number) => {
 let map: L.Map | null = null;
 let marker: L.Marker | null = null;
 let existingLocationsLayer: L.FeatureGroup | null = null;
+let drawnItems: L.FeatureGroup | null = null;
 
 const loadExistingLocationsOnMap = async (masterGrowingAreaId: string) => {
     if (!map || !existingLocationsLayer) return;
@@ -967,6 +1110,11 @@ const currentId = ref<string | null>(null);
 const currentApprovalStatus = ref<string>('APPROVED');
 const currentEudrCheckLog = ref<any>(null);
 const boundaryChanged = ref(false);
+
+const filteredExistingLocations = computed(() => {
+    if (!isEditing.value || !currentId.value) return existingLocations.value;
+    return existingLocations.value.filter(loc => loc.id !== currentId.value);
+});
 
 // --- EUDR Check ---
 const pollingTimer = ref<any>(null);
@@ -1183,7 +1331,7 @@ const initMap = async () => {
     marker = L.marker([form.lat, form.long], { draggable: true, pmIgnore: true } as any).addTo(map);
     
     // Layer group for polygon
-    const drawnItems = new L.FeatureGroup();
+    drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
     existingLocationsLayer = new L.FeatureGroup();
@@ -1199,7 +1347,7 @@ const initMap = async () => {
         const color = isPending ? '#f59e0b' : '#3b82f6'; // Orange if pending, blue if approved/creating
         
         const polygon = L.polygon(polyCoords, { color, fillOpacity: isPending ? 0.3 : 0.2, dashArray: isPending ? '5, 5' : '' });
-        drawnItems.addLayer(polygon);
+        drawnItems?.addLayer(polygon);
         map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
     } else {
         map.setView([form.lat, form.long], 15);
@@ -1207,9 +1355,9 @@ const initMap = async () => {
 
     // Geoman Events
     map.on('pm:create', (e: any) => {
-        drawnItems.clearLayers(); // Only 1 polygon allowed
+        drawnItems?.clearLayers(); // Only 1 polygon allowed
         e.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.2 }); // Ensure it stays blue
-        drawnItems.addLayer(e.layer);
+        drawnItems?.addLayer(e.layer);
         
         const geojson = e.layer.toGeoJSON();
         const areaSqMeters = turf.area(geojson);
@@ -1231,9 +1379,11 @@ const initMap = async () => {
     });
 
     map.on('pm:remove', () => {
-        drawnItems.clearLayers();
+        drawnItems?.clearLayers();
         form.boundary = [];
         drawnAreaM2.value = 0; // Reset area
+        form.area_m2 = 0; // Xóa ô diện tích
+        isAreaAutoFilled.value = true; // Bật lại tự điền
         boundaryChanged.value = true;
         overlapWarning.value = null;
         
@@ -1249,7 +1399,7 @@ const initMap = async () => {
     map.on('pm:globaleditmodetoggled', (e: any) => {
         if (!e.enabled) {
             // Edit mode disabled, capture changes
-            const layers = drawnItems.getLayers();
+            const layers = drawnItems?.getLayers() || [];
             if (layers.length > 0) {
                 const layer = layers[0] as any;
                 const geojson = layer.toGeoJSON();
@@ -1388,6 +1538,7 @@ const openCreateModal = () => {
     isAreaAutoFilled.value = true;
     isEditing.value = false;
     currentId.value = '';
+    previousMasterAreaId.value = '';
     
     form.name = '';
     form.code = '';
@@ -1411,6 +1562,7 @@ const openEditModal = async (row: Location) => {
     isAreaAutoFilled.value = false;
     isEditing.value = true;
     currentId.value = row.id;
+    previousMasterAreaId.value = row.masterGrowingAreaId || '';
     
     // Populate form
     form.name = row.name;
@@ -1481,6 +1633,12 @@ const openEditModal = async (row: Location) => {
 
 const submitForm = async () => {
   if (!formRef.value) return;
+  
+  if (isOutsideProvince.value) {
+      ElMessage.error(`Lỗi: Thửa đất bạn vẽ đang nằm ngoài địa phận tỉnh ${form.province}. Vui lòng vẽ lại!`);
+      return;
+  }
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
       // 1. Cảnh báo nếu đội trưởng trống và yêu cầu xác nhận
@@ -1527,32 +1685,12 @@ const submitForm = async () => {
         ElMessage.error('Vui lòng khoanh vẽ ranh giới thửa đất trên bản đồ!');
         return;
       }
-      if (areaDifferencePercent.value > 20) {
-        ElMessage.error('Sai lệch diện tích quá lớn (> 20%). Vui lòng xóa hình vẽ lại cho chuẩn khớp với Sổ đỏ!');
+      if (areaDifferencePercent.value > 15) {
+        ElMessage.error('Sai lệch diện tích quá lớn (> 15%). Vui lòng xóa hình vẽ lại cho chuẩn khớp với Sổ đỏ!');
         return;
       }
 
-      // 4. Geofencing Radial Distance
-      if (form.masterGrowingAreaId && geofencingDistanceStatus.value) {
-          if (geofencingDistanceStatus.value.status === 'ERROR') {
-              ElMessage.error(`Lỗi: Vùng trồng cách quá xa vùng trồng lớn (> 20km). Vui lòng di chuyển bản đồ về đúng vị trí!`);
-              return;
-          } else if (geofencingDistanceStatus.value.status === 'WARNING') {
-              try {
-                  await ElMessageBox.confirm(
-                      `Khoảng cách từ thửa đất đến trung tâm Vùng trồng đang là ${geofencingDistanceStatus.value.distance.toFixed(1)}km. Bạn có chắc chắn hình vẽ này là chính xác và không bị vẽ nhầm sang khu vực khác không?`,
-                      'Xác nhận vị trí thửa đất',
-                      {
-                          confirmButtonText: 'Tôi chắc chắn, Lưu lại',
-                          cancelButtonText: 'Để tôi xóa vẽ lại',
-                          type: 'warning',
-                      }
-                  );
-              } catch {
-                  return;
-              }
-          }
-      }
+
 
       submitting.value = true;
       try {

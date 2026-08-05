@@ -51,9 +51,8 @@
           <!-- Coord display -->
           <div class="coord-display" v-if="is3D">{{ coordText }}</div>
 
-          <!-- Save bar (draw mode) -->
           <div class="save-bar" v-if="mode === 'draw' && drawState.hasPolygon">
-            <el-button type="primary" size="large" @click="saveBoundary">
+            <el-button type="primary" size="large" @click="saveBoundary" :disabled="hasError">
               <el-icon class="mr-1"><Check /></el-icon> Lưu ranh giới
             </el-button>
             <el-button size="large" @click="drawComposable.deletePolygon()">Hủy bỏ</el-button>
@@ -84,11 +83,13 @@ const props = withDefaults(defineProps<{
   location?: Location | null;
   locations?: Location[];
   mode?: 'view' | 'draw' | 'eudr';
-}>(), { mode: 'view' });
+  hasError?: boolean;
+}>(), { mode: 'view', hasError: false });
 
 const emit = defineEmits<{
   (e: 'update:modelValue', val: boolean): void;
   (e: 'boundary-drawn', data: { coordinates: number[][][]; areaM2: number }): void;
+  (e: 'preview-drawn', data: { coordinates: number[][][]; areaM2: number } | null): void;
 }>();
 
 const drawerVisible = computed({
@@ -105,6 +106,23 @@ const coordText = ref('');
 
 const drawComposable = useMapDraw(mapRef);
 const { state: drawState, undoStack } = drawComposable;
+
+watch(() => drawState.value.hasPolygon, (hasPolygon) => {
+  if (hasPolygon) {
+    const result = drawComposable.getGeoJSON();
+    emit('preview-drawn', result);
+  } else {
+    emit('preview-drawn', null);
+  }
+});
+
+watch(() => drawState.value.dragVertexIdx, (idx, oldIdx) => {
+  // Bắn event sau khi người dùng nhả chuột (kết thúc kéo điểm)
+  if (idx === null && oldIdx !== null && drawState.value.hasPolygon) {
+    const result = drawComposable.getGeoJSON();
+    emit('preview-drawn', result);
+  }
+});
 
 const terrainInfo = ref<any>(null);
 
@@ -264,7 +282,7 @@ const loadExistingData = () => {
         const p = e.features[0].properties as any;
         new maplibregl.Popup({ maxWidth: '280px' })
           .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-family:sans-serif"><b>${p.name}</b><br/>Nông hộ: ${p.farmer}<br/>Diện tích: ${p.areaM2 ? Number(p.areaM2).toLocaleString() : 0} m²</div>`)
+          .setHTML(`<div style="font-family:sans-serif; color: #1f2937;"><b>${p.name}</b><br/>Nông hộ: ${p.farmer}<br/>Diện tích: ${p.areaM2 ? Number(p.areaM2).toLocaleString() : 0} m²</div>`)
           .addTo(map);
       });
       map.on('mouseenter', 'multi-fill', () => { map.getCanvas().style.cursor = 'pointer'; });

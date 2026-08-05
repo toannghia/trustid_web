@@ -114,7 +114,7 @@ export function useMapDraw(mapRef: Ref<any>) {
     if (v.length >= 3) {
       const first = v[0];
       const dist = Math.sqrt((coord[0] - first[0]) ** 2 + (coord[1] - first[1]) ** 2);
-      if (dist < 0.0005) {
+      if (dist < 0.00005) {
         closePolygon();
         return;
       }
