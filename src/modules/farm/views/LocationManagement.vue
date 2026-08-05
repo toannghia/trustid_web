@@ -1327,6 +1327,10 @@ const validateArea = (rule: any, value: any, callback: any) => {
         callback(new Error('Diện tích không được là số âm'));
         return;
     }
+    if (Number(value) > 999999999) { // Giới hạn ~100,000 Hecta
+        callback(new Error('Diện tích nhập vào quá lớn (Tối đa 999,999,999 m²)'));
+        return;
+    }
     callback();
 };
 

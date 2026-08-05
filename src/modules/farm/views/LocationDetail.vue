@@ -30,12 +30,12 @@
           </template>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm" v-if="location">
             <div>
-              <div class="text-gray-500">Mã số</div>
-              <div class="font-medium">{{ location.code || '—' }}</div>
+              <div class="text-gray-500">Mã số Vùng trồng</div>
+              <div class="font-medium">{{ location.masterGrowingArea?.code || location.code || '—' }}</div>
             </div>
             <div>
               <div class="text-gray-500">Loại cây</div>
-              <div class="font-medium">{{ location.plantType || '—' }}</div>
+              <div class="font-medium">{{ location.masterGrowingArea?.plantType || location.plantType || '—' }}</div>
             </div>
             <div>
               <div class="text-gray-500">Diện tích</div>
@@ -43,15 +43,15 @@
             </div>
             <div>
               <div class="text-gray-500">Người quản lý</div>
-              <div class="font-medium">{{ location.managerName || '—' }}</div>
+              <div class="font-medium">{{ location.masterGrowingArea?.managerName || location.managerName || '—' }}</div>
             </div>
             <div>
-              <div class="text-gray-500">Địa chỉ</div>
+              <div class="text-gray-500">Địa chỉ chi tiết</div>
               <div class="font-medium">{{ location.address || '—' }}</div>
             </div>
             <div>
               <div class="text-gray-500">Tỉnh / Xã</div>
-              <div class="font-medium">{{ [location.ward, location.province].filter(Boolean).join(', ') || '—' }}</div>
+              <div class="font-medium">{{ [location.masterGrowingArea?.ward || location.ward, location.masterGrowingArea?.province || location.province].filter(Boolean).join(', ') || '—' }}</div>
             </div>
           </div>
         </el-card>
@@ -408,6 +408,22 @@ const loadData = async () => {
   try {
     const { data } = await farmApi.getLocationById(locationId.value);
     location.value = (data as any).data || data;
+    
+    if (location.value && !location.value.masterGrowingArea) {
+      const mId = location.value.masterGrowingAreaId || (location.value as any).master_growing_area_id;
+      if (mId) {
+        try {
+          const mgasRes = await farmApi.getMasterGrowingAreas();
+          const mgas = (mgasRes.data as any).data || mgasRes.data || [];
+          const matched = mgas.find((m: any) => m.id === mId);
+          if (matched) {
+            location.value.masterGrowingArea = matched;
+          }
+        } catch (e) {
+          console.error('Không tải được danh sách vùng trồng lớn', e);
+        }
+      }
+    }
     
     // Load KCS
     const kcsRes = await farmApi.getKcsInspections(locationId.value);
