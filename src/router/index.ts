@@ -652,6 +652,7 @@ router.beforeEach(async (to, from, next) => {
     if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
     if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
     if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
+    if (perms.includes('DASHBOARD_GOV_VIEW') && !hidden.includes('/regulator/audit')) return next({ name: 'regulator-audit' });
     if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next({ name: 'dashboard' });
     
     // Fallback nếu không có quyền xem bất kỳ Dashboard nào
@@ -669,6 +670,7 @@ router.beforeEach(async (to, from, next) => {
     if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
     if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
     if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
+    if (perms.includes('DASHBOARD_GOV_VIEW') && !hidden.includes('/regulator/audit')) return next({ name: 'regulator-audit' });
     if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next();
     
     // Fallback nếu không có quyền xem bất kỳ Dashboard nào
