@@ -529,6 +529,14 @@ const renderLocations = () => {
 
       // Bind listeners once for provinces
       map.on('click', 'vietnam-provinces-fill', (e) => {
+        // [NEW] Prevent clicking province if we clicked a farm layer
+        const farmFeatures = map.queryRenderedFeatures(e.point, {
+          layers: ['farm-points', 'farm-polygons-fill', 'farm-scans']
+        });
+        if (farmFeatures.length > 0) {
+          return; // Ignore click, a farm element was clicked
+        }
+        
         if (!e.features?.length) return;
         const feature = e.features[0];
         const name = feature.properties?.adm1_name1 || feature.properties?.adm1_name || '';

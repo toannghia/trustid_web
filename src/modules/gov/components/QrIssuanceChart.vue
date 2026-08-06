@@ -38,7 +38,7 @@ const renderChart = () => {
   chart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: ['Phát hành', 'Kích hoạt'], bottom: 0, textStyle: { fontSize: 11 } },
-    grid: { top: 20, right: 10, bottom: 30, left: 40 },
+    grid: { top: 20, right: 10, bottom: 45, left: 40 },
     xAxis: { type: 'category', data: months.map(m => monthLabels[m.month - 1]), axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
     series: [

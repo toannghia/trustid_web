@@ -128,7 +128,7 @@
           :auto-fit-bounds="true"
           :center-coordinate="mapCenter"
           :selected-province="selectedProvince"
-          @change-province="selectedProvince = $event; handleProvinceChange()"
+          @change-province="handleProvinceChangeFromMap"
           height="100%"
           class="flex-1 min-h-[780px]"
         />
@@ -370,6 +370,24 @@ const handleProvinceChange = () => {
     const prov = provinces.value.find((p: any) => p.name === selectedProvince.value);
     filterWards.value = prov && prov.wards ? [...prov.wards].sort((a: any, b: any) => a.name.localeCompare(b.name, 'vi')) : [];
     fetchData();
+};
+
+const handleProvinceChangeFromMap = (geoJsonName: string) => {
+    const cleanStr = (s: string) => {
+        if (!s) return '';
+        return s.toLowerCase().replace(/^(tỉnh|thành phố|tp\.)\s+/i, '').trim();
+    };
+    
+    const targetClean = cleanStr(geoJsonName);
+    const prov = provinces.value.find((p: any) => cleanStr(p.name) === targetClean);
+    
+    if (prov) {
+        selectedProvince.value = prov.name;
+    } else {
+        selectedProvince.value = geoJsonName;
+    }
+    
+    handleProvinceChange();
 };
 
 const stats = ref({ totalEnterprises: 0, totalProducts: 0, totalUsers: 0 });
