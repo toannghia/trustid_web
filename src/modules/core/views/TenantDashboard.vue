@@ -305,7 +305,10 @@ const loadData = async () => {
     activity.value = actRes.data;
     supplyStats.value = supplyRes.data;
     if (mapRes.data) {
-      mapData.value = mapRes.data;
+      mapData.value = {
+        locations: mapRes.data.locations || mapRes.data.farms || [],
+        scans: mapRes.data.scans || []
+      };
     }
   } catch (e) {
     console.error('Failed to load dashboard data', e);

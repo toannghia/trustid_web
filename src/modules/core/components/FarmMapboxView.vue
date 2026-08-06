@@ -101,6 +101,8 @@ let provincesGeoJson: any = null;
 let activeMarkers: mapboxgl.Marker[] = [];
 let islandMarkers: mapboxgl.Marker[] = [];
 let cityMarkers: mapboxgl.Marker[] = [];
+let resizeObserver: ResizeObserver | null = null;
+let mapLoaded = false;
 
 const clearMarkers = () => {
   activeMarkers.forEach(m => m.remove());
@@ -355,10 +357,12 @@ const setMapLanguageAndFilterVietnam = () => {
 const handleStyleChange = (newStyle: string) => {
   if (!map) return;
   currentStyle.value = newStyle;
+  mapLoaded = false;
   map.setStyle(newStyle);
   // After style change, re-render layers once new style loads
   map.once('style.load', () => {
     mapListenersAdded = false;
+    mapLoaded = true;
     setMapLanguageAndFilterVietnam();
     renderLocations();
     addIslandMarkers();
@@ -397,25 +401,27 @@ const initMap = async () => {
   map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
   map.on('load', () => {
+    mapLoaded = true;
     loading.value = false;
     setMapLanguageAndFilterVietnam();
     renderLocations();
     addIslandMarkers();
     addCityMarkers();
   });
+  
+  if (window.ResizeObserver) {
+    resizeObserver = new ResizeObserver(() => {
+      if (map) map.resize();
+    });
+    resizeObserver.observe(mapContainer.value);
+  }
 
   // Toggle custom city labels based on zoom to avoid overlap with Mapbox native labels
   map.on('zoom', updateCityMarkersVisibility);
 };
 
 const renderLocations = () => {
-  if (!map) return;
-  if (!map.isStyleLoaded()) {
-    map.once('style.load', () => {
-      renderLocations();
-    });
-    return;
-  }
+  if (!map || !mapLoaded) return;
 
   // Clear existing popups
   if (popup) {
@@ -530,7 +536,7 @@ const renderLocations = () => {
       // Bind listeners once for provinces
       map.on('click', 'vietnam-provinces-fill', (e) => {
         // [NEW] Prevent clicking province if we clicked a farm layer
-        const farmFeatures = map.queryRenderedFeatures(e.point, {
+        const farmFeatures = map!.queryRenderedFeatures(e.point, {
           layers: ['farm-points', 'farm-polygons-fill', 'farm-scans']
         });
         if (farmFeatures.length > 0) {
@@ -856,13 +862,13 @@ const rebuildLocation = (props: any): MapLocation => {
 };
 
 watch(() => [props.locations, props.scans, props.centerCoordinate], () => {
-  if (map && map.isStyleLoaded()) {
+  if (map && mapLoaded) {
     renderLocations();
   }
 }, { deep: true });
 
 watch(() => props.selectedProvince, (newProvince) => {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map || !mapLoaded) return;
 
   const targetName = getGeoJsonProvinceName(newProvince);
 
@@ -907,6 +913,10 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (popup) popup.remove();
   clearMarkers();
   clearIslandMarkers();
