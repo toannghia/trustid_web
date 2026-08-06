@@ -13,6 +13,7 @@ import api from '@/common/utils/api';
 const props = defineProps<{ province?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 const qrData = ref<{ month: number; total: number; activated: number }[]>([]);
 const monthLabels = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
@@ -47,17 +48,22 @@ const renderChart = () => {
   });
 };
 
-const handleResize = () => {
-  if (chart) chart.resize();
-};
-
 onMounted(() => {
   fetchData();
-  window.addEventListener('resize', handleResize);
+  
+  resizeObserver = new ResizeObserver(() => {
+    if (chart) chart.resize();
+  });
+  
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value);
+  }
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
   if (chart) {
     chart.dispose();
     chart = null;

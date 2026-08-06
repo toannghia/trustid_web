@@ -29,22 +29,26 @@
         <div class="kpi-icon bg-purple-alt">🔄</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ data.recentUpdates }}</div>
-          <div class="kpi-label">Cập nhật 7 ngày</div>
+          <div class="kpi-label">Cập nhật Tuần này</div>
         </div>
       </div>
+    </div>
+    <div class="mt-4 mb-2 px-2 flex justify-between items-center">
+      <h4 class="text-sm font-semibold text-gray-700">Xu hướng cập nhật nhật ký theo tuần</h4>
     </div>
     <div ref="chartRef" class="chart-area"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
 const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 const data = ref({
   monitoredLocations: 0,
@@ -62,6 +66,11 @@ const fetchData = async () => {
     if (props.ward) params.ward = props.ward;
     const { data: res } = await api.get('/api/gov/production-diary', { params });
     data.value = res;
+
+    if (data.value.weeklyChart && data.value.weeklyChart.length > 0) {
+      data.value.recentUpdates = data.value.weeklyChart[data.value.weeklyChart.length - 1].count;
+    }
+
     await nextTick();
     renderChart();
   } catch (e) {
@@ -75,8 +84,14 @@ const renderChart = () => {
 
   const weeks = data.value.weeklyChart;
   chart.setOption({
-    tooltip: { trigger: 'axis' },
-    grid: { top: 20, right: 16, bottom: 24, left: 46 },
+    tooltip: { 
+      trigger: 'axis',
+      formatter: (params: any) => {
+        const val = params[0];
+        return `<b>Tuần ${val.name}</b><br/>Số lượt cập nhật: <b>${val.value}</b>`;
+      }
+    },
+    grid: { top: 35, right: 16, bottom: 24, left: 46 },
     xAxis: {
       type: 'category',
       data: weeks.map(w => 'W' + w.week.split('-')[1]),
@@ -84,6 +99,8 @@ const renderChart = () => {
     },
     yAxis: {
       type: 'value',
+      name: 'Lượt cập nhật',
+      nameTextStyle: { color: '#6b7280', fontSize: 11, padding: [0, 0, 0, 20] },
       splitLine: { lineStyle: { color: '#f3f4f6' } },
       axisLabel: { color: '#6b7280', fontSize: 11 },
     },
@@ -101,7 +118,27 @@ const renderChart = () => {
   });
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+  
+  resizeObserver = new ResizeObserver(() => {
+    if (chart) chart.resize();
+  });
+  
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value);
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
+  if (chart) {
+    chart.dispose();
+  }
+});
+
 watch(() => [props.province, props.tenantId, props.ward], fetchData);
 </script>
 

@@ -14,6 +14,7 @@ const props = defineProps<{ tenantId?: string; province?: string; ward?: string 
 
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 const topData = ref<{ productName: string; count: number }[]>([]);
 
 const fetchData = async () => {
@@ -82,19 +83,24 @@ const renderChart = () => {
   });
 };
 
-const handleResize = () => {
-  if (chart) chart.resize();
-};
-
 onMounted(() => {
   fetchData();
-  window.addEventListener('resize', handleResize);
+  
+  resizeObserver = new ResizeObserver(() => {
+    if (chart) chart.resize();
+  });
+  
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value);
+  }
 });
 
 watch(() => [props.tenantId, props.province, props.ward], fetchData);
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
   if (chart) {
     chart.dispose();
     chart = null;

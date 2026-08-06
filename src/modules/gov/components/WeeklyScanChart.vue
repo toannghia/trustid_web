@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
@@ -21,6 +21,7 @@ import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 const weekOffset = ref(0);
 
 const weekStart = ref('');
@@ -87,7 +88,27 @@ const renderChart = () => {
   });
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+  
+  resizeObserver = new ResizeObserver(() => {
+    if (chart) chart.resize();
+  });
+  
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value);
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
+  if (chart) {
+    chart.dispose();
+  }
+});
+
 watch(() => [props.province, props.tenantId, props.ward], () => { weekOffset.value = 0; fetchData(); });
 </script>
 

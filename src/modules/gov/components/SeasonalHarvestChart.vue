@@ -9,13 +9,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import api from '@/common/utils/api';
 
 const props = defineProps<{ province?: string; tenantId?: string; ward?: string }>();
 const chartRef = ref<HTMLElement>();
 let chart: echarts.ECharts | null = null;
+let resizeObserver: ResizeObserver | null = null;
 const selectedYear = ref(String(new Date().getFullYear()));
 const seasons = ref<Record<string, number>>({});
 
@@ -47,7 +48,28 @@ const renderChart = () => {
   });
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+  
+  resizeObserver = new ResizeObserver(() => {
+    if (chart) chart.resize();
+  });
+  
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value);
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
+  if (chart) {
+    chart.dispose();
+    chart = null;
+  }
+});
+
 watch(() => [props.province, props.tenantId, props.ward], fetchData);
 </script>
 
