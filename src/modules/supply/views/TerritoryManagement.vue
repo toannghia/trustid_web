@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import type { FormInstance, FormRules } from 'element-plus';
 import { Plus, Edit, Delete, Location } from '@element-plus/icons-vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import { regionApi, type RegionDto } from '../api/regionApi';
@@ -11,12 +12,32 @@ const loading = ref(false);
 const showModal = ref(false);
 const provinces = ref(VIETNAM_PROVINCES);
 
+const formRef = ref<FormInstance>();
+const rules = ref<FormRules>({
+    name: [
+        { required: true, message: 'Vui lòng nhập tên khu vực', trigger: 'blur' },
+        { min: 3, max: 100, message: 'Độ dài từ 3 đến 100 ký tự', trigger: 'blur' }
+    ],
+    provinces: [
+        { type: 'array', required: true, message: 'Vui lòng chọn ít nhất 1 tỉnh', trigger: 'change' }
+    ],
+    description: [
+        { max: 255, message: 'Ghi chú không được vượt quá 255 ký tự', trigger: 'blur' }
+    ]
+});
+
 const form = ref({
     id: '',
     name: '',
-    provinces: [],
+    provinces: [] as string[],
     description: '',
     status: 'ACTIVE'
+});
+
+const originalForm = ref(JSON.stringify(form.value));
+
+const isFormChanged = computed(() => {
+    return JSON.stringify(form.value) !== originalForm.value;
 });
 
 const fetchRegions = async () => {
@@ -38,12 +59,20 @@ const handleCreate = () => {
         description: '',
         status: 'ACTIVE'
     };
+    originalForm.value = JSON.stringify(form.value);
     showModal.value = true;
+    nextTick(() => {
+        formRef.value?.clearValidate();
+    });
 };
 
 const handleEdit = (row: any) => {
     form.value = { ...row };
+    originalForm.value = JSON.stringify(form.value);
     showModal.value = true;
+    nextTick(() => {
+        formRef.value?.clearValidate();
+    });
 };
 
 const handleDelete = (row: any) => {
@@ -56,18 +85,24 @@ const handleDelete = (row: any) => {
 };
 
 const saveRegion = async () => {
-    try {
-        if (form.value.id) {
-            await regionApi.update(form.value.id, form.value);
-        } else {
-            await regionApi.create(form.value);
+    if (!formRef.value) return;
+    
+    await formRef.value.validate(async (valid) => {
+        if (valid) {
+            try {
+                if (form.value.id) {
+                    await regionApi.update(form.value.id, form.value);
+                } else {
+                    await regionApi.create(form.value);
+                }
+                ElMessage.success('Lưu thành công');
+                showModal.value = false;
+                fetchRegions();
+            } catch (error: any) {
+                ElMessage.error(error.response?.data?.message || 'Lỗi khi lưu dữ liệu');
+            }
         }
-        ElMessage.success('Lưu thành công');
-        showModal.value = false;
-        fetchRegions();
-    } catch (error: any) {
-        ElMessage.error(error.response?.data?.message || 'Lỗi khi lưu dữ liệu');
-    }
+    });
 };
 
 onMounted(fetchRegions);
@@ -119,11 +154,11 @@ onMounted(fetchRegions);
         </LTECard>
 
         <el-dialog v-model="showModal" :title="form.id ? 'Sửa khu vực' : 'Thêm khu vực'" width="600px">
-            <el-form :model="form" label-width="120px">
-                <el-form-item label="Tên khu vực" required>
+            <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
+                <el-form-item label="Tên khu vực" prop="name">
                     <el-input v-model="form.name" placeholder="VD: Miền Bắc, Miền Tây, KV1..." />
                 </el-form-item>
-                <el-form-item label="Chọn tỉnh thành">
+                <el-form-item label="Chọn tỉnh thành" prop="provinces">
                     <el-select 
                         v-model="form.provinces" 
                         multiple 
@@ -134,7 +169,7 @@ onMounted(fetchRegions);
                         <el-option v-for="p in provinces" :key="p.code" :label="p.name" :value="p.name" />
                     </el-select>
                 </el-form-item>
-                <el-form-item label="Ghi chú">
+                <el-form-item label="Ghi chú" prop="description">
                     <el-input v-model="form.description" type="textarea" />
                 </el-form-item>
                 <el-form-item label="Trạng thái">
@@ -146,7 +181,7 @@ onMounted(fetchRegions);
             </el-form>
             <template #footer>
                 <el-button @click="showModal = false">Hủy</el-button>
-                <el-button type="primary" @click="saveRegion">Lưu vùng</el-button>
+                <el-button type="primary" @click="saveRegion" :disabled="!isFormChanged">Lưu vùng</el-button>
             </template>
         </el-dialog>
     </div>
