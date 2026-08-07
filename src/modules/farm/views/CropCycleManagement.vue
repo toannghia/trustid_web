@@ -172,7 +172,7 @@
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
           <el-button @click="showStartModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-          <el-button type="success" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+          <el-button type="success" :loading="submitting" :disabled="isEditing && !isFormChanged" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Bắt đầu ngay' }}
           </el-button>
         </div>
@@ -260,6 +260,9 @@ watch(() => searchKeyword.value, () => {
 const isEditing = ref(false);
 const currentId = ref<string | null>(null);
 
+const originalForm = ref('');
+const isFormChanged = computed(() => JSON.stringify(form) !== originalForm.value);
+
 const form = reactive({
   name: '',
   location_id: '',
@@ -329,6 +332,7 @@ const openStartModal = async () => {
     form.start_date = dayjs().format('YYYY-MM-DD');
     form.product_ids = [];
     
+    originalForm.value = JSON.stringify(form);
     showStartModal.value = true;
     await loadDropdowns();
 };
@@ -346,6 +350,7 @@ const openEditModal = async (row: CropCycle) => {
     form.start_date = row.startDate ? dayjs(row.startDate).format('YYYY-MM-DD') : '';
     form.product_ids = row.cycleProducts?.map(cp => cp.productId) || [];
 
+    originalForm.value = JSON.stringify(form);
     showStartModal.value = true;
     await loadDropdowns();
 }
@@ -356,43 +361,56 @@ const openHarvestModal = (row: CropCycle) => {
 }
 
 const submitForm = async () => {
+  if (submitting.value) return;
   if (!formRef.value) return;
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      submitting.value = true;
-      try {
-        if (isEditing.value && currentId.value) {
-            await farmApi.updateCycle(currentId.value, {
-                location_id: form.location_id,
-                template_id: form.template_id,
-                name: form.name,
-                start_date: form.start_date
-            });
-            // Update M2M product associations
-            const originalProductIds = selectedCycle.value?.cycleProducts?.map(cp => cp.productId) || [];
-            const added = form.product_ids.filter(id => !originalProductIds.includes(id));
-            const removed = originalProductIds.filter(id => !form.product_ids.includes(id));
 
-            if (added.length > 0) {
-                await farmApi.addCycleProducts(currentId.value, added);
-            }
-            if (removed.length > 0) {
-                await Promise.all(removed.map(pid => farmApi.removeCycleProduct(currentId.value!, pid)));
-            }
-            ElMessage.success('Cập nhật vụ mùa thành công');
-        } else {
-            await farmApi.startCycle(form);
-            ElMessage.success('Khởi tạo vụ mùa thành công! Các công việc đã được sinh tự động.');
+  submitting.value = true;
+  try {
+    const isValid = await formRef.value.validate().catch(() => false);
+    if (!isValid) return;
+
+    if (isEditing.value && currentId.value) {
+        await farmApi.updateCycle(currentId.value, {
+            location_id: form.location_id,
+            template_id: form.template_id,
+            name: form.name,
+            start_date: form.start_date
+        });
+        // Update M2M product associations
+        const originalProductIds = selectedCycle.value?.cycleProducts?.map(cp => cp.productId) || [];
+        const added = form.product_ids.filter(id => !originalProductIds.includes(id));
+        const removed = originalProductIds.filter(id => !form.product_ids.includes(id));
+
+        if (added.length > 0) {
+            await farmApi.addCycleProducts(currentId.value, added);
         }
-        showStartModal.value = false;
-        loadData();
-      } catch (err: any) {
-         ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra');
-      } finally {
-        submitting.value = false;
-      }
+        if (removed.length > 0) {
+            await Promise.all(removed.map(pid => farmApi.removeCycleProduct(currentId.value!, pid)));
+        }
+        ElMessage.success('Cập nhật vụ mùa thành công');
+    } else {
+        const { data: responseData } = await farmApi.startCycle({
+            location_id: form.location_id,
+            template_id: form.template_id,
+            name: form.name,
+            start_date: form.start_date
+        });
+        
+        const newCycleId = responseData?.id || (responseData as any)?.data?.id;
+        
+        if (newCycleId && form.product_ids && form.product_ids.length > 0) {
+            await farmApi.addCycleProducts(newCycleId, form.product_ids);
+        }
+        
+        ElMessage.success('Khởi tạo vụ mùa thành công! Các công việc đã được sinh tự động.');
     }
-  });
+    showStartModal.value = false;
+    loadData();
+  } catch (err: any) {
+     ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra');
+  } finally {
+    submitting.value = false;
+  }
 };
 
 const resetForm = () => {

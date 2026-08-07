@@ -2,7 +2,7 @@
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-900">Quy trình mẫu</h1>
-      <el-button type="primary" @click="showCreateModal = true">
+      <el-button type="primary" @click="openCreateModal">
         <el-icon class="mr-2"><Plus /></el-icon>
         Tạo quy trình
       </el-button>
@@ -78,7 +78,7 @@
       </template>
       <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px;">
         <el-form-item label="Tên quy trình" prop="name">
-          <el-input v-model="form.name" placeholder="VD: Quy trình lúa Đông Xuân" />
+          <el-input v-model="form.name" placeholder="VD: Quy trình lúa Đông Xuân" maxlength="255" />
         </el-form-item>
 
         <div class="flex justify-between items-center mb-4">
@@ -99,7 +99,7 @@
           </el-button>
 
           <el-form-item label="Tên giai đoạn" required>
-              <el-input v-model="stage.stageName" placeholder="VD: Giai đoạn 1: Làm đất (0-7 ngày)" class="font-bold" />
+              <el-input v-model="stage.stageName" placeholder="VD: Giai đoạn 1: Làm đất (0-7 ngày)" class="font-bold" maxlength="255" />
           </el-form-item>
 
           <!-- Tasks in Stage -->
@@ -117,8 +117,8 @@
 
                   <el-row :gutter="10">
                     <el-col :span="4">
-                        <el-form-item label="Ngày (Offset)" class="mb-0">
-                            <el-input-number v-model="task.day_offset" :min="0" :controls="false" class="w-full" placeholder="Ngày..." />
+                        <el-form-item label="Ngày (Offset)" class="mb-0" required>
+                            <el-input-number v-model="task.day_offset" :min="0" :max="3650" :precision="0" :controls="false" class="w-full" placeholder="Ngày..." @change="checkOffsetOrder(sIndex, tIndex)" />
                         </el-form-item>
                     </el-col>
                     <el-col :span="10">
@@ -157,11 +157,11 @@
                         </el-col>
                         <el-col :span="14" class="mt-2">
                             <el-form-item label="Tên công việc (Chi tiết)" class="mb-0" required>
-                                <el-input v-model="task.title" placeholder="VD: Bón lót lần 1..." />
+                                <el-input v-model="task.title" placeholder="VD: Bón lót lần 1..." maxlength="255" />
                             </el-form-item>
                         </el-col>
                   </el-row>
-                  <el-input v-model="task.description" type="textarea" :rows="1" placeholder="Mô tả chi tiết..." class="mt-2" />
+                  <el-input v-model="task.description" type="textarea" :rows="1" placeholder="Mô tả chi tiết..." class="mt-2" maxlength="1000" show-word-limit />
                   <div class="mt-1">
                       <el-checkbox v-model="task.is_mandatory" size="small">Bắt buộc</el-checkbox>
                   </div>
@@ -177,7 +177,7 @@
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
           <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
+          <el-button type="primary" :loading="submitting" :disabled="isEditing && !isFormChanged" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
             {{ isEditing ? 'Cập nhật' : 'Lưu quy trình' }}
           </el-button>
         </div>
@@ -244,6 +244,19 @@ watch(() => searchKeyword.value, () => {
 const isEditing = ref(false);
 const currentId = ref<string | null>(null);
 
+const originalForm = ref<string>('');
+
+const getCurrentFormState = () => {
+    return JSON.stringify({
+        name: form.name,
+        stageGroups: stageGroups.value
+    });
+};
+
+const isFormChanged = computed(() => {
+    return getCurrentFormState() !== originalForm.value;
+});
+
 // Internal UI Structure
 interface TaskUI {
   day_offset: number;
@@ -266,7 +279,30 @@ const form = reactive({
 const stageGroups = ref<StageGroup[]>([]);
 
 const rules = {
-  name: [{ required: true, message: 'Vui lòng nhập tên quy trình', trigger: 'blur' }]
+  name: [
+      { required: true, message: 'Vui lòng nhập tên quy trình', trigger: 'blur' },
+      { min: 3, max: 255, message: 'Tên quy trình phải dài từ 3 đến 255 ký tự', trigger: 'blur' }
+  ]
+};
+
+const checkOffsetOrder = (sIndex: number, tIndex: number) => {
+    const stage = stageGroups.value[sIndex];
+    const currentOffset = stage.tasks[tIndex].day_offset;
+    
+    if (tIndex > 0) {
+        const prevOffset = stage.tasks[tIndex - 1].day_offset;
+        if (currentOffset !== null && prevOffset !== null && currentOffset < prevOffset) {
+            ElMessage.warning(`Công việc thứ ${tIndex + 1} đang có ngày nhỏ hơn công việc thứ ${tIndex}. Vui lòng nhập số lớn hơn hoặc bằng ${prevOffset}.`);
+        }
+    } else if (sIndex > 0) {
+        const prevStage = stageGroups.value[sIndex - 1];
+        if (prevStage.tasks.length > 0) {
+            const prevOffset = prevStage.tasks[prevStage.tasks.length - 1].day_offset;
+            if (currentOffset !== null && prevOffset !== null && currentOffset < prevOffset) {
+                ElMessage.warning(`Công việc đầu tiên của Giai đoạn "${stage.stageName}" đang có ngày nhỏ hơn công việc cuối cùng của Giai đoạn trước. Vui lòng nhập số lớn hơn hoặc bằng ${prevOffset}.`);
+            }
+        }
+    }
 };
 
 const addStage = () => {
@@ -329,6 +365,13 @@ const loadMaterials = async () => {
     }
 }
 
+const openCreateModal = () => {
+    resetForm();
+    addStage(); // Init with one stage
+    originalForm.value = getCurrentFormState();
+    showCreateModal.value = true;
+};
+
 const openEditModal = (row: ProcessTemplate) => {
     isEditing.value = true;
     currentId.value = row.id;
@@ -354,46 +397,100 @@ const openEditModal = (row: ProcessTemplate) => {
                 }))
             });
         });
-    } else {
-        addStage();
     }
     
+    originalForm.value = getCurrentFormState();
     showCreateModal.value = true;
 };
 
 const submitForm = async () => {
+  if (submitting.value) return;
   if (!formRef.value) return;
-  await formRef.value.validate(async (valid, fields) => {
-    if (!valid) {
-      ElMessage.warning('Vui lòng nhập đầy đủ các thông tin bắt buộc (Tên quy trình...)');
-      return;
-    }
 
-    if (stageGroups.value.length === 0) {
-        ElMessage.warning('Vui lòng thêm ít nhất 1 giai đoạn');
-        return;
-    }
+  submitting.value = true;
+  try {
+      const valid = await formRef.value.validate().catch(() => false);
+      if (!valid) {
+          ElMessage.warning('Vui lòng nhập đầy đủ các thông tin bắt buộc (Tên quy trình...)');
+          return;
+      }
 
-    // Kiểm tra tên giai đoạn và các công việc bên trong
-    for (let i = 0; i < stageGroups.value.length; i++) {
-        const stage = stageGroups.value[i];
-        if (!stage.stageName || !stage.stageName.trim()) {
-            ElMessage.warning(`Vui lòng nhập Tên giai đoạn cho Giai đoạn thứ ${i + 1}`);
-            return;
-        }
+      if (stageGroups.value.length === 0) {
+          ElMessage.warning('Vui lòng thêm ít nhất 1 giai đoạn');
+          return;
+      }
 
-        for (let j = 0; j < stage.tasks.length; j++) {
-            const task = stage.tasks[j];
-            if (!task.job_type) {
-                ElMessage.warning(`Vui lòng chọn Loại công việc cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
-                return;
-            }
-            if (!task.title || !task.title.trim()) {
-                ElMessage.warning(`Vui lòng nhập Tên công việc (Chi tiết) cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
-                return;
-            }
-        }
-    }
+      // Kiểm tra tên giai đoạn và các công việc bên trong
+      for (let i = 0; i < stageGroups.value.length; i++) {
+          const stage = stageGroups.value[i];
+          const stageName = stage.stageName ? stage.stageName.trim() : '';
+          if (!stageName) {
+              ElMessage.warning(`Vui lòng nhập Tên giai đoạn cho Giai đoạn thứ ${i + 1}`);
+              return;
+          }
+          if (stageName.length < 3) {
+              ElMessage.warning(`Tên giai đoạn "${stageName}" quá ngắn (tối thiểu 3 ký tự)`);
+              return;
+          }
+          if (stageName.length > 255) {
+              ElMessage.warning(`Tên giai đoạn "${stageName}" vượt quá 255 ký tự`);
+              return;
+          }
+
+          if (!stage.tasks || stage.tasks.length === 0) {
+              ElMessage.warning(`Giai đoạn "${stage.stageName}" phải có ít nhất 1 công việc`);
+              return;
+          }
+
+          if (i > 0 && stage.tasks.length > 0) {
+              const prevStage = stageGroups.value[i - 1];
+              if (prevStage.tasks.length > 0) {
+                  const firstTaskCurrentStage = stage.tasks[0];
+                  const lastTaskPrevStage = prevStage.tasks[prevStage.tasks.length - 1];
+                  
+                  if (firstTaskCurrentStage.day_offset < lastTaskPrevStage.day_offset) {
+                      ElMessage.warning(`Thứ tự thời gian không hợp lệ: Công việc "${firstTaskCurrentStage.title || 'đầu tiên'}" (Ngày ${firstTaskCurrentStage.day_offset}) phải diễn ra sau công việc "${lastTaskPrevStage.title || 'cuối cùng'}" (Ngày ${lastTaskPrevStage.day_offset}) của giai đoạn trước.`);
+                      return;
+                  }
+              }
+          }
+
+          for (let j = 0; j < stage.tasks.length; j++) {
+              const task = stage.tasks[j];
+              
+              if (task.day_offset === null || task.day_offset === undefined) {
+                  ElMessage.warning(`Vui lòng nhập Ngày (Offset) cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
+                  return;
+              }
+
+              if (j > 0) {
+                  const prevTask = stage.tasks[j - 1];
+                  if (task.day_offset < prevTask.day_offset) {
+                      ElMessage.warning(`Lỗi thứ tự thời gian: Công việc "${task.title || `thứ ${j+1}`}" (Ngày ${task.day_offset}) không thể nằm sau công việc "${prevTask.title || `thứ ${j}`}" (Ngày ${prevTask.day_offset}) của giai đoạn "${stage.stageName}"`);
+                      return;
+                  }
+              }
+
+              if (!task.job_type) {
+                  ElMessage.warning(`Vui lòng chọn Loại công việc cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
+                  return;
+              }
+              
+              const taskTitle = task.title ? task.title.trim() : '';
+              if (!taskTitle) {
+                  ElMessage.warning(`Vui lòng nhập Tên công việc (Chi tiết) cho công việc thứ ${j + 1} của giai đoạn "${stage.stageName}"`);
+                  return;
+              }
+              if (taskTitle.length < 3) {
+                  ElMessage.warning(`Tên công việc "${taskTitle}" quá ngắn (tối thiểu 3 ký tự)`);
+                  return;
+              }
+              if (taskTitle.length > 255) {
+                  ElMessage.warning(`Tên công việc "${taskTitle}" vượt quá 255 ký tự`);
+                  return;
+              }
+          }
+      }
 
       // Flatten UI structure to API format
       const flatTasks = stageGroups.value.flatMap(group => {
@@ -418,30 +515,26 @@ const submitForm = async () => {
           tasks_config: flatTasks
       };
 
-      submitting.value = true;
-      try {
-        if (isEditing.value && currentId.value) {
-            await farmApi.updateTemplate(currentId.value, payload);
-            ElMessage.success('Cập nhật quy trình thành công');
-        } else {
-            await farmApi.createTemplate(payload);
-            ElMessage.success('Tạo quy trình thành công');
-        }
-        
-        showCreateModal.value = false;
-        loadData();
-      } catch (err: any) {
-         ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra');
-      } finally {
-        submitting.value = false;
+      if (isEditing.value && currentId.value) {
+          await farmApi.updateTemplate(currentId.value, payload);
+          ElMessage.success('Cập nhật quy trình thành công');
+      } else {
+          await farmApi.createTemplate(payload);
+          ElMessage.success('Tạo quy trình thành công');
       }
-  });
+        
+      showCreateModal.value = false;
+      loadData();
+  } catch (err: any) {
+      ElMessage.error(err.response?.data?.message || 'Có lỗi xảy ra');
+  } finally {
+      submitting.value = false;
+  }
 };
 
 const resetForm = () => {
   if (formRef.value) formRef.value.resetFields();
   stageGroups.value = [];
-  addStage(); // Init with one stage
   isEditing.value = false;
   currentId.value = null;
 };

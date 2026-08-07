@@ -1723,6 +1723,7 @@ const openEditModal = async (row: Location) => {
 }
 
 const submitForm = async () => {
+  if (submitting.value) return;
   if (!formRef.value) return;
   
   if (isOutsideProvince.value) {
@@ -1730,16 +1731,40 @@ const submitForm = async () => {
       return;
   }
 
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      // 1. Cảnh báo nếu đội trưởng trống và yêu cầu xác nhận
-      if (!form.leaderId) {
+  submitting.value = true;
+  try {
+    const isValid = await formRef.value.validate().catch(() => false);
+    if (!isValid) return;
+
+    // 1. Cảnh báo nếu đội trưởng trống và yêu cầu xác nhận
+    if (!form.leaderId) {
+      try {
+        await ElMessageBox.confirm(
+          'Thửa đất này chưa chọn Đội trưởng phụ trách. Bạn có chắc chắn muốn lưu mà không gán Đội trưởng phụ trách không? (Có thể cập nhật lại sau)',
+          'Cảnh báo chưa chọn Đội trưởng',
+          {
+            confirmButtonText: 'Đồng ý lưu',
+            cancelButtonText: 'Hủy',
+            type: 'warning',
+          }
+        );
+      } catch {
+        return;
+      }
+    }
+
+    // 2. Cảnh báo nếu đang sửa và thay đổi Đội trưởng phụ trách
+    if (isEditing.value && currentId.value) {
+      const originalLocation = locations.value.find(l => l.id === currentId.value);
+      const originalLeaderId = originalLocation?.leaderId || '';
+      const currentLeaderId = form.leaderId || '';
+      if (originalLeaderId !== currentLeaderId) {
         try {
           await ElMessageBox.confirm(
-            'Thửa đất này chưa chọn Đội trưởng phụ trách. Bạn có chắc chắn muốn lưu mà không gán Đội trưởng phụ trách không? (Có thể cập nhật lại sau)',
-            'Cảnh báo chưa chọn Đội trưởng',
+            'Đội trưởng phụ trách của thửa này đã thay đổi. Bạn có chắc chắn muốn cập nhật sự thay đổi này không?',
+            'Xác nhận thay đổi Đội trưởng',
             {
-              confirmButtonText: 'Đồng ý lưu',
+              confirmButtonText: 'Xác nhận thay đổi',
               cancelButtonText: 'Hủy',
               type: 'warning',
             }
@@ -1748,80 +1773,53 @@ const submitForm = async () => {
           return;
         }
       }
-
-      // 2. Cảnh báo nếu đang sửa và thay đổi Đội trưởng phụ trách
-      if (isEditing.value && currentId.value) {
-        const originalLocation = locations.value.find(l => l.id === currentId.value);
-        const originalLeaderId = originalLocation?.leaderId || '';
-        const currentLeaderId = form.leaderId || '';
-        if (originalLeaderId !== currentLeaderId) {
-          try {
-            await ElMessageBox.confirm(
-              'Đội trưởng phụ trách của thửa này đã thay đổi. Bạn có chắc chắn muốn cập nhật sự thay đổi này không?',
-              'Xác nhận thay đổi Đội trưởng',
-              {
-                confirmButtonText: 'Xác nhận thay đổi',
-                cancelButtonText: 'Hủy',
-                type: 'warning',
-              }
-            );
-          } catch {
-            return;
-          }
-        }
-      }
-
-      // 3. Ràng buộc ranh giới và dung sai
-      if (form.boundary.length === 0) {
-        ElMessage.error('Vui lòng khoanh vẽ ranh giới thửa đất trên bản đồ!');
-        return;
-      }
-      if (areaDifferencePercent.value > 15) {
-        ElMessage.error('Sai lệch diện tích quá lớn (> 15%). Vui lòng xóa hình vẽ lại cho chuẩn khớp với Sổ đỏ!');
-        return;
-      }
-
-
-
-      submitting.value = true;
-      try {
-        const payload: any = {
-            ...form,
-            leaderId: form.leaderId || null,
-            code: form.code || undefined,
-            updateReason: form.updateReason || undefined,
-            address: form.address || undefined
-        };
-        delete payload.province;
-        delete payload.ward;
-        
-        // Only send boundary if user modified it
-        if (boundaryChanged.value) {
-             payload.boundary = form.boundary.length > 0 ? form.boundary[0] : [];
-        } else {
-             delete payload.boundary;
-        }
-
-        if (isEditing.value && currentId.value) {
-            await farmApi.updateLocation(currentId.value, payload);
-             ElMessage.success('Cập nhật thửa thành công');
-        } else {
-            await farmApi.createLocation(payload);
-             ElMessage.success('Tạo thửa thành công');
-        }
-        
-        showCreateModal.value = false;
-        loadData();
-        fetchUsers(); // Refresh farmers list to get updated leaderId
-      } catch (err: any) {
-        console.error(err);
-        const msg = err.response?.data?.message || err.message || 'Có lỗi xảy ra';
-        ElMessage.error(Array.isArray(msg) ? msg.join(', ') : msg);
-      } finally {
-        submitting.value = false;
-      }
     }
-  });
+
+    // 3. Ràng buộc ranh giới và dung sai
+    if (form.boundary.length === 0) {
+      ElMessage.error('Vui lòng khoanh vẽ ranh giới thửa đất trên bản đồ!');
+      return;
+    }
+    if (areaDifferencePercent.value > 15) {
+      ElMessage.error('Sai lệch diện tích quá lớn (> 15%). Vui lòng xóa hình vẽ lại cho chuẩn khớp với Sổ đỏ!');
+      return;
+    }
+
+    const payload: any = {
+        ...form,
+        leaderId: form.leaderId || null,
+        code: form.code || undefined,
+        updateReason: form.updateReason || undefined,
+        address: form.address || undefined
+    };
+    delete payload.province;
+    delete payload.ward;
+    
+    // Only send boundary if user modified it
+    if (boundaryChanged.value) {
+         payload.boundary = form.boundary.length > 0 ? form.boundary[0] : [];
+    } else {
+         delete payload.boundary;
+    }
+
+    if (isEditing.value && currentId.value) {
+        await farmApi.updateLocation(currentId.value, payload);
+         ElMessage.success('Cập nhật thửa thành công');
+    } else {
+        await farmApi.createLocation(payload);
+         ElMessage.success('Tạo thửa thành công');
+    }
+    
+    showCreateModal.value = false;
+    loadData();
+    fetchUsers(); // Refresh farmers list to get updated leaderId
+  } catch (err: any) {
+    console.error(err);
+    const msg = err.response?.data?.message || err.message || 'Có lỗi xảy ra';
+    ElMessage.error(Array.isArray(msg) ? msg.join(', ') : msg);
+  } finally {
+    submitting.value = false;
+  }
 };
 
 const resetForm = () => {
