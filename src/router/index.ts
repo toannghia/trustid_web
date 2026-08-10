@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '../modules/core/store/auth';
 import { ElMessage } from 'element-plus';
+import { MENU_GROUPS } from '@/config/menuConfig';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/login',
@@ -644,63 +645,95 @@ router.beforeEach(async (to, from, next) => {
     return next({ name: 'login' });
   }
 
+  const getDefaultRoute = (user: any) => {
+    const role = user?.role;
+    const perms = user?.permissions || [];
+    const hidden = [...(user?.hiddenMenus || []), ...(user?.globalHiddenMenus || [])];
+
+    const canAccess = (path: string) => !hidden.includes(path) && !hidden.some(h => path.startsWith(h + '/'));
+
+    // 1. Phân luồng dựa trên Role Chuẩn
+    if (role === 'ADMIN' && canAccess('/')) return { name: 'dashboard' };
+    if ((role === 'TENANT_ADMIN' || role === 'TENANT') && canAccess('/tenant-dashboard')) return { name: 'tenant-dashboard' };
+    if (role === 'DEALER' && canAccess('/dealer-dashboard')) return { name: 'dealer-dashboard' };
+    if (role === 'DRIVER' && canAccess('/driver-dashboard')) return { name: 'driver-dashboard' };
+    if (role === 'REGULATOR' && canAccess('/regulator/audit')) return { name: 'regulator-audit' };
+    if (role === 'TEAM_LEADER' && canAccess('/farm/leader-dashboard')) return { name: 'leader-dashboard' };
+    if (role === 'FARMER' && canAccess('/farm/locations')) return { name: 'farm-locations' };
+    
+    // 2. Fallback dựa trên Quyền
+    if (perms.includes('DASHBOARD_TENANT_VIEW') && canAccess('/tenant-dashboard')) return { name: 'tenant-dashboard' };
+    if (perms.includes('DEALER_DASHBOARD') && canAccess('/dealer-dashboard')) return { name: 'dealer-dashboard' };
+    if (perms.includes('DRIVER_DASHBOARD') && canAccess('/driver-dashboard')) return { name: 'driver-dashboard' };
+    if (perms.includes('DASHBOARD_GOV_VIEW') && canAccess('/regulator/audit')) return { name: 'regulator-audit' };
+    if (perms.includes('DASHBOARD_SYSTEM_VIEW') && canAccess('/')) return { name: 'dashboard' };
+    if (perms.includes('FARM_LOCATION_VIEW') && canAccess('/farm/locations')) return { name: 'farm-locations' };
+    if (perms.includes('USER_VIEW') && canAccess('/system/users')) return { path: '/system/users' };
+    if (perms.includes('FARM_VIEW') && canAccess('/farm/locations')) return { name: 'farm-locations' };
+    
+    return { name: 'dashboard' };
+  };
+
   // 3. Nếu đã đăng nhập mà cố quay lại trang login -> Đẩy về Dashboard tương ứng
   if (to.name === 'login' && token) {
-    const perms = authStore.user?.permissions || [];
-    const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
-
-    if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
-    if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
-    if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
-    if (perms.includes('DASHBOARD_GOV_VIEW') && !hidden.includes('/regulator/audit')) return next({ name: 'regulator-audit' });
-    if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next({ name: 'dashboard' });
-    
-    // Fallback nếu không có quyền xem bất kỳ Dashboard nào
-    if (perms.includes('FARM_LOCATION_VIEW') && !hidden.includes('/farm/locations')) return next({ path: '/farm/locations' });
-    if (perms.includes('USER_VIEW') && !hidden.includes('/system/users')) return next({ path: '/system/users' });
-    
-    return next({ name: 'dashboard' });
+    return next(getDefaultRoute(authStore.user));
   }
 
   // 4. Redirect root path
   if (to.path === '/' && token) {
-    const perms = authStore.user?.permissions || [];
-    const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
-
-    if (perms.includes('DASHBOARD_TENANT_VIEW') && !hidden.includes('/tenant-dashboard')) return next({ name: 'tenant-dashboard' });
-    if (perms.includes('DEALER_DASHBOARD') && !hidden.includes('/dealer-dashboard')) return next({ name: 'dealer-dashboard' });
-    if (perms.includes('DRIVER_DASHBOARD') && !hidden.includes('/driver-dashboard')) return next({ name: 'driver-dashboard' });
-    if (perms.includes('DASHBOARD_GOV_VIEW') && !hidden.includes('/regulator/audit')) return next({ name: 'regulator-audit' });
-    if (perms.includes('DASHBOARD_SYSTEM_VIEW') && !hidden.includes('/')) return next();
-    
-    // Fallback nếu không có quyền xem bất kỳ Dashboard nào
-    if (perms.includes('FARM_LOCATION_VIEW') && !hidden.includes('/farm/locations')) return next({ path: '/farm/locations' });
-    if (perms.includes('USER_VIEW') && !hidden.includes('/system/users')) return next({ path: '/system/users' });
+    const defaultRoute = getDefaultRoute(authStore.user);
+    if (defaultRoute.name === 'dashboard') return next(); // Tránh lặp vô hạn vì path '/' map với name 'dashboard'
+    return next(defaultRoute);
   }
+
+  const handleUnauthorized = (message: string) => {
+    ElMessage.error(message);
+    if (from.name && from.matched.length > 0) {
+      return next(false);
+    }
+    // Tránh infinite loop: nếu đang truy cập '/' mà bị đuổi về '/' sẽ sinh ra lặp
+    if (to.path === '/') {
+      return next('/login');
+    }
+    return next('/');
+  };
 
   // 5. Kiểm tra Menu bị ẩn
   const hidden = [...(authStore.user?.hiddenMenus || []), ...(authStore.user?.globalHiddenMenus || [])];
-  if (hidden.includes(to.path)) {
-    ElMessage.error('Trang này đã bị vô hiệu hóa!');
-    return next(false);
+  // Chặn chính xác đường dẫn HOẶC đường dẫn con (thêm / để tránh chặn nhầm trang có chung tiền tố)
+  const isHidden = hidden.some(h => to.path === h || to.path.startsWith(h + '/'));
+  
+  if (isHidden) {
+    return handleUnauthorized('Trang này đã bị vô hiệu hóa!');
   }
 
-  // 6. Kiểm tra phân quyền (RBAC) dựa trên to.meta.roles
-  if (to.meta.roles && authStore.user) {
+  // 6. Kiểm tra phân quyền Động (PBAC)
+  const permissionMap = MENU_GROUPS.flatMap(g => g.items)
+                                   .sort((a, b) => b.path.length - a.path.length);
+  
+  const matchedMenu = permissionMap.find(m => to.path === m.path || to.path.startsWith(m.path + '/'));
+
+  if (matchedMenu) {
+    const requiredPerm = matchedMenu.permission;
+    const userPerms = authStore.user?.permissions || [];
+    const userRole = authStore.user?.role;
+    
+    if (userRole !== 'ADMIN' && !userPerms.includes(requiredPerm)) {
+      return handleUnauthorized('Bạn không có quyền truy cập chức năng này!');
+    }
+  } else if (to.meta.roles && authStore.user) {
+    // Fallback: Nếu trang không nằm trong menuConfig, dùng cơ chế roles cũ để bảo vệ
     const userRole = authStore.user.role;
     const allowedRoles = to.meta.roles as string[];
-    const perms = authStore.user.permissions || [];
     
-    let hasAccess = allowedRoles.includes(userRole);
-    
-    // Bypass cho Role động có cấu hình permissions
-    if (!hasAccess && perms.length > 0) {
-      hasAccess = true;
-    }
+    const STANDARD_ROLES = ['ADMIN', 'TENANT_ADMIN', 'REGULATOR', 'FARMER', 'TEAM_LEADER', 'KCS', 'DEALER', 'DRIVER', 'TRANSPORTER'];
+    const isStandardRole = STANDARD_ROLES.includes(userRole);
+    const hasAccess = allowedRoles.includes(userRole);
     
     if (!hasAccess) {
-      ElMessage.error('Bạn không có quyền truy cập chức năng này!');
-      return next(false); // Fix: Sử dụng next(false) để chặn vòng lặp
+      if (isStandardRole) {
+        return handleUnauthorized('Bạn không có quyền truy cập chức năng này!');
+      }
     }
   }
 

@@ -202,7 +202,7 @@
               class="w-full !m-0 font-medium"
               size="large"
               :loading="location?.eudrStatus === 'PENDING'"
-              :disabled="!location?.boundary || location?.eudrStatus === 'PENDING'"
+              :disabled="!location?.boundary || location?.eudrStatus === 'PENDING' || location?.approvalStatus === 'PENDING'"
               @click="triggerEudrCheck"
               :icon="Search"
             >

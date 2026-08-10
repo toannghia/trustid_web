@@ -1255,7 +1255,8 @@ const downloadEudrReport = async (row: Location) => {
 
 const originalForm = ref<any>({});
 const isFormChanged = computed(() => {
-    return JSON.stringify(form) !== JSON.stringify(originalForm.value);
+    if (!isEditing.value) return true;
+    return JSON.stringify({ ...form, updateReason: '' }) !== JSON.stringify({ ...originalForm.value, updateReason: '' });
 });
 
 const form = reactive({
@@ -1719,6 +1720,7 @@ const openEditModal = async (row: Location) => {
     currentApprovalStatus.value = row.approvalStatus || 'APPROVED';
     currentEudrCheckLog.value = row.checkLog || null;
 
+    originalForm.value = JSON.parse(JSON.stringify(form));
     showCreateModal.value = true;
 }
 
