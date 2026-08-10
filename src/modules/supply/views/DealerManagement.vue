@@ -6,6 +6,7 @@ import { Plus, Edit, Delete, Search, UserFilled, Location, Phone, Message, Tools
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import LTECard from '@/components/lte/LTECard.vue';
 import DealerCreateDialog from '../components/DealerCreateDialog.vue';
+import { userApi } from '@/modules/core/api/user';
 
 const dealers = ref<DealerDto[]>([]);
 const loading = ref(false);
@@ -29,6 +30,55 @@ const form = ref<DealerDto>({
 });
 
 const editDealer = ref<DealerDto | undefined>(undefined);
+
+const showAccountsModal = ref(false);
+const selectedDealerForAccounts = ref<DealerDto | null>(null);
+const dealerAccountsList = ref<any[]>([]);
+const loadingAccounts = ref(false);
+
+const openDealerAccountsModal = async (dealer: DealerDto) => {
+    selectedDealerForAccounts.value = dealer;
+    showAccountsModal.value = true;
+    loadingAccounts.value = true;
+    dealerAccountsList.value = [];
+
+    try {
+        const params: any = { page: 1, limit: 100, roleName: 'DEALER' };
+        if (dealer.id) params.dealerId = dealer.id;
+        else if (dealer.dealerTenantId) params.tenantId = dealer.dealerTenantId;
+
+        const res = await userApi.getList(params);
+        const rawList = res.data?.data || res.data?.items || (Array.isArray(res.data) ? res.data : []);
+        dealerAccountsList.value = rawList.filter((u: any) => {
+            const role = u.role?.name || u.role_name || u.role;
+            return role === 'DEALER';
+        });
+    } catch (e) {
+        console.error('Failed to fetch dealer accounts', e);
+        dealerAccountsList.value = [];
+    } finally {
+        loadingAccounts.value = false;
+    }
+};
+
+const getRoleDisplayName = (role: any): string => {
+    if (!role) return 'Đại lý';
+    if (typeof role === 'object' && role.displayName) return role.displayName;
+    const name = typeof role === 'object' ? role.name : role;
+    const roleMap: Record<string, string> = {
+        'DEALER': 'Đại lý',
+        'ADMIN': 'Quản trị viên',
+        'REGULATOR': 'Cơ quan quản lý',
+        'REGULATOR_OFFICER': 'Cán bộ Sở',
+        'PRODUCER': 'Doanh nghiệp',
+        'FARMER': 'Nông dân',
+        'DRIVER': 'Lái xe',
+        'WAREHOUSE': 'Thủ kho',
+        'PACKAGER': 'Nhân viên đóng gói',
+        'END_USER': 'Người dùng cuối'
+    };
+    return roleMap[name] || name || 'Đại lý';
+};
 
 const fetchDealers = async () => {
     loading.value = true;
@@ -200,20 +250,11 @@ onMounted(fetchDealers);
                     </template>
                 </el-table-column>
                 
-                <el-table-column label="Tài khoản liên kết" width="150" align="center">
+                <el-table-column label="Tài khoản liên kết" width="160" align="center">
                     <template #default="{ row }">
-                        <el-popover v-if="row.dealerTenant" placement="top" width="250" trigger="click">
-                            <template #reference>
-                                <el-button type="success" plain size="small">Xem tài khoản</el-button>
-                            </template>
-                            <div>
-                                <div class="font-bold mb-1 text-sm">{{ row.dealerTenant.name }}</div>
-                                <div class="text-xs text-gray-600 mb-1" v-if="row.dealerTenant.username">Username: <span class="font-bold text-blue-600">{{ row.dealerTenant.username }}</span></div>
-                                <div class="text-xs text-gray-600 mb-1" v-if="row.dealerTenant.taxCode">MST: {{ row.dealerTenant.taxCode }}</div>
-                                <div class="text-[10px] text-gray-400 font-mono break-all mt-2 pt-2 border-t border-gray-100">ID: {{ row.dealerTenantId }}</div>
-                            </div>
-                        </el-popover>
-                        <span v-else class="text-xs text-gray-300">Không có</span>
+                        <el-button type="success" plain size="small" @click="openDealerAccountsModal(row)">
+                            Xem tài khoản
+                        </el-button>
                     </template>
                 </el-table-column>
                 <el-table-column label="Thao tác" width="100" fixed="right" align="center">
@@ -245,6 +286,62 @@ onMounted(fetchDealers);
             @created="fetchDealers" 
             @updated="fetchDealers"
         />
+
+        <!-- Modal Xem danh sách tài khoản của Đại lý -->
+        <el-dialog
+            v-model="showAccountsModal"
+            :title="`Danh sách tài khoản — ${selectedDealerForAccounts?.name || ''}`"
+            width="550px"
+            append-to-body
+        >
+            <div v-loading="loadingAccounts" class="py-2">
+                <div v-if="dealerAccountsList.length > 0" class="space-y-2">
+                    <div class="text-xs font-medium text-gray-500 mb-2">
+                        Tổng số tài khoản đã gán: <span class="font-bold text-green-700">{{ dealerAccountsList.length }}</span>
+                    </div>
+
+                    <div 
+                        v-for="acc in dealerAccountsList" 
+                        :key="acc.id || acc.username" 
+                        class="p-3 border border-gray-100 rounded-lg flex items-center justify-between bg-gray-50 hover:bg-white hover:shadow-sm transition-all"
+                    >
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-blue-900">{{ acc.username }}</span>
+                                <el-tag size="small" type="success" effect="plain">{{ getRoleDisplayName(acc.role) }}</el-tag>
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1 flex items-center gap-3">
+                                <span>Họ tên: <strong class="text-gray-800">{{ acc.fullName || acc.full_name || '—' }}</strong></span>
+                                <span v-if="acc.email">Email: {{ acc.email }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <el-tag size="small" :type="acc.status === 'ACTIVE' ? 'success' : 'danger'">
+                                {{ acc.status === 'ACTIVE' ? 'Hoạt động' : (acc.status || 'Khóa') }}
+                            </el-tag>
+                        </div>
+                    </div>
+                </div>
+                <div v-else class="text-center py-8 text-gray-400">
+                    <el-icon class="text-3xl mb-2 text-gray-300"><UserFilled /></el-icon>
+                    <div class="text-sm">Đại lý này chưa có tài khoản đăng nhập nào.</div>
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-between items-center">
+                    <el-button 
+                        type="primary" 
+                        plain 
+                        size="small" 
+                        @click="showAccountsModal = false; handleEdit(selectedDealerForAccounts!)"
+                    >
+                        + Quản lý / Thêm tài khoản mới
+                    </el-button>
+                    <el-button @click="showAccountsModal = false">Đóng</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 

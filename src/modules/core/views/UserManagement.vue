@@ -3,6 +3,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue';
 import { userApi } from '../api/user';
 import { tenantApi } from '../api/tenant';
 import { dealerApi } from '@/modules/supply/api/dealerApi';
+import { useRouter } from 'vue-router';
 import type { Tenant } from '@/types/core';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
@@ -37,6 +38,14 @@ const availableRoles = computed(() => {
     return roles.value.filter(r => !restricted.includes(r.name));
 });
 
+const router = useRouter();
+const isDealerRole = computed(() => userForm.role === 'DEALER');
+
+const goToDealerPage = () => {
+  showModal.value = false;
+  router.push('/supply/dealers');
+};
+
 const getRoleName = (roleCode: string | any) => {
   const code = typeof roleCode === 'object' ? roleCode?.name : roleCode;
   const found = roles.value.find(r => r.name === code);
@@ -66,7 +75,8 @@ const userForm = reactive({
   username: '',
   password: '',
   role: '',
-  tenant_id: ''
+  tenant_id: '',
+  dealer_id: ''
 });
 
 const formRef = ref<FormInstance>();
@@ -123,6 +133,13 @@ const validatePassword = (rule: any, value: any, callback: any) => {
   callback();
 };
 
+const validateDealerId = (rule: any, value: any, callback: any) => {
+  if (userForm.role === 'DEALER' && !userForm.dealer_id) {
+    return callback(new Error('Vui lòng chọn Đại lý cụ thể cho tài khoản này'));
+  }
+  callback();
+};
+
 const rules = computed<FormRules>(() => ({
   full_name: [
     { required: true, validator: validateFullName, trigger: 'blur' }
@@ -139,6 +156,9 @@ const rules = computed<FormRules>(() => ({
   ],
   role: [
     { required: true, message: 'Vui lòng chọn vai trò', trigger: 'change' }
+  ],
+  dealer_id: [
+    { validator: validateDealerId, trigger: ['change', 'blur'] }
   ]
 }));
 
@@ -182,6 +202,7 @@ watch([() => filter.tenantId, () => filter.roleName, () => filter.showEndUsers],
 });
 
 const openCreateModal = () => {
+  fetchDealers();
   isEdit.value = false;
   currentUser.value = null;
   Object.assign(userForm, {
@@ -190,7 +211,8 @@ const openCreateModal = () => {
     username: '',
     password: '',
     role: '',
-    tenant_id: ''
+    tenant_id: '',
+    dealer_id: ''
   });
   showModal.value = true;
   nextTick(() => {
@@ -202,13 +224,17 @@ const handleEditUser = (user: any) => {
   isEdit.value = true;
   currentUser.value = user;
   
+  const userTenantId = user.tenant_id || user.tenant?.id;
+  const matchedDealer = dealers.value.find((d: any) => d.dealerTenantId === userTenantId);
+
   Object.assign(userForm, {
     full_name: user.full_name || user.fullName,
     email: user.email,
     username: user.username,
     password: '',
     role: user.role?.name || user.role_name || user.role || '',
-    tenant_id: user.tenant_id || user.tenant?.id || ''
+    tenant_id: userTenantId || '',
+    dealer_id: matchedDealer ? matchedDealer.id : ''
   });
   showModal.value = true;
   nextTick(() => {
@@ -255,12 +281,14 @@ const handleSubmit = async () => {
     
     submitting.value = true;
     try {
+      const selectedDealer = dealers.value.find((d: any) => d.id === userForm.dealer_id);
       const payload: any = {
         fullName: userForm.full_name,
         email: userForm.email,
         username: userForm.username,
         roleName: userForm.role, // Must match CreateUserDto.roleName
-        tenantId: userForm.tenant_id || null
+        tenantId: userForm.role === 'DEALER' ? (selectedDealer?.dealerTenantId || null) : (userForm.tenant_id || null),
+        dealerId: userForm.role === 'DEALER' ? (userForm.dealer_id || null) : null
       };
 
       if (userForm.password) {
@@ -329,14 +357,20 @@ const getDealerForUser = (user: any) => {
   return dealers.value.find(d => d.dealerTenantId === tenantId);
 };
 
+const fetchDealers = async () => {
+  try {
+    const res = await dealerApi.getList();
+    dealers.value = res.data || [];
+  } catch (e) {
+    console.error('Failed to fetch dealers', e);
+  }
+};
+
 onMounted(() => {
   fetchUsers();
   fetchFilterData();
   fetchRoles();
-  // Fetch dealers for column lookup
-  dealerApi.getList().then(res => {
-    dealers.value = res.data || [];
-  }).catch(() => {});
+  fetchDealers();
 });
 </script>
 
@@ -490,7 +524,41 @@ onMounted(() => {
             <el-option v-for="r in availableRoles" :key="r.name" :label="r.displayName || r.name" :value="r.name" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Doanh nghiệp" prop="tenant_id" v-if="isSystemAdmin">
+
+        <!-- Khi chọn vai trò Đại lý: Bắt buộc gắn vào Đại lý cụ thể -->
+        <el-form-item label="Đại lý *" prop="dealer_id" v-if="isDealerRole">
+          <template v-if="dealers.length > 0">
+            <el-select 
+              v-model="userForm.dealer_id" 
+              placeholder="Chọn đại lý cụ thể *" 
+              class="w-full" 
+              filterable 
+              style="--el-border-radius-base: 8px;"
+            >
+              <el-option 
+                v-for="d in dealers" 
+                :key="d.id" 
+                :label="d.name + (d.taxCode ? ' (MST: ' + d.taxCode + ')' : '')" 
+                :value="d.id" 
+              />
+            </el-select>
+          </template>
+          <template v-else>
+            <div class="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex flex-col gap-2">
+              <div class="flex items-center gap-1 font-medium">
+                <span class="text-base">⚠️</span> Chưa có đại lý nào trên hệ thống
+              </div>
+              <div>Vui lòng chuyển tới danh mục Quản lý đại lý để tạo đại lý trước.</div>
+              <div>
+                <el-button type="warning" size="small" plain @click="goToDealerPage">
+                  ➔ Sang danh mục Tạo đại lý
+                </el-button>
+              </div>
+            </div>
+          </template>
+        </el-form-item>
+
+        <el-form-item label="Doanh nghiệp" prop="tenant_id" v-else-if="isSystemAdmin">
           <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable style="--el-border-radius-base: 8px;">
              <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
