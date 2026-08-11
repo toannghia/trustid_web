@@ -53,8 +53,9 @@
               <td class="py-1 pr-1">
                 <div>{{ item.productName }}</div>
                 <div class="text-[10px] text-gray-500 font-mono">{{ item.serialNumber }}</div>
+                <div v-if="item.isBag" class="text-[10px] text-green-600">(Bao {{ item.bagQuantity || item.quantity }} gói)</div>
               </td>
-              <td class="py-1 text-center align-top">{{ item.quantity }}</td>
+              <td class="py-1 text-center align-top">{{ item.quantity || 1 }}</td>
               <td class="py-1 text-right align-top">{{ formatCurrency(item.price) }}</td>
             </tr>
           </tbody>
@@ -119,11 +120,14 @@
           <tbody>
             <tr v-for="(item, idx) in sale.items" :key="idx" class="border-b">
               <td class="p-3 text-center border-x">{{ Number(idx) + 1 }}</td>
-              <td class="p-3 border-r font-medium">{{ item.productName }}</td>
+              <td class="p-3 border-r font-medium">
+                {{ item.productName }}
+                <div v-if="item.isBag" class="text-xs text-green-600">(Bao {{ item.bagQuantity || item.quantity }} gói)</div>
+              </td>
               <td class="p-3 border-r text-center font-mono text-sm text-gray-600">{{ item.serialNumber }}</td>
-              <td class="p-3 border-r text-center">{{ item.quantity }}</td>
+              <td class="p-3 border-r text-center">{{ item.quantity || 1 }}</td>
               <td class="p-3 border-r text-right">{{ formatCurrency(item.price) }}</td>
-              <td class="p-3 border-r text-right font-bold">{{ formatCurrency(Number(item.price) * Number(item.quantity)) }}</td>
+              <td class="p-3 border-r text-right font-bold">{{ formatCurrency(Number(item.price) * Number(item.quantity || 1)) }}</td>
             </tr>
           </tbody>
         </table>

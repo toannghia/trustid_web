@@ -112,21 +112,21 @@
     <el-dialog
       v-model="dialogVisible"
       :title="'Chi tiết Mã Serial - ' + selectedProduct?.productName"
-      width="1080px"
+      width="1200px"
       class="rounded-xl overflow-hidden"
       destroy-on-close
     >
       <div class="mb-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <span class="text-sm font-medium text-gray-600">
-          Danh sách mã serial có sẵn: 
+          Danh sách mã serial/gói có sẵn: 
           <span class="text-blue-600 font-bold ml-1">{{ filteredSerials.length }} / {{ selectedProduct?.serials?.length || 0 }}</span>
         </span>
         <el-input
           v-model="serialSearch"
-          placeholder="Tìm mã serial/QR..."
+          placeholder="Tìm mã gói/mã bao/QR..."
           prefix-icon="Search"
           clearable
-          class="w-64"
+          class="w-72"
         />
       </div>
       
@@ -137,59 +137,59 @@
           :data="filteredSerials"
           stripe
           style="width: 100%"
-          max-height="420"
-          header-cell-class-name="bg-gray-50 text-gray-700 font-semibold py-2.5 border-b text-xs"
-          cell-class-name="py-2 text-xs"
+          max-height="460"
+          header-cell-class-name="bg-gray-50 text-gray-700 font-semibold py-2.5 border-b text-xs whitespace-nowrap"
+          cell-class-name="py-2.5 text-xs whitespace-nowrap"
         >
-          <el-table-column type="index" width="50" label="STT" align="center" />
+          <el-table-column type="index" width="55" label="STT" align="center" fixed="left" />
           
-          <el-table-column prop="fullQrCode" label="Mã QR" width="140" align="center">
+          <el-table-column prop="fullQrCode" label="Mã QR gói" min-width="190" align="center">
             <template #default="{ row }">
-              <span class="font-mono text-gray-600 break-all select-all font-semibold">{{ row.fullQrCode || 'N/A' }}</span>
+              <span class="font-mono text-gray-700 select-all font-semibold whitespace-nowrap">{{ row.fullQrCode || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="serialNumber" label="Serial" width="100" align="center">
+          <el-table-column prop="serialNumber" label="Mã gói (Serial)" min-width="160" align="center">
             <template #default="{ row }">
-              <span class="font-mono font-bold text-gray-800">{{ row.serialNumber }}</span>
+              <span class="font-mono font-bold text-gray-800 whitespace-nowrap">{{ row.serialNumber }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="parentBagSerial" label="Mã bao" width="175" align="center">
+          <el-table-column prop="parentBagSerial" label="Mã bao" min-width="180" align="center">
             <template #default="{ row }">
-              <span v-if="row.parentBagSerial" class="font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+              <span v-if="row.parentBagSerial" class="font-mono font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-100 whitespace-nowrap inline-block">
                 {{ row.parentBagSerial }}
               </span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="batchCode" label="Lô" width="150" align="center">
+          <el-table-column prop="batchCode" label="Lô" min-width="130" align="center">
             <template #default="{ row }">
-              <span class="font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+              <span class="font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 whitespace-nowrap inline-block">
                 {{ row.batchCode || 'N/A' }}
               </span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" width="150" align="center">
+          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" min-width="160" align="center">
             <template #default="{ row }">
-              <el-tag v-if="row.trackingCode && row.trackingCode !== 'N/A'" type="info" effect="plain" class="font-mono font-bold border-gray-200 text-gray-700">
+              <el-tag v-if="row.trackingCode && row.trackingCode !== 'N/A'" type="info" effect="plain" class="font-mono font-bold border-gray-200 text-gray-700 whitespace-nowrap">
                 {{ row.trackingCode }}
               </el-tag>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="150">
+          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              <span class="font-medium text-gray-700">{{ row.sourceUnit || 'N/A' }}</span>
+              <span class="font-medium text-gray-700 whitespace-nowrap" :title="row.sourceUnit">{{ row.sourceUnit || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="importDate" label="Ngày nhập" width="140" align="center">
+          <el-table-column prop="importDate" label="Ngày nhập" min-width="150" align="center">
             <template #default="{ row }">
-              <span class="text-gray-600">{{ formatDateDisplay(row.importDate) }}</span>
+              <span class="text-gray-600 whitespace-nowrap">{{ formatDateDisplay(row.importDate) }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -254,8 +254,11 @@ const filteredSerials = computed(() => {
   if (!serialSearch.value) return selectedProduct.value.serials;
   const lower = serialSearch.value.toLowerCase();
   return selectedProduct.value.serials.filter((s: any) => 
-    s.serialNumber.toLowerCase().includes(lower) ||
-    (s.fullQrCode && s.fullQrCode.toLowerCase().includes(lower))
+    (s.serialNumber && s.serialNumber.toLowerCase().includes(lower)) ||
+    (s.fullQrCode && s.fullQrCode.toLowerCase().includes(lower)) ||
+    (s.parentBagSerial && s.parentBagSerial.toLowerCase().includes(lower)) ||
+    (s.batchCode && s.batchCode.toLowerCase().includes(lower)) ||
+    (s.trackingCode && s.trackingCode.toLowerCase().includes(lower))
   );
 });
 
