@@ -271,11 +271,32 @@ const form = reactive({
   product_ids: [] as string[]
 });
 
+const validateStartDate = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('Vui lòng chọn ngày bắt đầu xuống giống'));
+  }
+  const target = dayjs(value);
+  const today = dayjs().startOf('day');
+  const pastLimit = today.subtract(15, 'day');
+  const futureLimit = today.add(90, 'day');
+  
+  if (target.isBefore(pastLimit)) {
+    return callback(new Error('Ngày bắt đầu không được lùi quá 15 ngày so với hiện tại.'));
+  }
+  if (target.isAfter(futureLimit)) {
+    return callback(new Error('Ngày bắt đầu không được vượt quá 90 ngày so với hiện tại.'));
+  }
+  callback();
+};
+
 const rules = {
   name: [{ required: true, message: 'Nhập tên vụ', trigger: 'blur' }],
   location_id: [{ required: true, message: 'Chọn vùng trồng', trigger: 'change' }],
   template_id: [{ required: true, message: 'Chọn quy trình', trigger: 'change' }],
-  start_date: [{ required: true, message: 'Chọn ngày bắt đầu', trigger: 'change' }]
+  start_date: [
+    { required: true, message: 'Vui lòng chọn ngày bắt đầu xuống giống', trigger: 'change' },
+    { validator: validateStartDate, trigger: 'change' }
+  ]
 };
 
 const formatDate = (dateStr: string) => {

@@ -167,11 +167,12 @@
                 <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
                     <template v-if="task.status === 'PENDING'">
                          <!-- Skip Button -->
-                         <el-tooltip content="Bỏ qua công việc này">
+                         <el-tooltip :content="task.isMandatory ? 'Công việc bắt buộc, không được phép bỏ qua' : 'Bỏ qua công việc này'">
                             <el-button 
                                 type="info" 
                                 plain
                                 size="large"
+                                :disabled="task.isMandatory"
                                 @click="openSkipModal(task)"
                             >
                                 <el-icon><Close /></el-icon>
