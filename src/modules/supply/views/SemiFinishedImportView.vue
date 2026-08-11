@@ -135,11 +135,19 @@
          </el-form-item>
       </div>
 
-      <el-table :data="partialRows" border size="small" class="modern-table">
+      <el-table :data="partialRows" border size="small" class="modern-table" show-summary :summary-method="getSummary">
         <el-table-column label="STT" type="index" width="50" align="center" />
-        <el-table-column label="Mã lô" min-width="150">
+        <el-table-column label="Mã QR" min-width="200">
            <template #default="{ row }">
-              <span class="font-mono font-bold text-blue-600">{{ row.batchCode || getBatchCode(row.batch_id) }}</span>
+              <div v-if="row.qrCodes?.length" class="flex flex-wrap gap-1">
+                <el-tag v-for="(qr, idx) in row.qrCodes" :key="idx" size="small" type="success" effect="plain" class="!text-[9px] !px-1.5 !py-0 font-mono">{{ qr }}</el-tag>
+              </div>
+              <span v-else class="text-[10px] text-gray-400 italic">Nguyên lô</span>
+           </template>
+        </el-table-column>
+        <el-table-column label="Mã lô" width="130">
+           <template #default="{ row }">
+              <span class="font-mono font-bold text-blue-600 text-xs">{{ row.batchCode || getBatchCode(row.batch_id) }}</span>
            </template>
         </el-table-column>
         <el-table-column label="Sản phẩm" min-width="150">
@@ -147,7 +155,12 @@
               <span class="font-medium text-xs">{{ row.productName || getBatchInfo(row.batch_id)?.product?.name || '---' }}</span>
            </template>
         </el-table-column>
-        <el-table-column label="K.Lượng Xuất (KG)" width="150" align="right">
+        <el-table-column label="Số bao" width="70" align="center">
+            <template #default="{ row }">
+               <span class="font-bold" style="color: #00875A;">{{ row.expectedBagCount || row.serials?.length || '—' }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="K.Lượng Xuất (KG)" width="140" align="right">
             <template #default="{ row }">
                <span class="font-bold text-gray-600">{{ row.expected_quantity }}</span>
             </template>
@@ -311,7 +324,7 @@
             <div class="w-1 h-5 bg-blue-500 rounded-full"></div>
             <el-icon><Box /></el-icon> Danh sách hàng hóa thực nhập
           </div>
-          <el-table :data="detailRow.items" border size="small" stripe>
+          <el-table :data="detailRow.items" border size="small" stripe show-summary :summary-method="getDetailSummary">
             <el-table-column label="STT" type="index" width="50" align="center" />
             <el-table-column label="Mã lô" min-width="160">
               <template #default="{ row }">
@@ -330,7 +343,7 @@
             </el-table-column>
             <el-table-column label="Số bao" width="90" align="center">
               <template #default="{ row }">
-                <span class="font-bold text-gray-700">{{ row.batch?.packCount || '---' }}</span>
+                <span class="font-bold text-gray-700">{{ getItemBagCount(row) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="Mã" width="80" align="center">
@@ -452,7 +465,7 @@ const importForm = ref({
   location: ''
 });
 
-const partialRows = ref<Array<{ batch_id: string; expected_quantity: number; received_quantity: number; batchCode?: string; productName?: string }>>([]);
+const partialRows = ref<Array<{ batch_id: string; expected_quantity: number; received_quantity: number; batchCode?: string; productName?: string; serials?: string[]; qrCodes?: string[]; expectedBagCount?: number }>>([]);
 const detailVisible = ref(false);
 const detailRow = ref<any>(null);
 
@@ -656,7 +669,7 @@ const handleScan = async () => {
   }
 };
 
-const loadTransferData = (transferId: string) => {
+const loadTransferData = async (transferId: string) => {
   selectedTransferId.value = transferId;
   const t = transfers.value.find(x => x.id === transferId);
   if (t && t.items) {
@@ -665,8 +678,29 @@ const loadTransferData = (transferId: string) => {
       expected_quantity: i.expectedQuantity,
       received_quantity: i.expectedQuantity,
       batchCode: i.batch?.batchCode,
-      productName: i.batch?.product?.name
+      productName: i.batch?.product?.name,
+      serials: i.serials || undefined,
+      qrCodes: undefined as string[] | undefined,
+      expectedBagCount: i.expectedBagCount || (i.serials?.length) || undefined
     }));
+
+    // Lookup fullQrCode cho serials
+    const allSerials = partialRows.value.flatMap(r => r.serials || []);
+    if (allSerials.length > 0) {
+      try {
+        const { data: items } = await supplyApi.lookupSerials(allSerials);
+        const serialToQr = new Map(items.map((it: any) => [it.serialNumber, it.fullQrCode || it.serialNumber]));
+        for (const row of partialRows.value) {
+          if (row.serials?.length) {
+            row.qrCodes = row.serials.map(s => serialToQr.get(s) || s);
+          }
+        }
+      } catch {
+        for (const row of partialRows.value) {
+          if (row.serials?.length) row.qrCodes = [...row.serials];
+        }
+      }
+    }
   }
 };
 
@@ -746,6 +780,71 @@ const getBatchCode = (id: string) => {
   return b ? b.batchCode : id;
 };
 
+const getActualBagCount = (row: any) => {
+  if (row.serials?.length) return row.serials.length;
+  const batch = getBatchInfo(row.batch_id);
+  if (!batch || !batch.packCount || !batch.outputWeight) return '—';
+  const unitWeight = batch.outputWeight / batch.packCount;
+  if (unitWeight <= 0) return '—';
+  return Math.round(row.expected_quantity / unitWeight);
+};
+
+const getSummary = ({ columns, data }: any) => {
+  return columns.map((_: any, i: number) => {
+    if (i === 3) return 'Tổng cộng';
+    if (i === 4) {
+      return data.reduce((sum: number, row: any) => {
+        const bags = row.expectedBagCount || row.serials?.length;
+        if (bags) return sum + Number(bags);
+        const batch = getBatchInfo(row.batch_id);
+        if (batch?.outputWeight && batch?.packCount && batch.packCount > 0) {
+          const unitW = batch.outputWeight / batch.packCount;
+          if (unitW > 0) return sum + Math.round((row.expected_quantity || 0) / unitW);
+        }
+        return sum;
+      }, 0);
+    }
+    if (i === 5) {
+      return data.reduce((sum: number, row: any) => sum + Number(row.expected_quantity || 0), 0).toFixed(2) + ' kg';
+    }
+    if (i === 6) {
+      return data.reduce((sum: number, row: any) => {
+        const qty = importForm.value.import_mode === 'FULL' ? row.expected_quantity : row.received_quantity;
+        return sum + Number(qty || 0);
+      }, 0).toFixed(2) + ' kg';
+    }
+    return '';
+  });
+};
+
+const getItemBagCount = (row: any) => {
+  if (row.expectedBagCount) return row.expectedBagCount;
+  if (row.serials?.length) return row.serials.length;
+  if (row.batch?.outputWeight && row.batch?.packCount && row.batch.packCount > 0) {
+    const unitW = row.batch.outputWeight / row.batch.packCount;
+    const qty = Number(row.receivedQuantity || row.expectedQuantity) || 0;
+    if (unitW > 0) return Math.round(qty / unitW);
+  }
+  return row.batch?.packCount || 0;
+};
+
+const getDetailSummary = ({ columns, data }: any) => {
+  return columns.map((_: any, i: number) => {
+    if (i === 2) return 'Tổng cộng';
+    if (i === 3) {
+      const sumKg = data.reduce((sum: number, row: any) => sum + (Number(row.receivedQuantity || row.expectedQuantity) || 0), 0);
+      return sumKg.toLocaleString();
+    }
+    if (i === 4) {
+      return data.reduce((sum: number, row: any) => {
+        const count = getItemBagCount(row);
+        return sum + (typeof count === 'number' ? count : 0);
+      }, 0);
+    }
+    return '';
+  });
+};
+
 const getTenantName = (id: string) => {
   const t = tenants.value.find(x => x.id === id);
   return t ? t.name : id;
@@ -803,6 +902,18 @@ onMounted(() => {
   font-weight: 700;
   text-transform: uppercase;
   font-size: 11px;
+}
+:deep(.el-table__footer-wrapper) td {
+  background-color: #e8f1f9 !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  color: #0F2B46 !important;
+  border-top: 2px solid #0F2B46 !important;
+}
+
+:deep(.el-table__footer-wrapper) td .cell {
+  font-weight: 800 !important;
+  color: #0F2B46 !important;
 }
 </style>
 

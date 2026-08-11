@@ -40,6 +40,18 @@
           <el-option label="Hoàn thành" value="COMPLETED" />
           <el-option label="Đã xuất" value="EXPORTED" />
         </el-select>
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="đến"
+          start-placeholder="Từ ngày"
+          end-placeholder="Đến ngày"
+          format="DD/MM/YYYY"
+          value-format="YYYY-MM-DD"
+          clearable
+          class="compact-date-picker"
+          @change="handleFilterChange"
+        />
         <span class="ml-auto text-sm text-slate-500">
           Tổng: <strong>{{ total }}</strong> lô
         </span>
@@ -56,29 +68,31 @@
           <el-table-column type="selection" width="50" align="center" :selectable="canSelectRow" />
           <el-table-column label="STT" width="55" align="center">
             <template #default="{ $index }">
-              {{ (currentPage - 1) * pageSize + $index + 1 }}
+              <span class="text-xs text-slate-600 font-medium">{{ (currentPage - 1) * pageSize + $index + 1 }}</span>
             </template>
           </el-table-column>
         
         <el-table-column label="Mã lô" width="160">
           <template #default="{ row }">
-            <el-link type="primary" class="font-bold" @click="viewDetail(row)">
+            <el-link type="primary" class="!text-xs font-bold font-mono" @click="viewDetail(row)">
               {{ row.batchCode }}
             </el-link>
           </template>
         </el-table-column>
 
-        <el-table-column label="Sản phẩm" min-width="150">
+        <el-table-column label="Sản phẩm" min-width="170">
           <template #default="{ row }">
-            <div class="font-medium">{{ row.product?.name || 'N/A' }}</div>
-            <div class="text-[10px] text-gray-400">{{ row.productGtin }}</div>
+            <div class="flex flex-col leading-tight">
+              <span class="text-xs font-medium text-slate-800">{{ row.product?.name || 'N/A' }}</span>
+              <span class="text-[11px] text-gray-400 font-mono mt-0.5">{{ row.productGtin }}</span>
+            </div>
           </template>
         </el-table-column>
 
         <el-table-column label="Khối lượng (kg)" width="140">
           <template #default="{ row }">
-            <div class="flex flex-col text-xs">
-               <span title="Tổng đóng gói"><el-icon><Calendar /></el-icon> {{ row.outputWeight ?? 0 }} kg</span>
+            <div class="flex flex-col text-xs leading-tight gap-0.5">
+               <span title="Tổng đóng gói" class="text-slate-600"><el-icon><Calendar /></el-icon> {{ row.outputWeight ?? 0 }} kg</span>
                <span title="Hiện còn" class="text-blue-600 font-bold">
                  <el-icon><Bottom /></el-icon> Tồn: {{ row.availableQuantity ?? 0 }} kg
                </span>
@@ -88,45 +102,50 @@
 
         <el-table-column label="Hao hụt" width="90" align="right">
           <template #default="{ row }">
-            <span class="text-orange-600 font-bold">{{ row.lossPercentage?.toFixed(2) ?? 0 }}%</span>
+            <span class="text-xs text-orange-600 font-bold">{{ row.lossPercentage?.toFixed(2) ?? 0 }}%</span>
           </template>
         </el-table-column>
 
         <el-table-column label="Lô nguồn" width="180">
           <template #default="{ row }">
-             <span class="font-mono text-[11px] text-slate-600">
+             <span class="font-mono text-xs text-slate-600">
                {{ row.parentBatch?.batchCode || row.farmBatchCode || '-' }}
              </span>
           </template>
         </el-table-column>
 
-        <el-table-column label="Thông tin SX" width="140">
+        <el-table-column label="Thông tin SX" width="150">
            <template #default="{ row }">
-              <div class="flex flex-col text-[11px] gap-1">
+              <div class="flex flex-col text-xs leading-tight gap-1 text-slate-600">
                  <span v-if="row.sourceInfo?.packaging_date"><el-icon><Calendar /></el-icon> {{ formatDate(row.sourceInfo.packaging_date) }}</span>
-                 <span v-if="row.sourceInfo?.packer"><el-icon><User /></el-icon> {{ row.sourceInfo.packer }}</span>
+                 <span v-if="row.sourceInfo?.packer" class="text-[11px] text-gray-500"><el-icon><User /></el-icon> {{ row.sourceInfo.packer }}</span>
               </div>
            </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="Trạng thái" width="100" align="center">
+        <el-table-column prop="status" label="Trạng thái" width="130" align="center">
           <template #default="{ row }">
-            <el-tag size="small" :type="getStatusType(row.status)" effect="light">
-              {{ batchStatusMap[row.status] || row.status }}
-            </el-tag>
+            <div class="flex flex-col items-center gap-1">
+              <el-tag size="small" :type="getStatusType(row.status)" effect="light" class="!text-[11px]">
+                {{ batchStatusMap[row.status] || row.status }}
+              </el-tag>
+              <el-tag v-if="row.exportedQuantity > 0" size="small" type="warning" effect="plain" class="!text-[11px]">
+                📦 Đã xuất {{ row.exportedQuantity }} bao
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
 
         <el-table-column label="Thao tác" width="120" fixed="right" align="center">
            <template #default="{ row }">
-              <div class="flex gap-2 justify-center">
-                <el-button v-if="row.availableQuantity > 0.001" type="primary" size="small" link :icon="ShoppingCart" @click="handleSell(row)">
+              <div class="flex gap-2 justify-center text-xs">
+                <el-button v-if="row.availableQuantity > 0.001" type="primary" size="small" link :icon="ShoppingCart" class="!text-xs" @click="handleSell(row)">
                    Xuất
                 </el-button>
-                <el-tag v-else type="info" size="small" plain>Hết hàng</el-tag>
+                <el-tag v-else type="info" size="small" plain class="!text-[11px]">Hết hàng</el-tag>
                 <el-popconfirm title="Bạn có chắc chắn muốn xóa lô này?" @confirm="handleDelete(row)">
                   <template #reference>
-                    <el-button type="danger" size="small" link :icon="Delete">
+                    <el-button type="danger" size="small" link :icon="Delete" class="!text-xs">
                        Xóa
                     </el-button>
                   </template>
@@ -375,6 +394,7 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const searchTerm = ref('');
 const filterStatus = ref('');
+const dateRange = ref<[string, string] | null>(null);
 
 const canSelectRow = (row: any) => row.availableQuantity > 0.001;
 
@@ -400,6 +420,10 @@ const loadData = async () => {
     };
     if (searchTerm.value) params.search = searchTerm.value;
     if (filterStatus.value) params.status = filterStatus.value;
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.fromDate = dateRange.value[0];
+      params.toDate = dateRange.value[1];
+    }
     
     const { data } = await supplyApi.getBatches(params);
     batches.value = data.data || [];
@@ -616,3 +640,41 @@ watch(showSupplementaryDialog, (val) => {
 
 onMounted(loadData);
 </script>
+
+<style scoped>
+:deep(.compact-date-picker) {
+  width: 220px !important;
+  max-width: 220px !important;
+  padding: 0 6px !important;
+}
+
+:deep(.compact-date-picker .el-range-input) {
+  width: 42% !important;
+  font-size: 12px !important;
+  text-align: center !important;
+}
+
+:deep(.compact-date-picker .el-range-separator) {
+  padding: 0 2px !important;
+  font-size: 11px !important;
+  color: #9ca3af !important;
+}
+
+:deep(.compact-date-picker .el-range__icon) {
+  margin-right: 4px !important;
+  font-size: 13px !important;
+}
+
+:deep(.compact-date-picker .el-range__close-icon) {
+  font-size: 12px !important;
+}
+
+.modern-table :deep(th.el-table__cell) {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.modern-table :deep(td.el-table__cell) {
+  font-size: 12px !important;
+}
+</style>

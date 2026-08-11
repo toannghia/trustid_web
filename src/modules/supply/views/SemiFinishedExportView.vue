@@ -164,12 +164,30 @@
           <div class="text-sm font-bold text-gray-700 mb-3">📦 Danh sách lô xuất ({{ form.items.length }} lô)</div>
           <el-table :data="form.items" border size="small" class="modern-table !rounded-lg overflow-hidden" show-summary :summary-method="getSummary">
             <el-table-column label="STT" type="index" width="45" align="center" />
-            <el-table-column label="Mã lô" min-width="120">
+            <el-table-column label="Mã QR đã quét" min-width="220">
               <template #default="{ row }">
-                <div class="flex flex-col">
-                  <span class="font-mono font-bold text-blue-600 text-xs">{{ getBatchCode(row.batch_id) }}</span>
-                  <span v-if="row.serials?.length" class="text-[9px] text-green-600 font-bold">Đã quét {{ row.serials.length }} bao</span>
+                <div v-if="row.qrCodes?.length" class="flex flex-col gap-1">
+                  <div class="flex flex-wrap gap-1">
+                    <el-tag
+                      v-for="(qr, idx) in row.qrCodes"
+                      :key="idx"
+                      size="small"
+                      type="success"
+                      effect="plain"
+                      class="!text-[9px] !px-1.5 !py-0 font-mono"
+                      closable
+                      @close="removeSerial(row, idx)"
+                    >
+                      {{ qr }}
+                    </el-tag>
+                  </div>
                 </div>
+                <span v-else class="text-[10px] text-gray-400 italic">Nguyên lô (không quét từng bao)</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="Mã lô" width="130">
+              <template #default="{ row }">
+                <span class="font-mono font-bold text-blue-600 text-xs">{{ getBatchCode(row.batch_id) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="Sản phẩm" min-width="140">
@@ -187,7 +205,7 @@
             </el-table-column>
             <el-table-column label="Số bao" width="80" align="center">
               <template #default="{ row }">
-                <span class="font-bold" style="color: #00875A;">{{ row.serials?.length || getBatchPackCount(row.batch_id) }}</span>
+                <span class="font-bold" style="color: #00875A;">{{ row.expected_bag_count || row.serials?.length || '—' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="expected_quantity" label="K.Lượng (kg)" width="110" align="right">
@@ -480,7 +498,7 @@ const currentUser = computed(() => authStore.user?.full_name || authStore.user?.
 const form = ref({
   to_tenant_id: '',
   notes: '',
-  items: [] as Array<{ batch_id: string; expected_quantity: number; serials?: string[] }>
+  items: [] as Array<{ batch_id: string; expected_quantity: number; serials?: string[]; qrCodes?: string[]; expected_bag_count?: number }>
 });
 
 const completedSemiBatches = computed(() => 
@@ -722,9 +740,10 @@ const handleScan = async () => {
         if (existing) {
           if (existing.serials?.includes(palletItem.itemSerial)) continue;
           existing.serials = [...(existing.serials || []), palletItem.itemSerial];
+          existing.qrCodes = [...(existing.qrCodes || []), palletItem.fullQrCode || palletItem.itemSerial];
           existing.expected_quantity = Number((existing.expected_quantity + unitWeight).toFixed(3));
         } else {
-          form.value.items.push({ batch_id: batch.id, expected_quantity: unitWeight, serials: [palletItem.itemSerial] });
+          form.value.items.push({ batch_id: batch.id, expected_quantity: unitWeight, serials: [palletItem.itemSerial], qrCodes: [palletItem.fullQrCode || palletItem.itemSerial] });
         }
         addedCount++;
       }
@@ -755,26 +774,43 @@ const handleScan = async () => {
       if (form.value.items.some(i => i.batch_id === batch.id && !i.serials)) { ElMessage.warning('Lô đã có trong danh sách'); }
       else {
         form.value.items = form.value.items.filter(i => i.batch_id !== batch.id);
-        form.value.items.push({ batch_id: batch.id, expected_quantity: batch.availableQuantity || 0 });
+        const unitW = batch.packCount ? (batch.outputWeight / batch.packCount) : 0;
+        const bagCount = unitW > 0 ? Math.round((batch.availableQuantity || 0) / unitW) : undefined;
+        form.value.items.push({ batch_id: batch.id, expected_quantity: batch.availableQuantity || 0, expected_bag_count: bagCount });
         ElMessage.success(`Đã thêm toàn bộ lượng còn lại của lô ${batch.batchCode} (${batch.availableQuantity}kg)`);
       }
     } else {
       let existing = form.value.items.find(i => i.batch_id === batch.id);
       if (existing && !existing.serials) { ElMessage.warning('Lô đang xuất nguyên lô'); return; }
       const unitWeight = Number((batch.outputWeight / (batch.packCount || 1)).toFixed(3));
+      const qrDisplay = (item.fullQrCode && item.fullQrCode.toUpperCase() !== item.serialNumber.toUpperCase()) 
+        ? item.fullQrCode 
+        : (code.toUpperCase() !== item.serialNumber.toUpperCase() ? code : (item.fullQrCode || item.serialNumber));
       
+      // Check trùng trong form hiện tại
+      if (existing?.serials?.includes(item.serialNumber)) { ElMessage.warning(`Mã QR "${qrDisplay}" đã có trong phiếu này`); return; }
+
+      // Check trùng với phiếu B2B khác (PENDING/EXPORTED/IMPORTING)
+      try {
+        const { data: check } = await supplyApi.checkSerialTransfer(item.serialNumber);
+        if (check.inUse) {
+          ElMessage.error({ message: `❌ Mã QR "${qrDisplay}" đã có trong phiếu ${check.transferCode} (${check.status}). Không thể xuất trùng!`, duration: 5000, showClose: true });
+          return;
+        }
+      } catch { /* nếu API lỗi, vẫn cho tiếp (backend sẽ chặn khi save) */ }
+
       if (existing) {
-        if (existing.serials?.includes(item.serialNumber)) { ElMessage.warning('Bao đã có'); return; }
         if (existing.expected_quantity + unitWeight > batch.availableQuantity) {
           ElMessage.error('Vượt quá tồn kho khả dụng của lô');
           return;
         }
         existing.serials = [...(existing.serials || []), item.serialNumber];
+        existing.qrCodes = [...(existing.qrCodes || []), qrDisplay];
         existing.expected_quantity = Number((existing.expected_quantity + unitWeight).toFixed(3));
-        ElMessage.success(`Đã thêm bao ${item.serialNumber}`);
+        ElMessage.success(`Đã thêm mã QR "${qrDisplay}"`);
       } else {
-        form.value.items.push({ batch_id: batch.id, expected_quantity: unitWeight, serials: [item.serialNumber] });
-        ElMessage.success(`Đã thêm bao đầu tiên của lô ${batch.batchCode}`);
+        form.value.items.push({ batch_id: batch.id, expected_quantity: unitWeight, serials: [item.serialNumber], qrCodes: [qrDisplay] });
+        ElMessage.success(`Đã thêm mã QR "${qrDisplay}" — lô ${batch.batchCode}`);
       }
     }
   } catch { ElMessage.error('Lỗi khi truy xuất mã QR'); }
@@ -795,7 +831,9 @@ const saveDraft = async () => {
   creating.value = true;
   try {
     const payload = {
-      ...form.value,
+      to_tenant_id: form.value.to_tenant_id,
+      notes: form.value.notes,
+      items: form.value.items.map(i => ({ batch_id: i.batch_id, expected_quantity: i.expected_quantity, serials: i.serials, expected_bag_count: i.expected_bag_count || i.serials?.length })),
       id: editingId.value || undefined,
       status: 'DRAFT'
     };
@@ -820,7 +858,9 @@ const createAndExport = async () => {
   try {
     creating.value = true;
     const payload = {
-      ...form.value,
+      to_tenant_id: form.value.to_tenant_id,
+      notes: form.value.notes,
+      items: form.value.items.map(i => ({ batch_id: i.batch_id, expected_quantity: i.expected_quantity, serials: i.serials, expected_bag_count: i.expected_bag_count || i.serials?.length })),
       id: editingId.value || undefined,
       status: 'PENDING'
     };
@@ -892,8 +932,32 @@ const loadTransferToForm = async (t: any) => {
   form.value.items = (t.items || []).map((i: any) => ({
     batch_id: i.batchId,
     expected_quantity: i.expectedQuantity,
-    serials: i.serials
+    serials: i.serials,
+    qrCodes: undefined as string[] | undefined,
+    expected_bag_count: i.expectedBagCount || (i.serials?.length) || undefined
   }));
+
+  // Lookup fullQrCode cho từng serial đã lưu
+  const allSerials = form.value.items.flatMap(i => i.serials || []);
+  if (allSerials.length > 0) {
+    try {
+      const { data: items } = await supplyApi.lookupSerials(allSerials);
+      const serialToQr = new Map(items.map((it: any) => [it.serialNumber, it.fullQrCode || it.serialNumber]));
+      for (const item of form.value.items) {
+        if (item.serials?.length) {
+          item.qrCodes = item.serials.map(s => serialToQr.get(s) || s);
+        }
+      }
+    } catch { /* fallback: dùng serial làm QR display */ 
+      for (const item of form.value.items) {
+        if (item.serials?.length) item.qrCodes = [...item.serials];
+      }
+    }
+  }
+
+  // Auto-detect scan mode từ dữ liệu phiếu
+  const hasSerials = form.value.items.some(i => i.serials?.length);
+  scanMode.value = hasSerials ? 'ITEM' : 'BATCH';
   
   // Match partner from saved list or lookup directly
   if (t.toTenantId) {
@@ -948,16 +1012,42 @@ const cancelTransfer = (id: string) => {
 const getBatchInfo = (id: string) => batches.value.find(x => x.id === id);
 const getBatchCode = (id: string) => getBatchInfo(id)?.batchCode || id;
 const getBatchPackCount = (id: string) => getBatchInfo(id)?.packCount || 0;
+
+const removeSerial = (row: any, idx: number) => {
+  if (!row.serials) return;
+  const batch = getBatchInfo(row.batch_id);
+  const unitWeight = batch ? Number((batch.outputWeight / (batch.packCount || 1)).toFixed(3)) : 0;
+  row.serials.splice(idx, 1);
+  if (row.qrCodes) row.qrCodes.splice(idx, 1);
+  if (row.serials.length === 0) {
+    const itemIdx = form.value.items.indexOf(row);
+    if (itemIdx >= 0) form.value.items.splice(itemIdx, 1);
+  } else {
+    row.expected_quantity = Number((unitWeight * row.serials.length).toFixed(3));
+    row.expected_bag_count = row.serials.length;
+  }
+};
 const formatDate = (d: any) => d ? dayjs(d).format('DD/MM/YYYY HH:mm') : '-';
 const formatDateSimple = (d: any) => d ? dayjs(d).format('DD/MM/YYYY') : '-';
 const getTransferStatusType = (s: string) => ({ DRAFT: 'info', PENDING: 'warning', EXPORTED: '', IMPORTING: 'warning', COMPLETED: 'success', PARTIAL_COMPLETED: 'success', CANCELLED: 'danger' }[s] || 'info');
 const getTransferStatusLabel = (s: string) => ({ DRAFT: 'Nháp', PENDING: 'Chờ xử lý', EXPORTED: 'Đã xuất', IMPORTING: 'Đang nhập', COMPLETED: 'Hoàn thành', PARTIAL_COMPLETED: 'Hoàn thành một phần', CANCELLED: 'Đã hủy' }[s] || s);
 
+const getRowBagCount = (row: any) => {
+  if (row.expected_bag_count) return row.expected_bag_count;
+  if (row.serials?.length) return row.serials.length;
+  const batch = getBatchInfo(row.batch_id);
+  if (batch?.outputWeight && batch?.packCount && batch.packCount > 0) {
+    const unitW = batch.outputWeight / batch.packCount;
+    if (unitW > 0) return Math.round((row.expected_quantity || 0) / unitW);
+  }
+  return getBatchPackCount(row.batch_id);
+};
+
 const getSummary = ({ columns, data }: any) => {
   return columns.map((_: any, i: number) => {
     if (i === 3) return 'Tổng cộng';
-    if (i === 4) return data.reduce((sum: number, row: any) => sum + (row.serials?.length || getBatchPackCount(row.batch_id)), 0);
-    if (i === 5) return data.reduce((sum: number, row: any) => sum + (row.expected_quantity || 0), 0).toFixed(2) + ' kg';
+    if (i === 5) return data.reduce((sum: number, row: any) => sum + getRowBagCount(row), 0);
+    if (i === 6) return data.reduce((sum: number, row: any) => sum + Number(row.expected_quantity || 0), 0).toFixed(2) + ' kg';
     return '';
   });
 };
@@ -973,8 +1063,15 @@ onMounted(load);
 }
 
 .modern-table :deep(.el-table__footer-wrapper) td {
-  background-color: #f0f4f8;
-  font-weight: 700;
+  background-color: #e8f1f9;
+  font-weight: 800;
+  font-size: 13px;
+  color: #2b343e;
+  border-top: 1px solid #363d44;
+}
+
+.modern-table :deep(.el-table__footer-wrapper) td .cell {
+  font-weight: 800;
   color: #0F2B46;
 }
 

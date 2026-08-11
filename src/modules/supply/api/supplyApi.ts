@@ -241,6 +241,10 @@ export const supplyApi = {
         return api.get<any[]>(`${baseUrl}/transfers/${id}/logs`);
     },
 
+    checkSerialTransfer(serial: string) {
+        return api.get<{ inUse: boolean; transferCode?: string; status?: string }>(`${baseUrl}/transfers/check-serial/${encodeURIComponent(serial)}`);
+    },
+
     // Logistics
     createShipment(data: CreateShipmentDto) {
         return api.post(`${baseUrl}/logistics/shipments`, data);
