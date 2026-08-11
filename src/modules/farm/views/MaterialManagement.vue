@@ -442,10 +442,10 @@ const loadData = async () => {
         };
         if (searchKeyword.value) params.search = searchKeyword.value;
         if (filterType.value) params.type = filterType.value;
-        if (filterStatus.value !== 'ALL') {
-            params.includeInactive = filterStatus.value === 'INACTIVE';
+        if (filterStatus.value) {
+            params.status = filterStatus.value;
         } else {
-            params.includeInactive = true;
+            params.status = 'ALL';
         }
 
         const { data } = await farmApi.getMaterials(params);
