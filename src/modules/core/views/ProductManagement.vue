@@ -362,7 +362,9 @@ const formatAttributeValue = (key: string, val: any) => {
         const statusMap: Record<string, string> = {
             NORMAL: 'Bình thường',
             PENDING_RECALL: 'Chờ thu hồi',
+            PARTIAL_RECALL: 'Thu hồi 1 phần',
             RECALLED: 'Đã thu hồi',
+            RECALL_REJECTED: 'Từ chối thu hồi',
         };
         return statusMap[val] || val;
     }

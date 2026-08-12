@@ -397,13 +397,17 @@ const farms = ref([]);
 
 const getGovStatusType = (status: string) => {
   if (status === 'RECALLED') return 'danger';
+  if (status === 'PARTIAL_RECALL') return 'warning';
   if (status === 'PENDING_RECALL') return 'warning';
+  if (status === 'RECALL_REJECTED') return 'info';
   return 'success';
 }
 
 const getGovStatusText = (status: string) => {
   if (status === 'RECALLED') return 'Đã thu hồi';
+  if (status === 'PARTIAL_RECALL') return 'Thu hồi 1 phần';
   if (status === 'PENDING_RECALL') return 'Chờ thu hồi';
+  if (status === 'RECALL_REJECTED') return 'Từ chối thu hồi';
   return 'Bình thường';
 }
 
