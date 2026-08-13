@@ -18,5 +18,11 @@ export const tenantApi = {
 
   // Cấp thêm hạn mức mã tem (Quota) [cite: 86]
   grantQuota: (id: string, amount: number) =>
-    api.post(`/tenants/${id}/grant-quota`, { amount })
+    api.post(`/tenants/${id}/grant-quota`, { amount }),
+
+  // Quản lý hạn mức tài nguyên (Category, User,...)
+  getQuotas: (id: string) =>
+    api.get(`/tenants/${id}/quotas`),
+  setQuota: (id: string, resourceType: string, limitAmount: number) =>
+    api.post(`/tenants/${id}/quotas`, { resourceType, limitAmount }),
 };

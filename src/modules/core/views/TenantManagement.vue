@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, reactive } from 'vue';
 import { tenantApi } from '../api/tenant';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Setting, Top, Edit, CirclePlus, User, CopyDocument, Connection } from '@element-plus/icons-vue';
+import { Setting, Top, Edit, CirclePlus, User, CopyDocument, Connection, Histogram } from '@element-plus/icons-vue';
 import TenantFormModal from '../components/TenantFormModal.vue';
 
 const copyToClipboard = (text: string) => {
@@ -144,6 +144,66 @@ const saveModules = async () => {
         await tenantApi.update(workingTenant.value.id, { module_config: workingModules.value });
         ElMessage.success('Updated'); moduleModal.value = false; fetchTenants();
     } catch(e) { ElMessage.error('Fail'); }
+};
+
+// --- RESOURCE QUOTA MANAGEMENT ---
+const resourceQuotaModal = ref(false);
+const resourceQuotaTenant = ref<any>(null);
+const resourceQuotaLoading = ref(false);
+const resourceQuotaSaving = ref(false);
+
+const resourceQuotaForm = reactive({
+    CATEGORY: -1 as number, // -1 = unlimited
+    USER: -1 as number,
+    PRODUCT: -1 as number,
+});
+
+const openResourceQuotaModal = async (row: any) => {
+    resourceQuotaTenant.value = row;
+    resourceQuotaForm.CATEGORY = -1;
+    resourceQuotaForm.USER = -1;
+    resourceQuotaForm.PRODUCT = -1;
+    resourceQuotaModal.value = true;
+    resourceQuotaLoading.value = true;
+    try {
+        const { data } = await tenantApi.getQuotas(row.id);
+        const quotas = Array.isArray(data) ? data : (data.data || []);
+        for (const q of quotas) {
+            const type = q.resourceType || q.resource_type;
+            const limit = q.limitAmount ?? q.limit_amount ?? -1;
+            if (type === 'CATEGORY') resourceQuotaForm.CATEGORY = limit;
+            if (type === 'USER') resourceQuotaForm.USER = limit;
+            if (type === 'PRODUCT') resourceQuotaForm.PRODUCT = limit;
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        resourceQuotaLoading.value = false;
+    }
+};
+
+const saveResourceQuota = async () => {
+    if (!resourceQuotaTenant.value) return;
+    resourceQuotaSaving.value = true;
+    try {
+        const tenantId = resourceQuotaTenant.value.id;
+        await Promise.all([
+            tenantApi.setQuota(tenantId, 'CATEGORY', resourceQuotaForm.CATEGORY),
+            tenantApi.setQuota(tenantId, 'USER', resourceQuotaForm.USER),
+            tenantApi.setQuota(tenantId, 'PRODUCT', resourceQuotaForm.PRODUCT),
+        ]);
+        ElMessage.success('Đã lưu cấu hình hạn mức');
+        resourceQuotaModal.value = false;
+    } catch (e: any) {
+        ElMessage.error(e.response?.data?.message || 'Lỗi lưu hạn mức');
+    } finally {
+        resourceQuotaSaving.value = false;
+    }
+};
+
+const getQuotaDisplayText = (val: number) => {
+    if (val === -1 || val === null || val === undefined) return 'Không giới hạn';
+    return val.toLocaleString();
 };
 
 // Helper status
@@ -297,12 +357,21 @@ onMounted(() => {
            </template>
         </el-table-column>
 
-        <el-table-column label="Thao tác" width="140" align="center" fixed="right">
+        <el-table-column label="Thao tác" width="160" align="center" fixed="right">
           <template #default="scope">
              <div class="flex justify-center gap-2">
-                <el-button link type="primary" :icon="Edit" @click="openEditModal(scope.row)" />
-                <el-button link type="warning" :icon="Setting" @click="openModuleModal(scope.row)" />
-                <el-button link type="success" :icon="CirclePlus" @click="handleGrantQuota(scope.row)" />
+                <el-tooltip content="Chỉnh sửa" placement="top">
+                    <el-button link type="primary" :icon="Edit" @click="openEditModal(scope.row)" />
+                </el-tooltip>
+                <el-tooltip content="Module" placement="top">
+                    <el-button link type="warning" :icon="Setting" @click="openModuleModal(scope.row)" />
+                </el-tooltip>
+                <el-tooltip content="Hạn mức mã tem" placement="top">
+                    <el-button link type="success" :icon="CirclePlus" @click="handleGrantQuota(scope.row)" />
+                </el-tooltip>
+                <el-tooltip content="Giới hạn tài nguyên" placement="top">
+                    <el-button link type="danger" :icon="Histogram" @click="openResourceQuotaModal(scope.row)" />
+                </el-tooltip>
              </div>
           </template>
         </el-table-column>
@@ -347,13 +416,78 @@ onMounted(() => {
     <!-- Quota Mock Modal Reuse -->
     <el-dialog 
         v-model="quotaModal" 
-        title="Grant Quota" 
+        title="Thêm hạn mức mã tem " 
         width="90%"
         style="max-width: 300px"
         class="responsive-dialog"
     >
         <el-input-number v-model="quotaForm.amount" :step="1000" class="w-full"/>
         <template #footer><el-button type="primary" @click="submitQuota">Grant</el-button></template>
+    </el-dialog>
+
+    <!-- Resource Quota Management Modal -->
+    <el-dialog
+        v-model="resourceQuotaModal"
+        :title="`Cấu hình hạn mức - ${resourceQuotaTenant?.name || ''}`"
+        width="95%"
+        style="max-width: 520px"
+        class="responsive-dialog"
+        :close-on-click-modal="false"
+    >
+        <div v-loading="resourceQuotaLoading">
+            <el-alert
+                title="Giá trị -1 nghĩa là Không giới hạn. Đặt số cụ thể để giới hạn."
+                type="info"
+                :closable="false"
+                show-icon
+                class="mb-4"
+            />
+
+            <el-form label-position="left" label-width="180px">
+                <el-form-item label="Số sản phẩm">
+                    <el-input-number
+                        v-model="resourceQuotaForm.PRODUCT"
+                        :min="-1"
+                        :step="1"
+                        controls-position="right"
+                        class="w-full"
+                    />
+                    <div class="text-xs text-gray-400 mt-1">
+                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.PRODUCT) }}</span>
+                    </div>
+                </el-form-item>
+
+                <el-form-item label="Số danh mục">
+                    <el-input-number
+                        v-model="resourceQuotaForm.CATEGORY"
+                        :min="-1"
+                        :step="1"
+                        controls-position="right"
+                        class="w-full"
+                    />
+                    <div class="text-xs text-gray-400 mt-1">
+                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.CATEGORY) }}</span>
+                    </div>
+                </el-form-item>
+
+                <el-form-item label="Số tài khoản người dùng">
+                    <el-input-number
+                        v-model="resourceQuotaForm.USER"
+                        :min="-1"
+                        :step="1"
+                        controls-position="right"
+                        class="w-full"
+                    />
+                    <div class="text-xs text-gray-400 mt-1">
+                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.USER) }}</span>
+                    </div>
+                </el-form-item>
+            </el-form>
+        </div>
+        <template #footer>
+            <el-button @click="resourceQuotaModal = false">Đóng</el-button>
+            <el-button type="primary" :loading="resourceQuotaSaving" @click="saveResourceQuota">Lưu hạn mức</el-button>
+        </template>
     </el-dialog>
 
   </div>
