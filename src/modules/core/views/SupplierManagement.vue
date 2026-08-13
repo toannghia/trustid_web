@@ -5,13 +5,19 @@ import LTECard from '@/components/lte/LTECard.vue';
 import { supplierApi } from '../api/supplier';
 import SupplierFormModal from '../components/SupplierFormModal.vue';
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const suppliers = ref([]);
 const searchTerm = ref('');
 const showModal = ref(false);
 const isEdit = ref(false);
 const editingSupplier = ref(null);
+
+const showDeleteDialog = ref(false);
+const deleteConfirmChecked = ref(false);
+const deletingSupplier = ref<any>(null);
+const deleting = ref(false);
 
 const page = ref(1);
 const limit = ref(10);
@@ -78,18 +84,24 @@ const handleEdit = (row: any) => {
 };
 
 const handleDelete = (row: any) => {
-    ElMessageBox.confirm(
-        'Bạn có chắc chắn muốn xóa đối tác này không?',
-        { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning' }
-    ).then(async () => {
-        try {
-            await supplierApi.delete(row.id);
-            ElMessage.success('Xóa thành công');
-            fetchSuppliers();
-        } catch (e) {
-            ElMessage.error('Xóa thất bại');
-        }
-    }).catch(() => {});
+    deletingSupplier.value = row;
+    deleteConfirmChecked.value = false;
+    showDeleteDialog.value = true;
+};
+
+const confirmDelete = async () => {
+    if (!deleteConfirmChecked.value || !deletingSupplier.value) return;
+    deleting.value = true;
+    try {
+        await supplierApi.delete(deletingSupplier.value.id);
+        ElMessage.success('Xóa đối tác thành công');
+        showDeleteDialog.value = false;
+        fetchSuppliers();
+    } catch (e: any) {
+        ElMessage.error('Xóa thất bại: ' + (e.response?.data?.message || e.message));
+    } finally {
+        deleting.value = false;
+    }
 };
 
 const filteredSuppliers = computed(() => suppliers.value);
@@ -200,5 +212,68 @@ onMounted(() => {
             :supplier-data="editingSupplier"
             @saved="fetchSuppliers"
         />
+
+        <!-- Delete Confirmation Dialog -->
+        <el-dialog v-model="showDeleteDialog" width="440px" :show-close="false" class="branded-delete-dialog">
+            <template #header>
+                <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                    <span style="color: #fff; font-size: 16px; font-weight: 600;">Xác nhận xoá đối tác</span>
+                    <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteDialog = false">
+                        <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                    </div>
+                </div>
+            </template>
+
+            <div style="padding: 24px 24px 8px;">
+                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #FEF3F2; border: 1px solid #FECDCA; border-radius: 10px;">
+                    <span style="font-size: 22px; margin-top: 1px;">⚠️</span>
+                    <div>
+                        <p style="font-weight: 600; color: #B42318; margin-bottom: 4px; font-size: 14px;">Hành động không thể hoàn tác!</p>
+                        <p style="font-size: 13px; color: #475467; line-height: 1.5;">
+                            Bạn đang chuẩn bị xoá đối tác
+                            <strong style="color: #0F2B46;">"{{ deletingSupplier?.name }}"</strong>.
+                        </p>
+                    </div>
+                </div>
+                <el-checkbox v-model="deleteConfirmChecked" style="white-space: normal; word-break: break-word;">
+                    <span style="font-size: 13px; color: #344054;">Tôi xác nhận muốn xoá đối tác này và đã hiểu rằng hành động không thể hoàn tác</span>
+                </el-checkbox>
+            </div>
+
+            <template #footer>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+                    <el-button @click="showDeleteDialog = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+                    <el-button
+                        :disabled="!deleteConfirmChecked"
+                        :loading="deleting"
+                        @click="confirmDelete"
+                        style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff;"
+                        :style="{ background: deleteConfirmChecked ? '#B42318' : '#D0D5DD', cursor: deleteConfirmChecked ? 'pointer' : 'not-allowed' }"
+                    >
+                        Xoá đối tác
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
+
+<style>
+.branded-delete-dialog {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+.branded-delete-dialog .el-dialog__header {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.branded-delete-dialog .el-dialog__body {
+    padding: 0 !important;
+}
+.branded-delete-dialog .el-dialog__footer {
+    padding: 0 !important;
+}
+</style>

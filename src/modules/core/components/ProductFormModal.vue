@@ -148,6 +148,21 @@ const handleQuillMediaSelect = (selected: any) => {
         quill.setSelection(range.index + 1);
     });
 };
+
+const originalFormState = ref('');
+
+const getFullFormState = () => {
+    return JSON.stringify({
+        form: productForm,
+        attrs: dynamicAttrs.value,
+        template: batchTemplate.value
+    });
+};
+
+const isFormChanged = computed(() => {
+    return getFullFormState() !== originalFormState.value;
+});
+
 // ... existing code ...
 
 
@@ -258,6 +273,9 @@ const initCreate = () => {
     dynamicAttrs.value = [{ key: '', value: '' }];
     batchTemplate.value = [];
     quillKey.value++;
+    setTimeout(() => {
+        originalFormState.value = getFullFormState();
+    }, 100);
 };
 
 const initEdit = (row: any) => {
@@ -303,6 +321,9 @@ const initEdit = (row: any) => {
     productForm.short_description = row.shortDescription || '';
     productForm.description = row.description || '';
     quillKey.value++;
+    setTimeout(() => {
+        originalFormState.value = getFullFormState();
+    }, 100);
 };
 
 const addAttr = () => dynamicAttrs.value.push({ key: '', value: '' });
@@ -547,16 +568,9 @@ const handleSubmitWithSync = async () => {
                         {{ isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới' }}
                     </span>
                 </div>
-                <button 
-                    type="button"
-                    @click="handleClose"
-                    style="background: transparent; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;"
-                    onmouseover="this.style.color='#fff'"
-                    onmouseout="this.style.color='rgba(255,255,255,0.7)'"
-                    title="Đóng"
-                >
-                    ✕
-                </button>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="handleClose">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
             </div>
         </template>
 
@@ -801,18 +815,20 @@ const handleSubmitWithSync = async () => {
           <el-button @click="handleClose" style="border-radius: 8px; padding: 10px 20px;">Hủy bỏ</el-button>
           <el-button 
             type="primary" 
+            :disabled="!isFormChanged"
             :loading="submitting" 
             @click="handleSubmit"
-            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
           >
             {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
           <el-button 
             v-if="currentTenantNdaEnabled" 
             type="success" 
+            :disabled="!isFormChanged"
             :loading="submitting" 
             @click="handleSubmitWithSync"
-            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #006b47; cursor: pointer;"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #006b47;"
           >
             {{ isEdit ? 'Cập nhật & Đồng bộ NDA' : 'Tạo & Đồng bộ NDA' }}
           </el-button>

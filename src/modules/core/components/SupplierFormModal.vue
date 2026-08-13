@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { supplierApi } from '../api/supplier';
 import { ElMessage } from 'element-plus';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
@@ -11,6 +11,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['update:modelValue', 'saved']);
+
+const originalFormState = ref('');
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== originalFormState.value;
+});
 
 const submitting = ref(false);
 
@@ -40,6 +45,7 @@ const initCreate = () => {
     form.name = '';
     form.type = 'MATERIAL';
     form.contactInfo = { phone: '', email: '', address: '' };
+    originalFormState.value = JSON.stringify(form);
 };
 
 const initEdit = (row: any) => {
@@ -53,6 +59,7 @@ const initEdit = (row: any) => {
         email: info.email || '',
         address: info.address || ''
     };
+    originalFormState.value = JSON.stringify(form);
 };
 
 const handleClose = () => {
@@ -107,6 +114,9 @@ const handleSubmit = async () => {
                 <span style="color: #fff; font-size: 16px; font-weight: 600;">
                     {{ isEdit ? 'Cập nhật đối tác' : 'Thêm đối tác mới' }}
                 </span>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="handleClose">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
             </div>
         </template>
 
@@ -142,9 +152,10 @@ const handleSubmit = async () => {
                 <el-button @click="handleClose" style="border-radius: 8px; padding: 10px 20px;">Hủy bỏ</el-button>
                 <el-button 
                     type="primary" 
+                    :disabled="!isFormChanged"
                     :loading="submitting" 
                     @click="handleSubmit"
-                    style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+                    style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
                 >
                     {{ isEdit ? 'Cập nhật' : 'Thêm mới' }}
                 </el-button>

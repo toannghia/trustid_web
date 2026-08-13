@@ -8,6 +8,7 @@ import { tenantApi } from '../api/tenant';
 import type { Tenant } from '@/types/core';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
 import { Download, Plus, Search, View, UploadFilled } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
 
@@ -350,14 +351,24 @@ onMounted(() => {
     </div>
 
     <!-- DIALOG: TẠO MÃ MỚI -->
-    <el-dialog v-model="generateDialogVisible" title="Tạo mã mới" width="560px" destroy-on-close>
-      <el-form :model="generateForm" label-width="150px">
+    <el-dialog v-model="generateDialogVisible" width="560px" destroy-on-close :show-close="false" class="branded-dialog">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">Tạo mã mới</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="generateDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="generateForm" label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Tên lô mã" required>
-          <el-input v-model="generateForm.name" placeholder="Ví dụ: Mã vải thiều 2026" />
+          <el-input v-model="generateForm.name" placeholder="Ví dụ: Mã vải thiều 2026" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Số lượng" required>
           <div class="flex items-center gap-2 w-full">
-            <el-input-number v-model="generateForm.quantity" :min="1" :step="100" style="width: 150px" />
+            <el-input-number v-model="generateForm.quantity" :min="1" :step="100" style="width: 150px; --el-border-radius-base: 8px;" />
             <span v-if="selectedTenantQuota !== null" class="text-sm flex items-center gap-1 ml-2">
               <span class="font-bold text-black" title="Đã tạo">{{ selectedTenantGenerated?.toLocaleString() }}</span>
               <span class="text-gray-400">/</span>
@@ -366,10 +377,10 @@ onMounted(() => {
           </div>
         </el-form-item>
         <el-form-item label="Tiền tố (Prefix)">
-          <el-input v-model="generateForm.prefix" maxlength="10" placeholder="ZPS" />
+          <el-input v-model="generateForm.prefix" maxlength="10" placeholder="ZPS" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item v-if="isAdmin" label="Doanh nghiệp">
-          <el-select v-model="generateForm.tenantId" placeholder="Chọn doanh nghiệp" class="w-full" filterable @change="fetchQuotaData">
+          <el-select v-model="generateForm.tenantId" placeholder="Chọn doanh nghiệp" class="w-full" filterable @change="fetchQuotaData" style="--el-border-radius-base: 8px;">
             <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
@@ -381,19 +392,31 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="generateDialogVisible = false">Hủy</el-button>
-        <el-button type="primary" :icon="Plus" @click="handleGenerate" :loading="loading">Bắt đầu sinh mã</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="generateDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleGenerate" :loading="loading" style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;">Bắt đầu sinh mã</el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- DIALOG: IMPORT EXCEL -->
-    <el-dialog v-model="importDialogVisible" title="Nhập mã từ Excel" width="560px" destroy-on-close>
-      <el-form :model="importForm" label-width="150px">
+    <el-dialog v-model="importDialogVisible" width="560px" destroy-on-close :show-close="false" class="branded-dialog">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">Nhập mã từ Excel</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="importDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="importForm" label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Tên lô mã" required>
-          <el-input v-model="importForm.name" placeholder="Ví dụ: Lô nhập khẩu 01" />
+          <el-input v-model="importForm.name" placeholder="Ví dụ: Lô nhập khẩu 01" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item v-if="isAdmin" label="Doanh nghiệp" required>
-          <el-select v-model="importForm.tenantId" placeholder="Chọn doanh nghiệp" class="w-full" filterable>
+          <el-select v-model="importForm.tenantId" placeholder="Chọn doanh nghiệp" class="w-full" filterable style="--el-border-radius-base: 8px;">
             <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
@@ -402,7 +425,7 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="File Excel" required>
           <el-upload class="upload-demo w-full" drag action="#" :auto-upload="false" :limit="1"
-            accept=".xlsx, .xls" :on-change="handleFileChange" :on-remove="() => importForm.file = null">
+            accept=".xlsx, .xls" :on-change="handleFileChange" :on-remove="() => importForm.file = null" style="--el-border-radius-base: 8px;">
             <el-icon class="el-icon--upload"><upload-filled /></el-icon>
             <div class="el-upload__text">Kéo thả file vào đây hoặc <em>nhấn để tải lên</em></div>
             <template #tip>
@@ -412,9 +435,29 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="importDialogVisible = false">Hủy</el-button>
-        <el-button type="primary" @click="handleImport" :loading="importLoading">Tiến hành Import</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="importDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button type="primary" @click="handleImport" :loading="importLoading" style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;">Tiến hành Import</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
 </template>
+
+<style>
+.branded-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

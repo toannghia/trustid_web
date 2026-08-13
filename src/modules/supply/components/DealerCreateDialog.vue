@@ -21,6 +21,19 @@ const isEditMode = computed(() => !!props.editData?.id);
 
 const emit = defineEmits(['update:modelValue', 'created', 'updated']);
 
+const originalFormState = ref('');
+const getFullFormState = () => {
+    return JSON.stringify({
+        form: form.value,
+        province: selectedProvince.value,
+        ward: selectedWard.value
+    });
+};
+
+const isFormChanged = computed(() => {
+    return getFullFormState() !== originalFormState.value;
+});
+
 const loading = ref(false);
 const regions = ref<RegionDto[]>([]);
 const selectedRegionId = ref('');
@@ -437,6 +450,7 @@ watch(() => props.modelValue, (val) => {
             selectedProvince.value = d.projectedInfo?.province ?? '';
             nextTick(() => {
                 selectedWard.value = d.projectedInfo?.ward ?? '';
+                originalFormState.value = getFullFormState();
             });
 
             if (d.dealerTenantId || d.id) {
@@ -455,6 +469,9 @@ watch(() => props.modelValue, (val) => {
             selectedWard.value = '';
             dealerAccounts.value = [];
             showAddAccountForm.value = true; // Default show form in create mode
+            nextTick(() => {
+                originalFormState.value = getFullFormState();
+            });
         }
     }
 });
@@ -490,24 +507,15 @@ onUnmounted(() => {
         class="branded-dealer-dialog"
     >
         <template #header>
-            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
-                    <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
-                    <span style="color: #fff; font-size: 16px; font-weight: 600;">
-                        {{ isEditMode ? 'Cập nhật thông tin Đại lý' : 'Thêm đại lý mới' }}
-                    </span>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                <span style="color: #fff; font-size: 16px; font-weight: 600;">
+                    {{ isEditMode ? 'Cập nhật thông tin Đại lý' : 'Thêm đại lý mới' }}
+                </span>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="handleClose">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
                 </div>
-                <button 
-                    type="button" 
-                    @click="handleClose" 
-                    style="background: transparent; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 6px; transition: all 0.2s;"
-                    onmouseover="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.15)';"
-                    onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.background='transparent';"
-                    title="Đóng"
-                >
-                    <el-icon><Close /></el-icon>
-                </button>
             </div>
         </template>
 
@@ -649,8 +657,9 @@ onUnmounted(() => {
                 <el-button 
                     type="primary" 
                     @click="saveDealer" 
+                    :disabled="!isFormChanged"
                     :loading="loading"
-                    style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+                    style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
                 >
                     Lưu dữ liệu
                 </el-button>
@@ -661,10 +670,21 @@ onUnmounted(() => {
     <!-- Dialog chi tiết tài khoản -->
     <el-dialog
         v-model="showAccountDetailModal"
-        title="Thông tin chi tiết tài khoản"
         width="450px"
         append-to-body
+        :show-close="false"
+        class="branded-dealer-dialog"
     >
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                <span style="color: #fff; font-size: 16px; font-weight: 600;">Thông tin chi tiết tài khoản</span>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showAccountDetailModal = false">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
         <div v-if="selectedAccountForDetail" class="space-y-3 py-1">
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span class="text-xs font-semibold text-gray-500 uppercase">Tên đăng nhập:</span>
@@ -702,8 +722,8 @@ onUnmounted(() => {
         </div>
 
         <template #footer>
-            <div class="flex justify-end">
-                <el-button @click="showAccountDetailModal = false">Đóng</el-button>
+            <div style="display: flex; justify-content: flex-end; padding: 0 24px 24px;">
+                <el-button @click="showAccountDetailModal = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
             </div>
         </template>
     </el-dialog>

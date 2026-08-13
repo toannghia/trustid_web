@@ -81,6 +81,11 @@ const userForm = reactive({
 
 const formRef = ref<FormInstance>();
 
+const originalFormState = ref('');
+const isFormChanged = computed(() => {
+    return JSON.stringify(userForm) !== originalFormState.value;
+});
+
 const validateFullName = (rule: any, value: any, callback: any) => {
   if (!value) {
     return callback(new Error('Vui lòng nhập họ tên'));
@@ -146,7 +151,7 @@ const rules = computed<FormRules>(() => ({
   ],
   email: [
     { required: true, message: 'Vui lòng nhập email', trigger: 'blur' },
-    { type: 'email', message: 'Email không đúng định dạng', trigger: ['blur', 'change'] }
+    { type: 'email', message: 'Email không đúng định dạng (VD: example@domain.com)', trigger: ['blur', 'change'] }
   ],
   username: [
     { required: true, validator: validateUsername, trigger: 'blur' }
@@ -217,6 +222,7 @@ const openCreateModal = () => {
   showModal.value = true;
   nextTick(() => {
     formRef.value?.clearValidate();
+    originalFormState.value = JSON.stringify(userForm);
   });
 };
 
@@ -239,6 +245,7 @@ const handleEditUser = (user: any) => {
   showModal.value = true;
   nextTick(() => {
     formRef.value?.clearValidate();
+    originalFormState.value = JSON.stringify(userForm);
   });
 };
 
@@ -503,6 +510,9 @@ onMounted(() => {
           <span style="color: #fff; font-size: 16px; font-weight: 600;">
             {{ isEdit ? 'Cập nhật thông tin người dùng' : 'Tạo người dùng mới' }}
           </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -511,7 +521,7 @@ onMounted(() => {
           <el-input v-model="userForm.full_name" placeholder="Nhập họ tên" @blur="userForm.full_name = userForm.full_name.trim()" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Email" prop="email">
-          <el-input v-model="userForm.email" placeholder="Nhập email" style="--el-border-radius-base: 8px;" />
+          <el-input v-model="userForm.email" placeholder="Nhập email (VD: example@domain.com)" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Tên đăng nhập" prop="username">
           <el-input v-model="userForm.username" placeholder="Nhập SĐT/Username" :disabled="isEdit" style="--el-border-radius-base: 8px;" />
@@ -570,9 +580,10 @@ onMounted(() => {
           <el-button @click="showModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
           <el-button 
             type="primary" 
+            :disabled="!isFormChanged"
             :loading="submitting" 
             @click="handleSubmit"
-            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
           >
             {{ isEdit ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
@@ -593,6 +604,9 @@ onMounted(() => {
           <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
           <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
           <span style="color: #fff; font-size: 16px; font-weight: 600;">Xác nhận xoá tài khoản</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
