@@ -161,6 +161,10 @@
                 </el-button>
               </div>
 
+              <el-button type="success" class="w-full text-white font-bold shadow" size="large" @click="showCompleteDialog">
+                ✅ Chốt Lệnh Sản Xuất
+              </el-button>
+              
               <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
                 Hủy lệnh sản xuất
               </el-button>
@@ -407,6 +411,43 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- Complete Order Dialog -->
+    <el-dialog
+      v-model="completeDialogVisible"
+      title="✅ Xác nhận Chốt Lệnh Sản xuất"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div class="space-y-4">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+          <p class="text-sm font-bold text-emerald-800 mb-2">Thông tin chốt lệnh:</p>
+          <ul class="text-xs text-emerald-700 space-y-1 list-disc pl-4">
+            <li>Khối lượng kế hoạch: <strong>{{ order?.plannedWeightKg?.toFixed(1) }} kg</strong></li>
+            <li>Đã đóng gói thực tế: <strong>{{ (order?.actualWeightKg || 0).toFixed(1) }} kg</strong></li>
+            <li>Còn lại chưa đóng: <strong>{{ (order?.plannedWeightKg - (order?.actualWeightKg || 0)).toFixed(1) }} kg</strong></li>
+          </ul>
+        </div>
+        
+        <el-checkbox
+          v-if="(order?.plannedWeightKg - (order?.actualWeightKg || 0)) > 0"
+          v-model="refundUnusedWeight"
+          class="!whitespace-normal text-sm text-gray-700 font-semibold"
+        >
+          Hoàn trả lại nguyên liệu thừa chưa đóng hết về tồn kho gốc
+        </el-checkbox>
+      </div>
+      <template #footer>
+        <el-button @click="completeDialogVisible = false">Hủy</el-button>
+        <el-button
+          type="success"
+          :loading="completingOrder"
+          @click="confirmCompleteOrder"
+        >
+          Xác nhận Chốt Lệnh
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -440,6 +481,11 @@ const downloadingBag = ref(false);
 const cancelDialogVisible = ref(false);
 const cancelConfirmed = ref(false);
 const cancelling = ref(false);
+
+// Complete order dialog state
+const completeDialogVisible = ref(false);
+const refundUnusedWeight = ref(true);
+const completingOrder = ref(false);
 
 const downloadPacketCodes = async () => {
   downloadingPacket.value = true;
@@ -482,14 +528,37 @@ const downloadBagCodes = async () => {
 const loadOrderDetails = async (id: string) => {
   loadingData.value = true;
   try {
-    const { data } = await productionOrderApi.getOrderDetail(id);
-    order.value = data;
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || 'Lỗi khi tải chi tiết Lệnh sản xuất');
+    const res = await productionOrderApi.getOrderDetail(id);
+    order.value = (res as any).data?.data || (res as any).data;
+  } catch (e) {
+    ElMessage.error('Lỗi khi tải chi tiết lệnh');
   } finally {
     loadingData.value = false;
   }
 };
+
+const showCompleteDialog = () => {
+  refundUnusedWeight.value = true;
+  completeDialogVisible.value = true;
+};
+
+const confirmCompleteOrder = async () => {
+  completingOrder.value = true;
+  try {
+    await productionOrderApi.completeBagOrder(orderId, { refundUnused: refundUnusedWeight.value });
+    ElMessage.success('Chốt lệnh sản xuất thành công');
+    completeDialogVisible.value = false;
+    loadOrderDetails(orderId);
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Lỗi khi chốt lệnh');
+  } finally {
+    completingOrder.value = false;
+  }
+};
+
+onMounted(() => {
+  loadOrderDetails(orderId);
+});
 
 const progressPercentage = computed(() => {
   if (!order.value || !order.value.plannedWeightKg) return 0;

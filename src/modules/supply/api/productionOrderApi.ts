@@ -118,8 +118,8 @@ export const productionOrderApi = {
     replacePacket(id: string, data: any) {
         return api.post(`${baseUrl}/production-orders/${id}/replace-packet`, data);
     },
-    completeBagOrder(id: string) {
-        return api.post(`${baseUrl}/production-orders/${id}/complete`);
+    completeBagOrder(id: string, data?: { refundUnused?: boolean }) {
+        return api.post(`${baseUrl}/production-orders/${id}/complete`, data);
     },
     updateOrder(id: string, data: any) {
         return api.post(`${baseUrl}/production-orders/${id}/update`, data);

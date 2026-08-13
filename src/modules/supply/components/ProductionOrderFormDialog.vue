@@ -125,7 +125,7 @@
               <el-option
                 v-for="h in filteredHarvests"
                 :key="h.batchCode"
-                :label="`${h.batchCode} (${h.product?.name || h.cropCycle?.location?.plantType || h.productName || 'Chưa rõ SP'}) — Khối lượng còn lại: ${h.quantityKg.toFixed(1)} kg`"
+                :label="`${h.batchCode} (${h.product?.name || h.cropCycle?.location?.plantType || h.productName || 'Chưa rõ SP'}) — Khối lượng còn lại: ${(h.remainingQuantityKg ?? h.quantityKg).toFixed(1)} kg`"
                 :value="h.batchCode"
               />
             </el-select>
@@ -425,7 +425,7 @@ const selectedLotRemainingWeightKg = computed(() => {
   if (form.source_type === 'FARM') {
     if (!form.farm_batch_code) return Infinity;
     const h = harvestList.value.find(item => item.batchCode === form.farm_batch_code);
-    return h ? (h.quantityKg || 0) : Infinity;
+    return h ? ((h.remainingQuantityKg ?? h.quantityKg) || 0) : Infinity;
   } else {
     if (!form.source_batch_id) return Infinity;
     const b = allSourceBatches.value.find(item => item.id === form.source_batch_id);
@@ -573,7 +573,7 @@ watch(() => form.farm_batch_code, (newVal) => {
   if (newVal && !editMode.value) {
     const h = harvestList.value.find(item => item.batchCode === newVal);
     if (h) {
-      form.planned_weight = Number((h.quantityKg || 0).toFixed(1));
+      form.planned_weight = Number(((h.remainingQuantityKg ?? h.quantityKg) || 0).toFixed(1));
       form.planned_weight_unit = 'KG';
     }
   } else if (!newVal && !editMode.value) {

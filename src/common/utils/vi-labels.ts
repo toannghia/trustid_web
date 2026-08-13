@@ -39,7 +39,7 @@ export const batchStatusMap: Record<string, string> = {
   SHIPPED: 'Đã xuất kho',
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
-  CREATED: 'Mới (Tại nông trại)',
+  CREATED: 'Mới thu hoạch',
   READY_FOR_PACKAGING: 'Chờ đóng gói',
   PACKAGING: 'Đang đóng gói',
   FARM: 'Nông trại',

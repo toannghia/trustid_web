@@ -99,6 +99,7 @@ export interface Harvest {
     notes: string;
     status: string; // CREATED, READY_FOR_PACKAGING, COMPLETED
     expiryDate?: string;
+    remainingQuantityKg?: number;
     cropCycle?: CropCycle;
     productId?: string;
     product?: { id: string; name: string };

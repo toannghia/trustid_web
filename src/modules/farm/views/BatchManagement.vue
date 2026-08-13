@@ -1,9 +1,11 @@
 <template>
   <div class="p-6">
-    <div class="mb-4"></div>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">Quản lý Lô Thu Hoạch</h2>
+    </div>
 
     <!-- Filter and Search -->
-    <div class="mb-4 flex gap-4">
+    <div class="mb-4 flex flex-wrap gap-4">
         <el-input v-model="searchKeyword" placeholder="Tìm theo mã lô, tên vụ..." class="w-80" prefix-icon="Search" clearable />
         <el-select v-model="filterStatus" placeholder="Trạng thái" clearable class="w-48">
              <el-option label="Tất cả" value="" />
@@ -12,13 +14,27 @@
              <el-option label="Đang đóng gói" value="PACKAGING" />
              <el-option label="Hoàn thành" value="COMPLETED" />
         </el-select>
+        <el-select v-model="filterProduct" placeholder="Sản phẩm" clearable class="w-48">
+             <el-option v-for="prod in uniqueProducts" :key="prod.id" :label="prod.name" :value="prod.id" />
+        </el-select>
+        <el-date-picker
+          v-model="filterDateRange"
+          type="daterange"
+          range-separator="-"
+          start-placeholder="Từ ngày"
+          end-placeholder="Đến ngày"
+          format="DD/MM/YYYY"
+          value-format="YYYY-MM-DD"
+          class="!w-64"
+          clearable
+        />
     </div>
 
     <!-- Table -->
     <el-card shadow="hover">
-      <el-table :data="filteredBatches" v-loading="loading" style="width: 100%">
+      <el-table :data="paginatedBatches" v-loading="loading" style="width: 100%" border>
         <el-table-column type="index" label="STT" width="60" align="center" />
-        <el-table-column label="Mã lô (Batch ID)" min-width="180">
+        <el-table-column label="Mã lô (Batch ID)" min-width="160">
              <template #default="{ row }">
                 <span 
                     class="font-mono font-bold text-blue-600 cursor-pointer hover:underline"
@@ -29,7 +45,7 @@
              </template>
         </el-table-column>
 
-        <el-table-column label="Vụ mùa" min-width="200">
+        <el-table-column label="Vụ mùa" min-width="180">
              <template #default="{ row }">
                 {{ row.cropCycle?.name || '---' }}
                 <div class="text-xs text-gray-500">{{ row.cropCycle?.location?.name }}</div>
@@ -42,47 +58,64 @@
              </template>
         </el-table-column>
 
-        <el-table-column label="Ngày thu hoạch" width="150">
+        <el-table-column label="Ngày thu hoạch" width="130">
            <template #default="{ row }">
               {{ formatDate(row.harvestDate) }}
            </template>
         </el-table-column>
 
-        <el-table-column prop="quantityKg" label="Sản lượng (kg)" width="150" align="right">
+        <el-table-column prop="quantityKg" label="Sản lượng (kg)" width="130" align="right">
             <template #default="{ row }">
                 <span class="font-bold">{{ row.quantityKg }} kg</span>
             </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="Trạng thái" width="160">
+        <el-table-column prop="remainingQuantityKg" label="Sản lượng tồn (kg)" width="140" align="right">
+            <template #default="{ row }">
+                <span class="font-bold text-green-600">{{ row.remainingQuantityKg ?? row.quantityKg }} kg</span>
+            </template>
+        </el-table-column>
+
+        <el-table-column prop="status" label="Trạng thái" width="150">
            <template #default="{ row }">
              <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
            </template>
         </el-table-column>
 
-        <el-table-column label="Thao tác" width="200" align="right" fixed="right">
+        <el-table-column label="Thao tác" width="90" align="center">
             <template #default="{ row }">
-                 <el-button 
-                    v-if="row.status === 'CREATED'"
-                    type="primary" 
-                    size="small" 
-                    @click="confirmSendToPackaging(row)"
-                 >
-                    <el-icon class="mr-1"><Box /></el-icon>
-                    Chuyển đóng gói
-                 </el-button>
-                  <el-button 
-                    v-if="row.status === 'READY_FOR_PACKAGING'"
-                    type="info" 
-                    size="small" 
-                    disabled
-                 >
-                    Đã chờ đóng gói
-                 </el-button>
+                 <el-tooltip v-if="row.status === 'CREATED'" content="Chuyển đóng gói" placement="top">
+                   <el-button 
+                      type="primary" 
+                      circle
+                      @click="confirmSendToPackaging(row)"
+                   >
+                      <el-icon><Box /></el-icon>
+                   </el-button>
+                 </el-tooltip>
+                 <el-tooltip v-if="row.status === 'READY_FOR_PACKAGING'" content="Đã chờ đóng gói" placement="top">
+                   <el-button 
+                      type="info" 
+                      circle
+                      disabled
+                   >
+                      <el-icon><Box /></el-icon>
+                   </el-button>
+                 </el-tooltip>
             </template>
         </el-table-column>
 
       </el-table>
+      
+      <div class="mt-4 flex justify-end">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="filteredBatches.length"
+        />
+      </div>
     </el-card>
 
     <!-- Batch Details Drawer -->
@@ -102,7 +135,8 @@
                 </div>
                 <div class="text-right">
                     <el-tag size="large" :type="getStatusType(selectedBatch.status)">{{ getStatusLabel(selectedBatch.status) }}</el-tag>
-                    <div class="mt-2 text-sm font-bold">{{ selectedBatch.quantityKg }} kg</div>
+                    <div class="mt-2 text-sm font-bold" title="Sản lượng ban đầu">Sản lượng: {{ selectedBatch.quantityKg }} kg</div>
+                    <div class="text-sm font-bold text-green-600" title="Sản lượng tồn">Tồn: {{ selectedBatch.remainingQuantityKg ?? selectedBatch.quantityKg }} kg</div>
                 </div>
             </div>
 
@@ -185,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue';
+import { ref, watch, onMounted, computed, reactive } from 'vue';
 import { Search, Box, Collection, Warning } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { farmApi, type Harvest } from '../api/farmApi';
@@ -196,12 +230,27 @@ const batches = ref<Harvest[]>([]);
 const loading = ref(false);
 const searchKeyword = ref('');
 const filterStatus = ref('');
+const filterProduct = ref('');
+const filterDateRange = ref<[string, string] | null>(null);
+
+const currentPage = ref(1);
+const pageSize = ref(10);
 
 // Details Drawer
 const showDetails = ref(false);
 const selectedBatch = ref<Harvest | null>(null);
 const details = ref<any>(null); // Full details with logs
 const loadingDetails = ref(false);
+
+const uniqueProducts = computed(() => {
+    const map = new Map();
+    batches.value.forEach(b => {
+        if (b.product) {
+            map.set(b.product.id, { id: b.product.id, name: b.product.name });
+        }
+    });
+    return Array.from(map.values());
+});
 
 const filteredBatches = computed(() => {
     return batches.value.filter(b => {
@@ -211,9 +260,24 @@ const filteredBatches = computed(() => {
             (b.cropCycle?.name || '').toLowerCase().includes(term);
         
         const matchesStatus = filterStatus.value ? b.status === filterStatus.value : true;
+        const matchesProduct = filterProduct.value ? b.product?.id === filterProduct.value : true;
+        
+        const matchesDate = filterDateRange.value && filterDateRange.value.length === 2 ? (
+            dayjs(b.harvestDate).isAfter(dayjs(filterDateRange.value[0]).subtract(1, 'day')) &&
+            dayjs(b.harvestDate).isBefore(dayjs(filterDateRange.value[1]).add(1, 'day'))
+        ) : true;
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesProduct && matchesDate;
     });
+});
+
+const paginatedBatches = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    return filteredBatches.value.slice(start, start + pageSize.value);
+});
+
+watch([searchKeyword, filterStatus, filterProduct, filterDateRange], () => {
+    currentPage.value = 1;
 });
 
 const formatDate = (dateStr: string) => {
@@ -238,7 +302,7 @@ const getStatusType = (status: string) => {
 
 const getStatusLabel = (status: string) => {
     switch (status) {
-        case 'CREATED': return 'Mới (Tại nông trại)';
+        case 'CREATED': return 'Mới thu hoạch';
         case 'READY_FOR_PACKAGING': return 'Chờ đóng gói';
         case 'PACKAGING': return 'Đang đóng gói';
         case 'COMPLETED': return 'Hoàn thành';
