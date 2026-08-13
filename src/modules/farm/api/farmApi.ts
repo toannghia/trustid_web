@@ -248,7 +248,7 @@ export const farmApi = {
     createHarvest(data: { crop_cycle_id: string; product_id: string; quantity_kg: number; notes?: string }) {
         return api.post<{ id: string; batchCode: string }>(`${baseUrl}/harvests`, data);
     },
-    getHarvests(params?: { status?: string }) {
+    getHarvests(params?: { status?: string; limit?: number; page?: number }) {
         return api.get<Harvest[]>(`${baseUrl}/harvests`, { params });
     },
     getHarvestDetails(id: string) {

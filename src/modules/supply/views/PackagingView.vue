@@ -469,12 +469,12 @@ watch(selectedPoolId, (newId) => {
 const loadMasterData = async () => {
     try {
         const [hRes, pRes, poolRes, warehouseRes, tenantRes, extRes] = await Promise.all([
-             farmApi.getHarvests({}),
-             productApi.getList({}),
+             farmApi.getHarvests({ limit: 1000 }),
+             productApi.getList({ page: 1, limit: 1000 }),
              codeApi.getPools(),
              transportApi.getWarehouses(),
              api.get('/tenants/active'),
-             supplyApi.getExternalBatches()
+             supplyApi.getExternalBatches({ page: 1, limit: 1000, hideEmptyStock: true })
         ]);
         
         harvestList.value = (hRes as any).data?.data || (hRes as any).data || [];
@@ -482,7 +482,8 @@ const loadMasterData = async () => {
         poolList.value = (poolRes as any).data?.data || (poolRes as any).data || [];
         warehouseList.value = (warehouseRes as any).data || [];
         tenantList.value = (tenantRes as any).data?.data || (tenantRes as any).data || [];
-        externalBatchList.value = extRes.data?.filter((b: any) => b.status === 'PACKING' || b.status === 'COMPLETED') || [];
+        const extData = (extRes as any).data?.data || (extRes as any).data || [];
+        externalBatchList.value = extData.filter((b: any) => b.status === 'PACKING' || b.status === 'COMPLETED');
 
         // Load some available codes for Batch QR assignment
         const codeRes = await codeApi.getItems({ status: 'AVAILABLE', limit: 100 });

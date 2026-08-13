@@ -525,13 +525,13 @@ const open = async (order?: any) => {
 
   try {
     const [pRes, hRes, extRes] = await Promise.all([
-      productApi.getList({}),
-      farmApi.getHarvests({}),
-      supplyApi.getExternalBatches()
+      productApi.getList({ page: 1, limit: 1000 }),
+      farmApi.getHarvests({ limit: 1000 }),
+      supplyApi.getExternalBatches({ page: 1, limit: 1000, hideEmptyStock: true })
     ]);
     products.value = (pRes as any).data?.data || (pRes as any).data || [];
     harvestList.value = (hRes as any).data?.data || (hRes as any).data || [];
-    allSourceBatches.value = (extRes as any).data || extRes || [];
+    allSourceBatches.value = (extRes as any).data?.data || (extRes as any).data || [];
   } catch (e) {
     console.error('Failed to load master data for Production Order Form', e);
     ElMessage.error('Lỗi khi tải danh mục sản phẩm/lô thu hoạch');
