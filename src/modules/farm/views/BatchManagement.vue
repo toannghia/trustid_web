@@ -45,10 +45,15 @@
              </template>
         </el-table-column>
 
-        <el-table-column label="Vụ mùa" min-width="180">
+        <el-table-column label="Vụ mùa" min-width="250">
              <template #default="{ row }">
                 {{ row.cropCycle?.name || '---' }}
-                <div class="text-xs text-gray-500">{{ row.cropCycle?.location?.name }}</div>
+             </template>
+        </el-table-column>
+
+        <el-table-column label="Vùng trồng" min-width="180">
+             <template #default="{ row }">
+                {{ row.cropCycle?.location?.name || '---' }}
              </template>
         </el-table-column>
 
@@ -64,22 +69,11 @@
            </template>
         </el-table-column>
 
-        <el-table-column prop="quantityKg" label="Sản lượng (kg)" width="130" align="right">
+        <el-table-column label="Sản lượng (kg)" width="150" align="right">
             <template #default="{ row }">
-                <span class="font-bold">{{ row.quantityKg }} kg</span>
+                <div class="text-gray-700">Thu hoạch: <span class="font-bold">{{ row.quantityKg }}</span></div>
+                <div class="text-green-600 mt-1">Tồn: <span class="font-bold">{{ row.remainingQuantityKg ?? row.quantityKg }}</span></div>
             </template>
-        </el-table-column>
-
-        <el-table-column prop="remainingQuantityKg" label="Sản lượng tồn (kg)" width="140" align="right">
-            <template #default="{ row }">
-                <span class="font-bold text-green-600">{{ row.remainingQuantityKg ?? row.quantityKg }} kg</span>
-            </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="Trạng thái" width="150">
-           <template #default="{ row }">
-             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
-           </template>
         </el-table-column>
 
         <el-table-column label="Thao tác" width="90" align="center">
