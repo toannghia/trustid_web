@@ -147,8 +147,19 @@
     </div>
 
     <!-- Chi Tiết Dialog -->
-    <el-dialog v-model="showDetail" :title="`Chi tiết Lệnh Xuất: ${selectedOrder?.orderCode}`" width="700px">
-        <div v-if="selectedOrder" class="space-y-4">
+    <el-dialog v-model="showDetail" width="700px" :show-close="false" class="branded-dialog">
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+                <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Chi tiết Lệnh Xuất: {{ selectedOrder?.orderCode }}</span>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDetail = false">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
+        
+        <div v-if="selectedOrder" class="space-y-4 px-6 py-5">
             <el-descriptions border :column="2">
                 <el-descriptions-item label="Trạng thái">
                     <el-tag :type="getStatusTag(selectedOrder.status).type">{{ getStatusTag(selectedOrder.status).label }}</el-tag>
@@ -185,10 +196,22 @@
             </el-table>
         </div>
         <template #footer>
-            <el-button @click="showDetail = false">Đóng</el-button>
-            <el-button v-if="['CONFIRMED', 'PICKING'].includes(selectedOrder?.status)" type="primary" @click="goToScan(selectedOrder.id)">
-                Xử lý kho
-            </el-button>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px 24px;">
+                <el-button @click="showDetail = false" style="border-radius: 8px; padding: 10px 20px; font-weight: 600;">
+                    Đóng
+                </el-button>
+                <el-button 
+                    v-if="['CONFIRMED', 'PICKING'].includes(selectedOrder?.status)" 
+                    type="primary" 
+                    @click="goToScan(selectedOrder.id)"
+                    style="border-radius: 8px; padding: 10px 20px; font-weight: 600; border: none; color: #fff; background: #0F2B46;"
+                    onmouseover="this.style.background='#1E3A5F'"
+                    onmouseout="this.style.background='#0F2B46'"
+                >
+                    <el-icon class="mr-1"><Right /></el-icon>
+                    Xử lý kho
+                </el-button>
+            </div>
         </template>
     </el-dialog>
   </div>
@@ -196,6 +219,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { exportOrderApi } from '../api/exportOrderApi';
 import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
@@ -351,3 +375,21 @@ onMounted(() => {
   fetchOrders();
 });
 </script>
+
+<style>
+.branded-dialog {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+.branded-dialog .el-dialog__header {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.branded-dialog .el-dialog__body {
+    padding: 0 !important;
+}
+.branded-dialog .el-dialog__footer {
+    padding: 0 !important;
+}
+</style>

@@ -17,7 +17,7 @@
                               {{ (pendingCurrentPage - 1) * pendingPageSize + $index + 1 }}
                           </template>
                      </el-table-column>
-                     <el-table-column label="Số lệnh" prop="orderCode" width="160">
+                     <el-table-column label="Số lệnh" prop="orderCode" width="160" align="center">
                          <template #default="{row}">
                              <div class="font-bold text-blue-600 cursor-pointer hover:underline" @click="openReadonlyDetail(row)">
                                  {{ row.orderCode }}
@@ -25,13 +25,13 @@
                              <div class="text-[10px] text-gray-400">{{ new Date(row.createdAt).toLocaleString('vi-VN') }}</div>
                          </template>
                      </el-table-column>
-                     <el-table-column label="Đại lý" min-width="120">
+                     <el-table-column label="Đại lý" min-width="120" align="center">
                          <template #default="{row}">{{ getDealerName(row.dealerId) }}</template>
                      </el-table-column>
-                     <el-table-column label="Kho xuất" min-width="120">
+                     <el-table-column label="Kho xuất" min-width="120" align="center">
                           <template #default="{row}">{{ getWarehouseName(row.sourceWarehouseId) }}</template>
                      </el-table-column>
-                     <el-table-column label="Số lượng hàng" width="150">
+                     <el-table-column label="Số lượng hàng" width="150" align="center">
                           <template #default="{row}">
                               <div class="text-xs text-gray-700">Số loại SP: <span class="font-bold">{{ row.items ? row.items.length : 0 }}</span></div>
                               <div class="text-xs text-gray-500 mt-1">Tổng yêu cầu: <span class="font-bold text-blue-600">{{ row.items ? row.items.reduce((acc: number, cur: any) => acc + (cur.expectedQuantity || 0), 0) : 0 }}</span></div>
@@ -54,7 +54,7 @@
                               </el-tag>
                           </template>
                      </el-table-column>
-                     <el-table-column width="120" align="center">
+                     <el-table-column label="Thao tác" width="120" align="center">
                          <template #default="{row}">
                              <el-button type="primary" size="small" @click="viewDetail(row)">Xuất kho</el-button>
                          </template>
@@ -355,75 +355,22 @@
                 </div>
             </el-card>
 
-            <!-- PRINT LAYOUT (HIDDEN ON SCREEN, SHOWS ON WINDOW.PRINT) -->
-            <div class="print-only">
-                <div class="text-center mb-6">
-                    <h1 class="text-2xl font-bold uppercase mb-1">Phiếu Xuất Kho</h1>
-                    <p class="text-sm">Ngày In: {{ new Date().toLocaleDateString('vi-VN') }} - {{ new Date().toLocaleTimeString('vi-VN') }}</p>
-                </div>
-                
-                <div class="grid grid-cols-[1fr_auto] gap-4 items-start mb-6">
-                    <div class="border rounded p-4">
-                        <table class="w-full text-sm">
-                            <tbody>
-                                <tr><td class="w-1/3 py-1 text-gray-600">Đơn vị nhận hàng:</td> <td class="font-bold">{{ getDealerName(selectedOrder.dealerId) }}</td></tr>
-                                <tr><td class="py-1 text-gray-600">Người nhận & Địa chỉ:</td> <td class="italic">{{ getDealerAddress(selectedOrder.dealerId) }}</td></tr>
-                                <tr><td class="py-1 text-gray-600">Kho xuất:</td> <td>{{ getWarehouseName(selectedOrder.sourceWarehouseId) }}</td></tr>
-                                <tr><td class="py-1 text-gray-600">Người xuất:</td> <td>{{ authStore.user?.fullName || authStore.user?.username || 'Thủ kho' }}</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="text-right">
-                        <div class="whitespace-nowrap"><b>Số Phiếu:</b> <span class="text-lg font-bold">{{ getPXKCode(selectedOrder.orderCode) }}</span></div>
-                        <div class="text-sm mt-1 mb-2 whitespace-nowrap">Số Lệnh(LXH): {{ selectedOrder.orderCode }}</div>
-                        <img v-if="qrCodeUrl" :src="qrCodeUrl" class="ml-auto block border w-[100px] h-[100px]" alt="QR" />
-                    </div>
-                </div>
-
-                <div class="mb-2 font-bold uppercase text-sm border-b pb-1">Chi tiết hàng hóa xuất kho</div>
-                <table class="w-full text-sm border-collapse mb-8">
-                    <thead>
-                        <tr>
-                            <th class="border p-2 text-left w-12">STT</th>
-                            <th class="border p-2 text-left">Tên hàng hóa, quy cách</th>
-                            <th class="border p-2 text-center w-20">ĐV tính</th>
-                            <th class="border p-2 text-center w-24">Yêu cầu</th>
-                            <th class="border p-2 text-center w-24">Thực xuất</th>
-                            <th class="border p-2 text-center">Ghi chú</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(item, idx) in (selectedOrder.items || [])" :key="idx">
-                            <td class="border p-2 text-center">{{ Number(idx) + 1 }}</td>
-                            <td class="border p-2">{{ item.product?.name }}</td>
-                            <td class="border p-2 text-center">{{ item.unitName || 'Gói' }}</td>
-                            <td class="border p-2 text-center">{{ item.expectedQuantity }}</td>
-                            <td class="border p-2 text-center font-bold">{{ item.scannedQuantity }}</td>
-                            <td class="border p-2"></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="flex justify-between mt-10 text-center">
-                    <div class="w-1/3">
-                        <p class="font-bold">Người lập phiếu</p>
-                        <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
-                    </div>
-                    <div class="w-1/3">
-                        <p class="font-bold">Thủ kho</p>
-                        <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
-                    </div>
-                    <div class="w-1/3">
-                        <p class="font-bold">Đại diện nhận hàng</p>
-                        <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
-                    </div>
-                </div>
-            </div>
+            <!-- PRINT LAYOUT REMOVED (Moved to global context at the bottom) -->
         </div>
 
         <!-- READONLY DIALOG TỪ DASHBOARD -->
-        <el-dialog v-model="showReadonlyDialog" :title="`Chi tiết Lệnh: ${readonlyOrder?.orderCode}`" width="800px">
-            <div v-if="readonlyOrder" class="mb-4">
+        <el-dialog v-model="showReadonlyDialog" width="800px" :show-close="false" class="branded-dialog">
+            <template #header>
+                <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Chi tiết Lệnh: {{ readonlyOrder?.orderCode }}</span>
+                    <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showReadonlyDialog = false">
+                        <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                    </div>
+                </div>
+            </template>
+            <div v-if="readonlyOrder" class="space-y-4 px-6 py-5">
                 <el-descriptions border :column="2">
                     <el-descriptions-item v-if="readonlyOrder.status === 'EXPORTED'" label="Số PXK"><b>{{ getPXKCode(readonlyOrder.orderCode) }}</b></el-descriptions-item>
                     <el-descriptions-item label="Số Lệnh"><b>{{ readonlyOrder.orderCode }}</b></el-descriptions-item>
@@ -434,24 +381,32 @@
                     </el-descriptions-item>
                 </el-descriptions>
                 
-                <h4 class="font-bold mt-6 mb-2">Danh sách Sản phẩm Yêu cầu</h4>
+                <h4 class="font-bold mt-6 mb-2 text-gray-700">Danh sách Sản phẩm Yêu cầu</h4>
                 <el-table :data="readonlyOrder.items" border size="small">
                     <el-table-column prop="product.name" label="Sản phẩm" />
                     <el-table-column label="Đơn vị" width="120" align="center">
                         <template #default="{row}">{{ row.unitName || 'Gói' }}</template>
                     </el-table-column>
-                    <el-table-column label="Yêu cầu" width="120">
+                    <el-table-column label="Yêu cầu" width="120" align="center">
                         <template #default="{row}">
                             {{ row.expectedQuantity }}
                             <span v-if="row.conversionFactor > 1" class="text-xs text-blue-500 ml-1">(={{ row.expectedQuantity * row.conversionFactor }} gói)</span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="scannedQuantity" label="Đã lấy" width="120" />
+                    <el-table-column prop="scannedQuantity" label="Đã lấy" width="120" align="center" />
                 </el-table>
             </div>
             <template #footer>
-                <el-button @click="showReadonlyDialog = false">Đóng</el-button>
-                <el-button type="primary" @click="viewDetail(readonlyOrder)">Đi tới Thực thi Xuất Kho</el-button>
+                <div style="display: flex; justify-content: flex-end; padding: 16px 24px 24px; gap: 10px;">
+                    <el-button @click="showReadonlyDialog = false" style="border-radius: 8px; padding: 10px 20px; font-weight: 600;">Đóng</el-button>
+                    <el-button v-if="readonlyOrder?.status === 'EXPORTED'" @click="printFromDashboard(readonlyOrder)" style="border-radius: 8px; padding: 10px 20px; font-weight: 600;">
+                        <el-icon class="mr-1"><Printer /></el-icon> In Phiếu
+                    </el-button>
+                    <el-button type="primary" @click="viewDetail(readonlyOrder)" style="border-radius: 8px; padding: 10px 20px; font-weight: 600; color: #ffffff !important;" :color="readonlyOrder?.status === 'EXPORTED' ? '' : '#67c23a'">
+                        {{ readonlyOrder?.status === 'EXPORTED' ? 'Xem chi tiết' : 'Đi tới Thực thi Xuất Kho' }}
+                        <el-icon v-if="readonlyOrder?.status !== 'EXPORTED'" class="ml-1"><Right /></el-icon>
+                    </el-button>
+                </div>
             </template>
         </el-dialog>
 
@@ -546,8 +501,18 @@
         </el-dialog>
 
         <!-- SHIPMENT DETAIL DIALOG -->
-        <el-dialog v-model="shipmentDetailVisible" title="Chi tiết Phiếu Giao Hàng (PGH)" width="680px" destroy-on-close>
-            <div v-if="selectedShipment" v-loading="shipmentDetailLoading" class="space-y-4">
+        <el-dialog v-model="shipmentDetailVisible" width="680px" destroy-on-close :show-close="false" class="branded-dialog">
+            <template #header>
+                <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Chi tiết Phiếu Giao Hàng (PGH)</span>
+                    <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="shipmentDetailVisible = false">
+                        <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                    </div>
+                </div>
+            </template>
+            <div v-if="selectedShipment" v-loading="shipmentDetailLoading" class="space-y-4 px-6 py-5">
                 <el-descriptions border :column="2" size="small">
                     <el-descriptions-item label="Mã vận đơn">
                         <span class="font-bold text-blue-700">{{ selectedShipment.trackingCode }}</span>
@@ -601,20 +566,87 @@
                 </div>
             </div>
             <template #footer>
-                <el-button @click="shipmentDetailVisible = false">Đóng</el-button>
+                <div style="display: flex; justify-content: flex-end; padding: 16px 24px 24px;">
+                    <el-button @click="shipmentDetailVisible = false" style="border-radius: 8px; padding: 10px 20px; font-weight: 600;">Đóng</el-button>
+                </div>
             </template>
         </el-dialog>
+        <!-- PRINT LAYOUT (GLOBAL, HIDDEN ON SCREEN, SHOWS ON WINDOW.PRINT) -->
+        <div class="print-only" v-if="orderToPrint">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold uppercase mb-1">Phiếu Xuất Kho</h1>
+                <p class="text-sm">Ngày In: {{ new Date().toLocaleDateString('vi-VN') }} - {{ new Date().toLocaleTimeString('vi-VN') }}</p>
+            </div>
+            
+            <div class="grid grid-cols-[1fr_auto] gap-4 items-start mb-6">
+                <div class="border rounded p-4">
+                    <table class="w-full text-sm">
+                        <tbody>
+                            <tr><td class="w-1/3 py-1 text-gray-600">Đơn vị nhận hàng:</td> <td class="font-bold">{{ getDealerName(orderToPrint.dealerId) }}</td></tr>
+                            <tr><td class="py-1 text-gray-600">Người nhận & Địa chỉ:</td> <td class="italic">{{ getDealerAddress(orderToPrint.dealerId) }}</td></tr>
+                            <tr><td class="py-1 text-gray-600">Kho xuất:</td> <td>{{ getWarehouseName(orderToPrint.sourceWarehouseId) }}</td></tr>
+                            <tr><td class="py-1 text-gray-600">Người xuất:</td> <td>{{ authStore.user?.fullName || authStore.user?.username || 'Thủ kho' }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-right">
+                    <div class="whitespace-nowrap"><b>Số Phiếu:</b> <span class="text-lg font-bold">{{ getPXKCode(orderToPrint.orderCode) }}</span></div>
+                    <div class="text-sm mt-1 mb-2 whitespace-nowrap">Số Lệnh(LXH): {{ orderToPrint.orderCode }}</div>
+                    <img v-if="qrCodeUrl" :src="qrCodeUrl" class="ml-auto block border w-[100px] h-[100px]" alt="QR" />
+                </div>
+            </div>
+
+            <div class="mb-2 font-bold uppercase text-sm border-b pb-1">Chi tiết hàng hóa xuất kho</div>
+            <table class="w-full text-sm border-collapse mb-8">
+                <thead>
+                    <tr>
+                        <th class="border p-2 text-left w-12">STT</th>
+                        <th class="border p-2 text-left">Tên hàng hóa, quy cách</th>
+                        <th class="border p-2 text-center w-20">ĐV tính</th>
+                        <th class="border p-2 text-center w-24">Yêu cầu</th>
+                        <th class="border p-2 text-center w-24">Thực xuất</th>
+                        <th class="border p-2 text-center">Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(item, idx) in (orderToPrint.items || [])" :key="idx">
+                        <td class="border p-2 text-center">{{ Number(idx) + 1 }}</td>
+                        <td class="border p-2">{{ item.product?.name }}</td>
+                        <td class="border p-2 text-center">{{ item.unitName || 'Gói' }}</td>
+                        <td class="border p-2 text-center">{{ item.expectedQuantity }}</td>
+                        <td class="border p-2 text-center font-bold">{{ item.scannedQuantity }}</td>
+                        <td class="border p-2"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="flex justify-between mt-10 text-center">
+                <div class="w-1/3">
+                    <p class="font-bold">Người lập phiếu</p>
+                    <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
+                </div>
+                <div class="w-1/3">
+                    <p class="font-bold">Thủ kho</p>
+                    <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
+                </div>
+                <div class="w-1/3">
+                    <p class="font-bold">Đại diện nhận hàng</p>
+                    <p class="italic text-xs">(Ký, ghi rõ họ tên)</p>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { exportOrderApi } from '../api/exportOrderApi';
 import { dealerApi } from '../api/dealerApi';
 import { transportApi } from '../api/transportApi';
 import api from '@/common/utils/api';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Box, Van, Check, Search, Loading, Warning, Camera, Close, ArrowLeft, Printer, User } from '@element-plus/icons-vue';
+import { Box, Van, Check, Search, Loading, Warning, Camera, Close, ArrowLeft, Printer, User, Right } from '@element-plus/icons-vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/core/store/auth';
 import QRCode from 'qrcode';
@@ -867,6 +899,12 @@ const viewDetail = async (row: any) => {
     }
 };
 
+const orderToPrint = ref<any>(null);
+
+const printFromDashboard = async (order: any) => {
+    await printTicket(order);
+};
+
 const logsData = ref<any>({ items: [] });
 
 const scannedItems = computed(() => logsData.value.items || []);
@@ -1073,16 +1111,19 @@ const getProgress = (order: any) => {
     return expected === 0 ? 0 : Math.min(Math.round((scanned / expected) * 100), 100);
 };
 
-const printTicket = async () => {
-    if (!selectedOrder.value) return;
+const printTicket = async (order?: any) => {
+    const targetOrder = (order && order.orderCode) ? order : selectedOrder.value;
+    if (!targetOrder) return;
     
-    if (selectedOrder.value.status !== 'EXPORTED') {
+    if (targetOrder.status !== 'EXPORTED') {
         ElMessage.warning('Chỉ được in phiếu sau khi Hoàn tất xuất kho!');
         return;
     }
 
+    orderToPrint.value = targetOrder;
+
     // Tạo link cho Receiver quét nhận hàng
-    const receiveLink = `https://app.trustid.com.vn/receive?pxk=${getPXKCode(selectedOrder.value.orderCode)}`;
+    const receiveLink = `https://app.trustid.com.vn/receive?pxk=${getPXKCode(targetOrder.orderCode)}`;
     
     // Tạo QR code image URL
     qrCodeUrl.value = await QRCode.toDataURL(receiveLink, { width: 100, margin: 1 });
@@ -1142,5 +1183,23 @@ onMounted(() => {
 <style scoped>
 .print-only {
     display: none;
+}
+</style>
+
+<style>
+.branded-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-dialog .el-dialog__footer {
+  padding: 0 !important;
 }
 </style>

@@ -610,7 +610,7 @@ onMounted(() => {
                 </div>
             </div>
         </template>
-        <div v-if="selectedProduct" class="space-y-4">
+        <div v-if="selectedProduct" class="space-y-4 px-6 pt-6 pb-2">
             <!-- 2-Column Product Header (Left: Image, Right: Info & Status) -->
             <div class="flex flex-col sm:flex-row gap-4 items-start pb-3 border-b">
                 <!-- Left: Product Image & Gallery -->
@@ -793,7 +793,7 @@ onMounted(() => {
 
                  <div 
                      class="prose prose-sm max-w-none text-slate-600 text-xs leading-relaxed ql-editor transition-all duration-300 relative"
-                     :class="isDescriptionExpanded ? 'max-h-none' : 'max-h-24 overflow-hidden'"
+                     :class="isDescriptionExpanded ? 'max-h-none' : 'max-h-48 overflow-hidden'"
                  >
                      <div v-html="selectedProduct.description"></div>
                      
@@ -807,19 +807,19 @@ onMounted(() => {
         </div>
 
         <template #footer>
-            <div class="flex justify-end items-center gap-2 pt-2 border-t">
-                <button
-                    type="button"
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px 24px;">
+                <el-button @click="showDetailModal = false" style="border-radius: 8px; padding: 10px 20px; font-weight: 600;">
+                    Đóng
+                </el-button>
+                <el-button
+                    type="primary"
                     @click="handleEditFromDetail"
-                    style="background: #0F2B46; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;"
+                    style="border-radius: 8px; padding: 10px 20px; font-weight: 600; border: none; color: #fff; background: #0F2B46;"
                     onmouseover="this.style.background='#1E3A5F'"
                     onmouseout="this.style.background='#0F2B46'"
                 >
-                    <el-icon><Edit /></el-icon>
-                    <span>Chỉnh sửa</span>
-                </button>
-                <el-button @click="showDetailModal = false" style="padding: 8px 20px; font-weight: 600;">
-                    Đóng
+                    <el-icon class="mr-1"><Edit /></el-icon>
+                    Chỉnh sửa
                 </el-button>
             </div>
         </template>
@@ -897,6 +897,9 @@ onMounted(() => {
     margin: 0 !important;
 }
 .branded-product-dialog .el-dialog__body {
+    padding: 0 !important;
+}
+.branded-product-dialog .el-dialog__footer {
     padding: 0 !important;
 }
 
