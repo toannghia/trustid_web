@@ -6,6 +6,7 @@ import { shipmentV2Api } from '../api/shipmentV2Api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { shipmentTypeLabel, scanMethodLabel } from '@/common/utils/status-labels';
 import { useAuthStore } from '@/modules/core/store/auth';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import ShipmentScanDialog from '../components/ShipmentScanDialog.vue';
 
 const authStore = useAuthStore();
@@ -214,7 +215,7 @@ const receiverConfirm = async () => {
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-900">Điều phối & Phân phối Hàng hóa</h1>
        <div class="flex space-x-2">
-         <el-button v-if="['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'].includes(authStore.user?.role || '')" type="primary" :icon="Plus" @click="$router.push('/supply/export-order')">Tạo lệnh xuất mới</el-button>
+         <el-button v-if="['ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'].includes(authStore.user?.role || '')" type="primary" :icon="Plus" @click="$router.push('/supply/export-order/new')">Tạo lệnh xuất mới</el-button>
          <el-button @click="loadShipments" :icon="Refresh">Làm mới</el-button>
        </div>
     </div>
@@ -345,8 +346,20 @@ const receiverConfirm = async () => {
     />
 
     <!-- DETAIL DIALOG -->
-    <el-dialog v-model="detailVisible" title="Thông tin Đơn hàng Chi tiết" width="800px" destroy-on-close class="custom-dialog">
-        <div v-if="currentDetail" v-loading="detailLoading" class="p-2">
+    <el-dialog v-model="detailVisible" width="850px" destroy-on-close :show-close="false" class="branded-shipment-dialog">
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+                <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                <span style="color: #fff; font-size: 16px; font-weight: 600;">
+                    Thông tin Đơn hàng Chi tiết
+                </span>
+                <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="detailVisible = false">
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
+        <div v-if="currentDetail" v-loading="detailLoading" style="padding: 24px 24px 8px;">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-2xl mb-6">
                 <div class="space-y-3">
                     <div class="flex justify-between border-b pb-2">
@@ -493,34 +506,40 @@ const receiverConfirm = async () => {
             </el-timeline>
             <div v-else class="text-xs text-gray-400 italic ml-2">Chưa có thông tin lịch trình</div>
             
-            <div class="mt-8 flex justify-end gap-3 border-t pt-6" v-if="canAction">
-                <el-button 
-                    v-if="currentDetail.status === 'CREATED' && authStore.user?.role === 'WAREHOUSE_MANAGER'" 
-                    type="warning" 
-                    @click="handleScan(currentDetail)"
-                >
-                    Mở màn hình Quét QR
-                </el-button>
-                
-                <el-button 
-                    v-if="currentDetail.status === 'WAITING_DRIVER' && authStore.user?.role === 'DRIVER'" 
-                    type="primary" 
-                    size="large"
-                    @click="driverReceive"
-                >
-                    Tài xế nhận hàng (Lên xe)
-                </el-button>
-                
-                <el-button 
-                    v-if="currentDetail.status === 'IN_TRANSIT'" 
-                    type="success" 
-                    size="large"
-                    @click="receiverConfirm"
-                >
-                    Hoàn tất Nhận hàng (Destination)
-                </el-button>
-            </div>
         </div>
+        <template #footer>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+                <el-button @click="detailVisible = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+                <template v-if="currentDetail && canAction">
+                    <el-button 
+                        v-if="currentDetail.status === 'CREATED' && authStore.user?.role === 'WAREHOUSE_MANAGER'" 
+                        type="warning" 
+                        @click="handleScan(currentDetail)"
+                        style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff;"
+                    >
+                        Mở màn hình Quét QR
+                    </el-button>
+                    
+                    <el-button 
+                        v-if="currentDetail.status === 'WAITING_DRIVER' && authStore.user?.role === 'DRIVER'" 
+                        type="primary" 
+                        @click="driverReceive"
+                        style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff;"
+                    >
+                        Tài xế nhận hàng (Lên xe)
+                    </el-button>
+                    
+                    <el-button 
+                        v-if="currentDetail.status === 'IN_TRANSIT'" 
+                        type="success" 
+                        @click="receiverConfirm"
+                        style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
+                    >
+                        Hoàn tất Nhận hàng
+                    </el-button>
+                </template>
+            </div>
+        </template>
     </el-dialog>
   </div>
 </template>
@@ -536,6 +555,22 @@ const receiverConfirm = async () => {
 </style>
 
 <style>
+.branded-shipment-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-shipment-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-shipment-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-shipment-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+
 .status-select-popper .el-select-dropdown__wrap {
     max-height: 480px !important;
 }

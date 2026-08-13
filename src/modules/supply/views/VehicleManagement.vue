@@ -94,13 +94,29 @@
     <!-- Create/Edit Modal -->
     <el-dialog
       v-model="showCreateModal"
-      :title="isEditing ? 'Cập nhật Xe' : 'Thêm Xe mới'"
       width="500px"
       @closed="resetForm"
+      :show-close="false"
+      :close-on-click-modal="false"
+      destroy-on-close
+      class="branded-vehicle-dialog"
     >
-      <el-form :model="form" label-position="top" :rules="rules" ref="formRef">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            {{ isEditing ? 'Cập nhật Xe' : 'Thêm Xe mới' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <el-form :model="form" label-position="top" :rules="rules" ref="formRef" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
          <el-form-item label="Biển số xe" prop="licensePlate">
-            <el-input v-model="form.licensePlate" placeholder="VD: 29C-123.45" />
+            <el-input v-model.trim="form.licensePlate" placeholder="VD: 29C-123.45" maxlength="15" show-word-limit @input="form.licensePlate = form.licensePlate.toUpperCase()" />
          </el-form-item>
          
          <el-form-item label="Loại xe" prop="type">
@@ -113,7 +129,7 @@
          </el-form-item>
          
          <el-form-item label="Tải trọng (kg)" prop="capacityKg">
-            <el-input-number v-model="form.capacityKg" :min="0" class="w-full" />
+            <el-input-number v-model="form.capacityKg" :min="1" :max="100000" :precision="0" :step="1" class="w-full" />
          </el-form-item>
          
          <el-form-item label="Hình ảnh xe" prop="imageUrl">
@@ -127,8 +143,9 @@
                     class="upload-demo"
                     action="#" 
                     :http-request="handleUploadRequest"
+                    :before-upload="beforeImageUpload"
                     :show-file-list="false"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                 >
                     <el-button type="default">
                         <el-icon class="mr-1"><Picture /></el-icon> Tải ảnh lên
@@ -152,12 +169,18 @@
           </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateModal = false">Hủy</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showCreateModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button 
+            type="primary" 
+            :loading="submitting" 
+            :disabled="isEditing && !isFormChanged"
+            @click="submitForm"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
+          >
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -171,8 +194,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed, nextTick } from 'vue';
 import { Plus, Picture } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { ElMessage } from 'element-plus';
 import { transportApi, type TransportVehicle } from '../api/transportApi';
 import QuickCreateUser from '../../core/components/QuickCreateUser.vue';
@@ -220,8 +244,13 @@ const handleDriverCreated = (newUser: any) => {
 // Edit state
 const isEditing = ref(false);
 const currentId = ref<string | null>(null);
+const originalForm = ref<string>('');
 
-const form = reactive({
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== originalForm.value;
+});
+
+const defaultForm = () => ({
   licensePlate: '',
   type: '',
   capacityKg: 0,
@@ -229,9 +258,33 @@ const form = reactive({
   imageUrl: ''
 });
 
+const form = reactive(defaultForm());
+
 const rules = reactive<FormRules>({
-  licensePlate: [{ required: true, message: 'Nhập biển số xe', trigger: 'blur' }]
+  licensePlate: [
+      { required: true, message: 'Nhập biển số xe', trigger: 'blur' },
+      { whitespace: true, message: 'Biển số không được để trống', trigger: 'blur' },
+      { min: 6, max: 15, message: 'Biển số từ 6 đến 15 ký tự', trigger: 'blur' },
+      { pattern: /^[A-Z0-9.-]+$/, message: 'Biển số chỉ gồm chữ cái, số, dấu - hoặc .', trigger: 'blur' }
+  ],
+  type: [{ required: true, message: 'Chọn loại xe', trigger: 'change' }],
+  capacityKg: [{ required: true, message: 'Nhập tải trọng', trigger: 'blur' }],
+  defaultDriverId: [{ required: true, message: 'Chọn tài xế', trigger: 'change' }]
 });
+
+const beforeImageUpload = (file: any) => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    const isImage = validTypes.includes(file.type);
+    const isLt5M = file.size / 1024 / 1024 < 5;
+
+    if (!isImage) {
+        ElMessage.error('Hình ảnh phải là định dạng JPG, PNG hoặc WEBP!');
+    }
+    if (!isLt5M) {
+        ElMessage.error('Kích thước ảnh không được vượt quá 5MB!');
+    }
+    return isImage && isLt5M;
+};
 
 const loadData = async () => {
   loading.value = true;
@@ -288,6 +341,11 @@ const openEditModal = (row: TransportVehicle) => {
     form.imageUrl = row.imageUrl || '';
 
     loadDrivers();
+    
+    nextTick(() => {
+        originalForm.value = JSON.stringify(form);
+    });
+
     showCreateModal.value = true;
 }
 
@@ -330,7 +388,7 @@ const submitForm = async () => {
         loadData();
       } catch (err: any) {
         console.error(err);
-        ElMessage.error('Có lỗi xảy ra (Biển số có thể đã tồn tại?)');
+        ElMessage.error('Biển số có thể đã tồn tại!');
       } finally {
         submitting.value = false;
       }
@@ -339,10 +397,11 @@ const submitForm = async () => {
 };
 
 const resetForm = () => {
-  if (formRef.value) formRef.value.resetFields();
-  form.imageUrl = '';
+  if (formRef.value) formRef.value.clearValidate();
+  Object.assign(form, defaultForm());
   isEditing.value = false;
   currentId.value = null;
+  originalForm.value = '';
 };
 
 onMounted(() => {
@@ -350,3 +409,21 @@ onMounted(() => {
     loadDrivers();
 });
 </script>
+
+<style>
+.branded-vehicle-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-vehicle-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-vehicle-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-vehicle-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

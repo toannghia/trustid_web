@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue';
 import { userApi } from '../api/user';
 import { ElMessage } from 'element-plus';
 import { Plus, User, Lock, Message } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps<{
   role: string;
@@ -121,18 +122,32 @@ defineExpose({ open });
 <template>
   <el-dialog
     v-model="visible"
-    :title="`Thêm nhanh ${props.roleLabel}`"
     width="450px"
     append-to-body
+    :show-close="false"
     :close-on-click-modal="false"
-    class="quick-create-dialog"
+    destroy-on-close
+    class="branded-quick-dialog"
   >
+    <template #header>
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+        <span style="color: #fff; font-size: 16px; font-weight: 600;">
+          Thêm nhanh {{ props.roleLabel }}
+        </span>
+        <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+          <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+        </div>
+      </div>
+    </template>
+
     <el-form
       ref="formRef"
       :model="form"
       :rules="rules"
       label-position="top"
-      class="mt-2"
+      style="padding: 24px 24px 8px; --el-border-radius-base: 8px;"
     >
       <el-form-item label="Họ tên đầy đủ" prop="fullName">
         <el-input v-model="form.fullName" placeholder="VD: Nguyễn Văn A" :prefix-icon="User" @blur="form.fullName = form.fullName.trim()" />
@@ -161,9 +176,14 @@ defineExpose({ open });
     </el-form>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <el-button @click="visible = false">Hủy</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+        <el-button 
+            type="primary" 
+            :loading="submitting" 
+            @click="handleSubmit"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
+        >
           Tạo & Chọn ngay
         </el-button>
       </div>
@@ -171,18 +191,26 @@ defineExpose({ open });
   </el-dialog>
 </template>
 
+<style>
+.branded-quick-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-quick-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-quick-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-quick-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>
+
 <style scoped>
-.quick-create-dialog :deep(.el-dialog__header) {
-  margin-right: 0;
-  border-bottom: 1px solid #f3f4f6;
-  padding-bottom: 15px;
-}
-
-.quick-create-dialog :deep(.el-dialog__body) {
-  padding-top: 20px;
-}
-
-.quick-create-dialog :deep(.el-form-item__label) {
+.branded-quick-dialog :deep(.el-form-item__label) {
   font-weight: 500;
   color: #374151;
   font-size: 13px;

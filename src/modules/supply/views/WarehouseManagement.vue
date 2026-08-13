@@ -93,6 +93,7 @@
       @opened="initMap"
       :show-close="false"
       :close-on-click-modal="false"
+      destroy-on-close
       class="branded-warehouse-dialog"
     >
       <template #header>
@@ -102,6 +103,9 @@
           <span style="color: #fff; font-size: 16px; font-weight: 600;">
             {{ isEditing ? 'Cập nhật Kho' : 'Thêm Kho mới' }}
           </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCreateModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -109,7 +113,7 @@
         <el-row :gutter="20">
             <el-col :span="12">
                  <el-form-item label="Tên kho" prop="name">
-                    <el-input v-model="form.name" placeholder="VD: Kho tập kết Bắc Ninh" />
+                    <el-input v-model.trim="form.name" placeholder="VD: Kho tập kết Bắc Ninh" maxlength="100" show-word-limit />
                  </el-form-item>
             </el-col>
              <el-col :span="12">
@@ -157,7 +161,7 @@
             </el-col>
             <el-col :span="12">
                   <el-form-item label="Phường / Xã" prop="ward">
-                    <el-select v-model="form.ward" placeholder="Chọn Xã" filterable allow-create class="w-full" :disabled="!form.province">
+                    <el-select v-model="form.ward" placeholder="Chọn Xã" @change="onWardChange" filterable allow-create class="w-full" :disabled="!form.province">
                         <el-option v-for="w in formWards" :key="w.name" :label="w.name" :value="w.name" />
                     </el-select>
                  </el-form-item>
@@ -165,7 +169,7 @@
         </el-row>
         
         <el-form-item label="Địa chỉ chi tiết" prop="address">
-           <el-input v-model="form.address" placeholder="Thôn, Xóm, Số nhà..." />
+           <el-input v-model.trim="form.address" placeholder="Thôn, Xóm, Số nhà..." maxlength="255" show-word-limit />
         </el-form-item>
 
         <el-divider content-position="left">Tọa độ (GPS)</el-divider>
@@ -193,8 +197,9 @@
           <el-button 
             type="primary" 
             :loading="submitting" 
+            :disabled="isEditing && !isFormChanged"
             @click="submitForm"
-            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A; cursor: pointer;"
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
           >
             {{ isEditing ? 'Cập nhật' : 'Tạo mới' }}
           </el-button>
@@ -212,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, nextTick, watch } from 'vue';
+import { ref, onMounted, reactive, nextTick, watch, computed } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
@@ -297,11 +302,31 @@ const onProvinceChange = async () => {
         form.long = coords.lng;
         
         await nextTick();
-        if (map) {
-            map.remove();
-            map = null;
+        if (map && marker) {
+            const newPos = new L.LatLng(form.lat, form.long);
+            marker.setLatLng(newPos);
+            map.setView(newPos, 12);
         }
-        initMap();
+    }
+};
+
+const onWardChange = async () => {
+    if (!form.ward || !form.province) return;
+    try {
+        const query = `${form.ward}, ${form.province}, Việt Nam`;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+            form.lat = Number(parseFloat(data[0].lat).toFixed(6));
+            form.long = Number(parseFloat(data[0].lon).toFixed(6));
+            if (map && marker) {
+                const newPos = new L.LatLng(form.lat, form.long);
+                marker.setLatLng(newPos);
+                map.setView(newPos, 14); // Zoom in closer for ward
+            }
+        }
+    } catch (e) {
+        console.error('Geocoding failed', e);
     }
 };
 
@@ -312,6 +337,11 @@ let marker: L.Marker | null = null;
 // Edit state
 const isEditing = ref(false);
 const currentId = ref<string | null>(null);
+const originalForm = ref<string>('');
+
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== originalForm.value;
+});
 
 const form = reactive({
   name: '',
@@ -326,24 +356,39 @@ const form = reactive({
 });
 
 const rules = reactive<FormRules>({
-  name: [{ required: true, message: 'Vui lòng nhập tên kho', trigger: 'blur' }],
+  name: [
+      { required: true, message: 'Vui lòng nhập tên kho', trigger: 'blur' },
+      { whitespace: true, message: 'Tên kho không được chỉ chứa khoảng trắng', trigger: 'blur' },
+      { max: 100, message: 'Tên kho không được vượt quá 100 ký tự', trigger: 'blur' }
+  ],
   province: [{ required: true, message: 'Chọn Tỉnh/Thành', trigger: 'change' }],
+  ward: [{ required: true, message: 'Chọn Phường/Xã', trigger: 'change' }],
+  address: [
+      { required: true, message: 'Vui lòng nhập địa chỉ chi tiết', trigger: 'blur' },
+      { whitespace: true, message: 'Địa chỉ không được chỉ chứa khoảng trắng', trigger: 'blur' },
+      { max: 255, message: 'Địa chỉ không được vượt quá 255 ký tự', trigger: 'blur' }
+  ],
+  managerId: [{ required: true, message: 'Vui lòng chọn Thủ kho', trigger: 'change' }],
   lat: [{ required: true, message: 'Nhập Vĩ độ', trigger: 'blur' }],
   long: [{ required: true, message: 'Nhập Kinh độ', trigger: 'blur' }]
 });
 
 const initMap = async () => {
     await nextTick();
-    // Fix existing leaflet container error
-    const container = L.DomUtil.get('map');
-    if(container != null){
-        (container as any)._leaflet_id = null;
-    }
+    if (map) return; // Map already initialized
 
-    map = L.map('map').setView([form.lat, form.long], 12);
+    map = L.map('map', { 
+        minZoom: 2,
+        maxBounds: [
+            [-90, -180],
+            [90, 180]
+        ],
+        maxBoundsViscosity: 1.0
+    }).setView([form.lat, form.long], 12);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        noWrap: true
     }).addTo(map);
 
     marker = L.marker([form.lat, form.long], { draggable: true }).addTo(map);
@@ -440,6 +485,7 @@ const openEditModal = (row: Warehouse) => {
     // Restore ward selection
     nextTick(() => {
         form.ward = row.projectedInfo?.ward || '';
+        originalForm.value = JSON.stringify(form);
     });
 
     showCreateModal.value = true;
@@ -485,6 +531,14 @@ const resetForm = () => {
   form.ward = '';
   isEditing.value = false;
   currentId.value = null;
+  originalForm.value = '';
+  
+  // Clean up map instance to prevent memory leaks and ghost events
+  if (map) {
+      map.remove();
+      map = null;
+      marker = null;
+  }
 };
 
 onMounted(() => {
@@ -508,5 +562,8 @@ onMounted(() => {
 }
 .branded-warehouse-dialog .el-dialog__footer {
   padding: 0 !important;
+}
+.leaflet-container {
+  background-color: #aadaff !important;
 }
 </style>
