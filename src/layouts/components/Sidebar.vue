@@ -12,8 +12,26 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
-const openGroups = ref<Set<string>>(new Set());
+const LOCAL_STORAGE_KEY = 'sidebar_open_groups';
 
+const getInitialGroups = (): Set<string> => {
+  try {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      return new Set(JSON.parse(saved));
+    }
+  } catch (e) {
+    console.warn('Failed to parse sidebar_open_groups from localStorage', e);
+  }
+  // Lần đầu tiên vào web (chưa có lưu trữ), mặc định mở hết
+  return new Set(MENU_GROUPS.map(g => g.label));
+};
+
+const openGroups = ref<Set<string>>(getInitialGroups());
+
+const saveOpenGroups = () => {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(Array.from(openGroups.value)));
+};
 // Permission-based filtering with 3-layer check
 const filteredGroups = computed(() => {
   return MENU_GROUPS
@@ -46,6 +64,7 @@ const toggleGroup = (label: string) => {
   } else {
     openGroups.value.add(label);
   }
+  saveOpenGroups();
 };
 
 const navigateTo = (path?: string) => {
@@ -62,10 +81,17 @@ const handleLogout = () => {
 
 // Auto-open group that contains current route
 watch(() => route.path, () => {
+  let changed = false;
   for (const g of filteredGroups.value) {
     if (isGroupActive(g)) {
-      openGroups.value.add(g.label);
+      if (!openGroups.value.has(g.label)) {
+        openGroups.value.add(g.label);
+        changed = true;
+      }
     }
+  }
+  if (changed) {
+    saveOpenGroups();
   }
 }, { immediate: true });
 </script>
