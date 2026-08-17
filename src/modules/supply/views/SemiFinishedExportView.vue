@@ -296,7 +296,19 @@
     </div>
 
     <!-- Detail Dialog -->
-    <el-dialog v-model="detailVisible" title="Chi tiết phiếu chuyển giao" width="700px">
+    <el-dialog v-model="detailVisible" width="750px" :show-close="false" class="branded-semi-finished-dialog">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Chi tiết phiếu chuyển giao
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="detailVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
       <div v-if="selectedTransfer" class="space-y-4">
         <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
           <div>
@@ -327,7 +339,19 @@
     </el-dialog>
 
     <!-- Success Dialog with QR -->
-    <el-dialog v-model="successVisible" title="Xuất kho thành công" width="400px" center :close-on-click-modal="false">
+    <el-dialog v-model="successVisible" width="450px" :show-close="false" :close-on-click-modal="false" class="branded-semi-finished-dialog">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xuất kho thành công
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="successVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
       <div class="flex flex-col items-center text-center space-y-4">
         <el-result icon="success" title="Đã lập phiếu xuất" sub-title="Bên nhận có thể quét mã này để nhập kho nhanh" />
         <div class="p-4 bg-white border-2 border-orange-200 rounded-2xl shadow-sm">
@@ -344,11 +368,25 @@
     <!-- Dialog Thêm Đối tác B2B -->
     <el-dialog 
       v-model="showAddPartnerDialog" 
-      title="Thêm đối tác B2B" 
-      width="520px" 
+      width="560px" 
       destroy-on-close 
+      :show-close="false"
       :close-on-click-modal="false"
+      class="branded-semi-finished-dialog"
+      append-to-body
     >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Thêm đối tác B2B
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showAddPartnerDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
       <div class="space-y-4">
         <!-- Search input -->
         <div>
@@ -425,6 +463,7 @@ import { b2bPartnerApi } from '../api/b2bPartnerApi';
 import { ElMessage, ElLoading, ElMessageBox } from 'element-plus';
 import { Upload, DocumentAdd, Plus, Clock, Files, Calendar, InfoFilled, Delete, Search, View, Memo, Tickets, CircleCheckFilled, Loading } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
 const route = useRoute();
@@ -1122,5 +1161,24 @@ onMounted(load);
 .qr-box:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(15, 43, 70, 0.1);
+}
+
+</style>
+
+<style>
+.branded-semi-finished-dialog {
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0 !important;
+}
+.branded-semi-finished-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-semi-finished-dialog .el-dialog__body {
+  padding: 24px !important;
+}
+.branded-semi-finished-dialog .el-dialog__footer {
+  padding: 0 24px 24px !important;
 }
 </style>

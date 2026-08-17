@@ -143,13 +143,9 @@
                    Xuất
                 </el-button>
                 <el-tag v-else type="info" size="small" plain class="!text-[11px]">Hết hàng</el-tag>
-                <el-popconfirm title="Bạn có chắc chắn muốn xóa lô này?" @confirm="handleDelete(row)">
-                  <template #reference>
-                    <el-button type="danger" size="small" link :icon="Delete" class="!text-xs">
-                       Xóa
-                    </el-button>
-                  </template>
-                </el-popconfirm>
+                <el-button type="danger" size="small" link :icon="Delete" class="!text-xs" @click="openDeleteModal(row)">
+                   Xóa
+                </el-button>
               </div>
            </template>
         </el-table-column>
@@ -169,7 +165,19 @@
       </div>
 
       <!-- Dialog chi tiết lô -->
-      <el-dialog v-model="detailVisible" title="Chi tiết lô bán thành phẩm" width="700px">
+      <el-dialog v-model="detailVisible" width="800px" :show-close="false" class="branded-semi-finished-dialog">
+        <template #header>
+          <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">
+              Chi tiết lô bán thành phẩm
+            </span>
+            <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="detailVisible = false">
+              <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+            </div>
+          </div>
+        </template>
         <div v-if="selectedBatch" class="space-y-4">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="Mã lô">
@@ -255,10 +263,23 @@
       <!-- Dialog Cấp Tem Bù -->
       <el-dialog
         v-model="showSupplementaryDialog"
-        title="🏷️ Cấp tem bù"
-        width="560px"
+        width="600px"
+        :show-close="false"
         :close-on-click-modal="false"
+        class="branded-semi-finished-dialog"
       >
+        <template #header>
+          <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">
+              Cấp tem bù
+            </span>
+            <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showSupplementaryDialog = false">
+              <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+            </div>
+          </div>
+        </template>
         <div v-if="selectedBatch" class="space-y-4">
           <!-- Info -->
           <el-descriptions :column="2" border size="small">
@@ -335,6 +356,60 @@
           </el-button>
         </template>
       </el-dialog>
+
+      <!-- Dialog Xác nhận xóa lô -->
+      <el-dialog
+        v-model="showDeleteModal"
+        width="450px"
+        :show-close="false"
+        class="branded-semi-finished-dialog"
+      >
+        <template #header>
+          <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+            <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+            <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+            <span style="color: #fff; font-size: 16px; font-weight: 600;">
+              Xác nhận xóa lô
+            </span>
+            <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteModal = false">
+              <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+            </div>
+          </div>
+        </template>
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+            <div>
+              <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn xóa lô này?</h4>
+              <p class="text-sm text-gray-500 leading-relaxed">
+                Lô <strong>{{ batchToDelete?.batchCode || 'N/A' }}</strong> (Sản phẩm: {{ batchToDelete?.product?.name || 'N/A' }}) sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+              </p>
+            </div>
+          </div>
+          
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+            <strong>Lưu ý:</strong> Việc xóa lô sẽ xóa bỏ các thông tin liên quan đến việc đóng gói và kiểm kê lô hàng này.
+          </div>
+
+          <el-checkbox v-model="confirmDeleteCheckbox" class="mt-2" style="white-space: normal; word-break: break-word;">
+            <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa lô này</span>
+          </el-checkbox>
+        </div>
+
+        <template #footer>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <el-button @click="showDeleteModal = false">Hủy</el-button>
+            <el-button
+              type="danger"
+              :disabled="!confirmDeleteCheckbox"
+              :loading="isDeleting"
+              @click="confirmDelete"
+            >
+              Xóa lô
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
     </el-card>
   </div>
 </template>
@@ -343,12 +418,13 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
-import { Bottom, Calendar, Delete, Upload, Download, Plus, Search, Refresh, ShoppingCart, User, Edit } from '@element-plus/icons-vue';
+import { Bottom, Calendar, Delete, Upload, Download, Plus, Search, Refresh, ShoppingCart, User, Edit, WarningFilled } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { VIETNAM_PROVINCES } from '@/common/data/provinces';
 import { useAuthStore } from '@/modules/core/store/auth';
 import { batchStatusMap, productItemStatusMap } from '@/common/utils/vi-labels';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -524,13 +600,30 @@ const handleSell = (row: any) => {
   });
 };
 
-const handleDelete = async (row: any) => {
+// Delete Batch Logic
+const showDeleteModal = ref(false);
+const batchToDelete = ref<any>(null);
+const confirmDeleteCheckbox = ref(false);
+const isDeleting = ref(false);
+
+const openDeleteModal = (row: any) => {
+  batchToDelete.value = row;
+  confirmDeleteCheckbox.value = false;
+  showDeleteModal.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!batchToDelete.value || !confirmDeleteCheckbox.value) return;
+  isDeleting.value = true;
   try {
-    await supplyApi.cancelBatch(row.id);
+    await supplyApi.cancelBatch(batchToDelete.value.id);
     ElMessage.success('Đã xóa (hủy) lô thành công');
+    showDeleteModal.value = false;
     await loadData();
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || 'Xóa thất bại');
+  } finally {
+    isDeleting.value = false;
   }
 };
 
@@ -676,5 +769,21 @@ onMounted(loadData);
 
 .modern-table :deep(td.el-table__cell) {
   font-size: 12px !important;
+}
+
+:deep(.branded-semi-finished-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0 !important;
+}
+:deep(.branded-semi-finished-dialog .el-dialog__header) {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+:deep(.branded-semi-finished-dialog .el-dialog__body) {
+  padding: 24px !important;
+}
+:deep(.branded-semi-finished-dialog .el-dialog__footer) {
+  padding: 0 24px 24px !important;
 }
 </style>
