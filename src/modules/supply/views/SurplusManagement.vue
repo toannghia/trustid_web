@@ -72,11 +72,27 @@
     <!-- Pool Detail Dialog -->
     <el-dialog
       v-model="detailVisible"
-      :title="`Chi tiết kho dư: ${selectedPool?.product?.name || ''}`"
-      width="850px"
+      width="1150px"
       @closed="selectedPool = null"
+      class="branded-surplus-dialog"
+      :show-close="false"
+      style="padding: 0; --el-border-radius-base: 8px;"
     >
-      <div v-if="selectedPool" class="space-y-4">
+      <template #header="{ close }">
+        <div style="background-color: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%; border-radius: 8px 8px 0 0;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <div>
+            <h3 style="margin: 0; color: white; font-size: 16px; font-weight: 600;">Chi tiết kho dư</h3>
+            <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 12px;">{{ selectedPool?.product?.name || '' }}</p>
+          </div>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="close">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="selectedPool" class="space-y-4" style="padding: 24px 24px 8px;">
         <!-- Pool summary -->
         <div class="grid grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg text-xs">
           <div>
@@ -116,7 +132,7 @@
 
         <!-- Entries table -->
         <el-table :data="detailEntries" stripe size="small" max-height="400">
-          <el-table-column label="Mã Lô Nguồn" min-width="130">
+          <el-table-column label="Mã Lô Nguồn" min-width="200">
             <template #default="{ row }">
               <el-tag size="small" type="warning" effect="plain" class="font-mono">
                 {{ row.sourceBatchCode || row.sourceOrder?.sourceBatch?.batchCode || row.sourceOrder?.orderCode || 'N/A' }}
@@ -176,6 +192,10 @@
             </template>
           </el-table-column>
         </el-table>
+        <!-- Footer Actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <el-button @click="detailVisible = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+        </div>
       </div>
     </el-dialog>
   </div>
@@ -183,7 +203,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Box } from '@element-plus/icons-vue';
+import { Box, Close } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { surplusApi } from '../api/surplusApi';
@@ -279,3 +300,21 @@ const isExpiringSoon = (entry: any) => {
 
 onMounted(loadPools);
 </script>
+
+<style>
+.branded-surplus-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-surplus-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-surplus-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-surplus-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

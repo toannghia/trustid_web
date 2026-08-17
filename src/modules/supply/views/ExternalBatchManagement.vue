@@ -10,7 +10,7 @@ import {
   Plus, Edit, Delete, Box, Download, Connection, 
   Search, Refresh, Close, VideoPlay, ArrowRight,
   Picture, Operation, Tickets, List, Coordinate,
-  Management, Calendar, Setting, Stamp, CopyDocument, View
+  Management, Calendar, Setting, Stamp, CopyDocument, View, WarningFilled
 } from '@element-plus/icons-vue';
 
 import MediaManager from '@/modules/core/components/MediaManager.vue';
@@ -282,6 +282,10 @@ const assignForm = ref({
   excluded_serials: [] as string[]
 });
 const newExcludedSerial = ref('');
+const showDeleteModal = ref(false);
+const batchToDelete = ref<any>(null);
+const confirmDeleteCheckbox = ref(false);
+const deleting = ref(false);
 const assignLoading = ref(false);
 const assignResult = ref<any>(null);
 
@@ -688,19 +692,24 @@ const formatMetadataValue = (key: string, val: any) => {
 };
 
 const handleDelete = (row: any) => {
-  ElMessageBox.confirm(
-    `Bạn có chắc chắn muốn xóa lô ${row.batchCode}?`,
-    'Xác nhận xóa',
-    { type: 'warning' }
-  ).then(async () => {
-    try {
-      await supplyApi.deleteExternalBatch(row.id);
-      ElMessage.success('Đã xóa lô');
-      fetchData();
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.message || 'Không thể xóa lô');
-    }
-  });
+  batchToDelete.value = row;
+  confirmDeleteCheckbox.value = false;
+  showDeleteModal.value = true;
+};
+
+const executeDelete = async () => {
+  if (!batchToDelete.value) return;
+  deleting.value = true;
+  try {
+    await supplyApi.deleteExternalBatch(batchToDelete.value.id);
+    ElMessage.success('Đã xóa lô');
+    showDeleteModal.value = false;
+    fetchData();
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || 'Không thể xóa lô');
+  } finally {
+    deleting.value = false;
+  }
 };
 
 const openExportDialog = (row: any) => {
@@ -977,13 +986,9 @@ onMounted(fetchData);
               {{ getBatchTypeLabel(selectedRow.batchType) }}
             </el-tag>
           </div>
-          <el-button
-            type="info"
-            link
-            :icon="Close"
-            @click="showDetailDialog = false"
-            style="color: rgba(255,255,255,0.8); font-size: 20px;"
-          />
+          <div style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDetailDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -1344,6 +1349,9 @@ onMounted(fetchData);
               </div>
             </template>
           </div>
+          <div style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showBatchDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
       <el-form :model="batchForm" label-width="150px" label-position="left" style="padding: 24px 24px 8px; --el-border-radius-base: 8px;">
@@ -1660,6 +1668,9 @@ onMounted(fetchData);
           <span style="color: #fff; font-size: 16px; font-weight: 600;">
             Xuất lô cho đối tác (Sub-Batch)
           </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showExportDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -1717,6 +1728,9 @@ onMounted(fetchData);
           <span style="color: #fff; font-size: 16px; font-weight: 600;">
             Quét nhận lô từ Tenant khác
           </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showReceiveDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -1764,6 +1778,9 @@ onMounted(fetchData);
           <span style="color: #fff; font-size: 16px; font-weight: 600;">
             Gán mã QR cho bao / thùng
           </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showAssignDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -1860,6 +1877,61 @@ onMounted(fetchData);
       :multiple="true" 
       @select="handleCertMediaSelect" 
     />
+
+    <!-- Dialog Xác nhận xóa -->
+    <el-dialog
+      v-model="showDeleteModal"
+      width="450px"
+      :show-close="false"
+      class="branded-external-batch-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận xóa lô
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px 24px 8px;" class="space-y-4">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn xóa lô này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Lô <strong>{{ batchToDelete?.batchCode || 'N/A' }}</strong> (Sản phẩm: {{ batchToDelete?.product?.name || 'N/A' }}) sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Việc xóa lô sẽ xóa bỏ các thông tin liên quan đến việc đóng gói và kiểm kê lô hàng này.
+        </div>
+
+        <el-checkbox v-model="confirmDeleteCheckbox" class="mt-2" style="white-space: normal; word-break: break-word;">
+          <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa lô này</span>
+        </el-checkbox>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeleteModal = false" style="border-radius: 8px; padding: 10px 20px;">Hủy bỏ</el-button>
+          <el-button
+            type="danger"
+            :disabled="!confirmDeleteCheckbox"
+            :loading="deleting"
+            @click="executeDelete"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Xác nhận xóa
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
