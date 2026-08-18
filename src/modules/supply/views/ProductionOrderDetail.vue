@@ -100,15 +100,15 @@
             <div v-if="order.status === 'DRAFT'" class="space-y-3">
               <p class="text-xs text-gray-500">Lệnh mới lập. Quản lý cần kiểm tra thông số và xác nhận để bắt đầu chia phiếu.</p>
               
-              <el-button type="success" class="w-full" size="large" @click="approveOrder(true)">
+              <el-button type="success" class="w-full !ml-0" size="large" @click="approveOrder(true)">
                 Phê duyệt (APPROVE)
               </el-button>
 
-              <el-button type="danger" class="w-full" plain @click="showRejectionPrompt">
+              <el-button type="danger" class="w-full !ml-0" plain @click="showRejectionPrompt">
                 Từ chối duyệt
               </el-button>
 
-              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+              <el-button type="danger" class="w-full text-red-500 hover:text-white !ml-0" plain @click="cancelOrder">
                 Hủy lệnh sản xuất
               </el-button>
             </div>
@@ -130,10 +130,10 @@
                 <p class="text-xs text-red-800 font-semibold">❌ Sinh mã thất bại.</p>
                 <p class="text-2xs text-red-700 mt-1">Có thể thử lại hoặc hủy lệnh.</p>
               </div>
-              <el-button type="warning" class="w-full" @click="retryGenerate">
+              <el-button type="warning" class="w-full !ml-0" @click="retryGenerate">
                 🔄 Thử lại sinh mã
               </el-button>
-              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+              <el-button type="danger" class="w-full text-red-500 hover:text-white !ml-0" plain @click="cancelOrder">
                 Hủy lệnh sản xuất
               </el-button>
             </div>
@@ -146,26 +146,26 @@
               </div>
 
               <!-- Button for Bag Packaging orders -->
-              <el-button type="warning" class="w-full font-bold" size="large" icon="Connection"
+              <el-button type="warning" class="w-full font-bold !ml-0" size="large" icon="Connection"
                 @click="router.push(`/supply/production-orders/${order.id}/bag-packaging`)">
                 🔗 Liên kết đóng bao
               </el-button>
 
               <!-- Download buttons -->
               <div v-if="['CODES_READY', 'IN_PROGRESS'].includes(order.status)" class="flex gap-2 w-full">
-                <el-button type="primary" plain class="flex-1" size="default" :loading="downloadingPacket" @click="downloadPacketCodes">
+                <el-button type="primary" plain class="flex-1 !ml-0" size="default" :loading="downloadingPacket" @click="downloadPacketCodes">
                   📦 Mã gói
                 </el-button>
-                <el-button type="success" plain class="flex-1" size="default" :loading="downloadingBag" @click="downloadBagCodes">
+                <el-button type="success" plain class="flex-1 !ml-0" size="default" :loading="downloadingBag" @click="downloadBagCodes">
                   🛍️ Mã bao
                 </el-button>
               </div>
 
-              <el-button type="success" class="w-full text-white font-bold shadow" size="large" @click="showCompleteDialog">
+              <el-button type="success" class="w-full text-white font-bold shadow !ml-0" size="large" @click="showCompleteDialog">
                 ✅ Chốt Lệnh Sản Xuất
               </el-button>
               
-              <el-button type="danger" class="w-full text-red-500 hover:text-white" plain @click="cancelOrder">
+              <el-button type="danger" class="w-full text-red-500 hover:text-white !ml-0" plain @click="cancelOrder">
                 Hủy lệnh sản xuất
               </el-button>
             </div>
@@ -357,95 +357,165 @@
     <!-- Cancel Order Confirmation Dialog -->
     <el-dialog
       v-model="cancelDialogVisible"
-      title="⚠️ Xác nhận Hủy Lệnh Sản xuất"
-      width="480px"
+      width="440px"
       :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
     >
-      <div class="space-y-4">
-        <!-- Warning box -->
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p class="text-sm font-bold text-red-800 mb-2">❌ Thao tác này không thể hoàn tác!</p>
-          <ul class="text-xs text-red-700 space-y-1 list-disc pl-4">
-            <li>Toàn bộ <strong>mã gói</strong> và <strong>mã bao</strong> đã sinh sẽ bị xóa vĩnh viễn</li>
-            <li>Các phiếu sản xuất liên quan sẽ bị đóng</li>
-            <li>Không thể hủy nếu đã có lô được liên kết bao</li>
-          </ul>
-        </div>
-
-        <!-- Order code display -->
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <span class="text-xs text-gray-500 block mb-1">Mã lệnh sản xuất</span>
-          <span class="font-mono font-bold text-gray-800 text-lg">{{ order?.orderCode }}</span>
-        </div>
-
-        <!-- Confirmation checkbox -->
-        <div
-          class="flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors"
-          :class="cancelConfirmed ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300'"
-          @click="cancelConfirmed = !cancelConfirmed"
-        >
-          <div
-            class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors"
-            :class="cancelConfirmed ? 'bg-red-500 border-red-500' : 'border-gray-300'"
-          >
-            <svg v-if="cancelConfirmed" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận hủy lệnh sản xuất</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="cancelDialogVisible = false; cancelConfirmed = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
           </div>
-          <span class="text-sm text-gray-700 leading-snug select-none">
-            Tôi đã đọc kỹ và đồng ý hủy lệnh sản xuất
-            <strong class="text-gray-900 font-mono">{{ order?.orderCode }}</strong>
-          </span>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div class="space-y-4 mb-4">
+          <!-- Warning box -->
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p class="text-sm font-bold text-red-800 mb-2 flex items-center gap-2">
+              <el-icon :size="16"><WarningFilled /></el-icon>
+              Thao tác này không thể hoàn tác!
+            </p>
+            <ul class="text-xs text-red-700 space-y-1 list-disc pl-4">
+              <li>Toàn bộ <strong>mã gói</strong> và <strong>mã bao</strong> đã sinh sẽ bị xóa vĩnh viễn</li>
+              <li>Các phiếu sản xuất liên quan sẽ bị đóng</li>
+              <li>Không thể hủy nếu đã có lô được liên kết bao</li>
+            </ul>
+          </div>
+
+          <!-- Order code display -->
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <span class="text-xs text-gray-500 block mb-1">Mã lệnh sản xuất</span>
+            <span class="font-mono font-bold text-gray-800 text-lg">{{ order?.orderCode }}</span>
+          </div>
+
+          <!-- Confirmation checkbox -->
+          <el-checkbox v-model="cancelConfirmed" class="mt-2" style="white-space: normal; word-break: break-word;">
+            <span class="text-sm font-medium text-gray-700">Tôi đã đọc kỹ và đồng ý hủy lệnh sản xuất <strong class="text-gray-900 font-mono">{{ order?.orderCode }}</strong></span>
+          </el-checkbox>
         </div>
       </div>
 
       <template #footer>
-        <el-button @click="cancelDialogVisible = false; cancelConfirmed = false">Quay lại</el-button>
-        <el-button
-          type="danger"
-          :disabled="!cancelConfirmed"
-          :loading="cancelling"
-          @click="confirmCancelOrder"
-        >
-          Xác nhận Hủy Lệnh
-        </el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="cancelDialogVisible = false; cancelConfirmed = false" style="border-radius: 8px; padding: 10px 20px;">Quay lại</el-button>
+          <el-button
+            type="danger"
+            :disabled="!cancelConfirmed"
+            :loading="cancelling"
+            @click="confirmCancelOrder"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Xác nhận Hủy Lệnh
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Complete Order Dialog -->
     <el-dialog
       v-model="completeDialogVisible"
-      title="✅ Xác nhận Chốt Lệnh Sản xuất"
-      width="500px"
+      width="440px"
       :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
     >
-      <div class="space-y-4">
-        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-          <p class="text-sm font-bold text-emerald-800 mb-2">Thông tin chốt lệnh:</p>
-          <ul class="text-xs text-emerald-700 space-y-1 list-disc pl-4">
-            <li>Khối lượng kế hoạch: <strong>{{ order?.plannedWeightKg?.toFixed(1) }} kg</strong></li>
-            <li>Đã đóng gói thực tế: <strong>{{ (order?.actualWeightKg || 0).toFixed(1) }} kg</strong></li>
-            <li>Còn lại chưa đóng: <strong>{{ (order?.plannedWeightKg - (order?.actualWeightKg || 0)).toFixed(1) }} kg</strong></li>
-          </ul>
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận chốt lệnh Sản xuất</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="completeDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
-        
-        <el-checkbox
-          v-if="(order?.plannedWeightKg - (order?.actualWeightKg || 0)) > 0"
-          v-model="refundUnusedWeight"
-          class="!whitespace-normal text-sm text-gray-700 font-semibold"
-        >
-          Hoàn trả lại nguyên liệu thừa chưa đóng hết về tồn kho gốc
-        </el-checkbox>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div class="space-y-4 mb-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <p class="text-sm font-bold text-emerald-800 mb-2">Thông tin chốt lệnh:</p>
+            <ul class="text-xs text-emerald-700 space-y-1 list-disc pl-4">
+              <li>Khối lượng kế hoạch: <strong class="text-emerald-900">{{ order?.plannedWeightKg?.toFixed(1) }} kg</strong></li>
+              <li>Đã đóng gói thực tế: <strong class="text-emerald-900">{{ (order?.actualWeightKg || 0).toFixed(1) }} kg</strong></li>
+              <li>Còn lại chưa đóng: <strong class="text-emerald-900">{{ (order?.plannedWeightKg - (order?.actualWeightKg || 0)).toFixed(1) }} kg</strong></li>
+            </ul>
+          </div>
+          
+          <el-checkbox
+            v-if="(order?.plannedWeightKg - (order?.actualWeightKg || 0)) > 0"
+            v-model="refundUnusedWeight"
+            class="!whitespace-normal text-sm text-gray-700 font-semibold"
+          >
+            Hoàn trả nguyên liệu thừa chưa đóng về kho
+          </el-checkbox>
+        </div>
       </div>
+
       <template #footer>
-        <el-button @click="completeDialogVisible = false">Hủy</el-button>
-        <el-button
-          type="success"
-          :loading="completingOrder"
-          @click="confirmCompleteOrder"
-        >
-          Xác nhận Chốt Lệnh
-        </el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="completeDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button
+            type="success"
+            :loading="completingOrder"
+            @click="confirmCompleteOrder"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Xác nhận Chốt Lệnh
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Reopen Receipt Dialog -->
+    <el-dialog
+      v-model="reopenDialogVisible"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận mở lại phiếu</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="reopenDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px;">
+          <el-icon class="text-green-500 mt-1" :size="20"><InfoFilled /></el-icon>
+          <div>
+            <div class="text-sm font-semibold text-gray-800 mb-1">Mở lại phiếu <span class="text-green-600">{{ selectedReceiptToReopen?.receiptCode }}</span> để đóng tiếp?</div>
+            <div class="text-xs text-gray-600">
+              Hiện tại đã đóng: <strong class="text-gray-900">{{ selectedReceiptToReopen?.totalBags || 0 }}</strong> bao, 
+              <strong class="text-gray-900">{{ selectedReceiptToReopen?.totalPackets || 0 }}</strong> gói.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="reopenDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button
+            type="success"
+            :loading="reopeningReceipt"
+            @click="submitReopenReceipt"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Mở lại phiếu
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -461,6 +531,7 @@ import { productionOrderApi } from '../api/productionOrderApi';
 import { productionOrderStatusMap } from '@/common/utils/vi-labels';
 import ProductionTicketFormDialog from '../components/ProductionTicketFormDialog.vue';
 import ProductionTicketExecutionDialog from '../components/ProductionTicketExecutionDialog.vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const route = useRoute();
 const router = useRouter();
@@ -486,6 +557,11 @@ const cancelling = ref(false);
 const completeDialogVisible = ref(false);
 const refundUnusedWeight = ref(true);
 const completingOrder = ref(false);
+
+// Reopen receipt dialog state
+const reopenDialogVisible = ref(false);
+const selectedReceiptToReopen = ref<any>(null);
+const reopeningReceipt = ref(false);
 
 const downloadPacketCodes = async () => {
   downloadingPacket.value = true;
@@ -746,19 +822,23 @@ const releasePallet = (ticket: any) => {
   });
 };
 
-const handleReopenReceipt = async (r: any) => {
+const handleReopenReceipt = (r: any) => {
+  selectedReceiptToReopen.value = r;
+  reopenDialogVisible.value = true;
+};
+
+const submitReopenReceipt = async () => {
+  if (!selectedReceiptToReopen.value) return;
+  reopeningReceipt.value = true;
   try {
-    await ElMessageBox.confirm(
-      `Mở lại phiếu ${r.receiptCode} để đóng tiếp?\nHiện tại: ${r.totalBags} bao, ${r.totalPackets} gói.`,
-      'Xác nhận mở lại',
-      { confirmButtonText: 'Mở lại', cancelButtonText: 'Hủy', type: 'warning' }
-    );
-    await productionOrderApi.reopenReceipt(r.id);
-    ElMessage.success(`Đã mở lại phiếu ${r.receiptCode}`);
+    await productionOrderApi.reopenReceipt(selectedReceiptToReopen.value.id);
+    ElMessage.success(`Đã mở lại phiếu ${selectedReceiptToReopen.value.receiptCode}`);
     await loadOrderDetails(orderId);
+    reopenDialogVisible.value = false;
   } catch (e: any) {
-    if (e === 'cancel') return;
     ElMessage.error(e?.response?.data?.message || 'Không thể mở lại phiếu');
+  } finally {
+    reopeningReceipt.value = false;
   }
 };
 
@@ -776,3 +856,22 @@ onMounted(() => {
   loadOrderDetails(orderId);
 });
 </script>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
+</style>

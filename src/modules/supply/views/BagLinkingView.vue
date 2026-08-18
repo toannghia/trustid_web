@@ -171,6 +171,192 @@
       :prefill-damaged="prefillDamagedSerial"
       @replaced="onReplaced"
     />
+
+    <!-- Dialog Xác nhận mở lại phiếu -->
+    <el-dialog
+      v-model="reopenDialogVisible"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận mở lại phiếu</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="reopenDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px;">
+          <el-icon class="text-green-500 mt-1" :size="20"><InfoFilled /></el-icon>
+          <div>
+            <div class="text-sm font-semibold text-gray-800 mb-1">Mở lại phiếu <span class="text-green-600">{{ receipt?.receiptCode }}</span> để đóng tiếp?</div>
+            <div class="text-xs text-gray-600">
+              Hiện tại đã đóng: <strong class="text-gray-900">{{ receipt?.totalBags || 0 }}</strong> bao, 
+              <strong class="text-gray-900">{{ receipt?.totalPackets || 0 }}</strong> gói.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="reopenDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button
+            type="success"
+            :loading="reopening"
+            @click="submitReopen"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Mở lại phiếu
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Dialog Cảnh báo chưa lưu -->
+    <el-dialog
+      v-model="unsavedDialogVisible"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận thoát</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="handleUnsavedAction('cancel')">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px;">
+          <el-icon class="text-green-500 mt-1" :size="20"><InfoFilled /></el-icon>
+          <div>
+            <div class="text-sm font-semibold text-green-800 mb-1">Phiếu đóng bao chưa hoàn tất!</div>
+            <div class="text-xs text-gray-700">
+              Bạn có muốn lưu lại phiếu đang làm dang dở trước khi rời đi không? Nếu thoát không lưu, dữ liệu vừa quét sẽ bị mất.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="handleUnsavedAction('discard')" style="border-radius: 8px; padding: 10px 20px;">Thoát không lưu</el-button>
+          <el-button
+            type="primary"
+            :loading="savingDraft"
+            @click="handleUnsavedAction('save')"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Lưu tạm & Thoát
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Dialog Xác nhận lưu phiếu -->
+    <el-dialog
+      v-model="completeDialogVisible"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận lưu phiếu</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="completeDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px;">
+          <el-icon class="text-green-500 mt-1" :size="20"><InfoFilled /></el-icon>
+          <div>
+            <div class="text-sm font-semibold text-green-800 mb-1">Lưu phiếu {{ receipt?.receiptCode }}?</div>
+            <div class="text-xs text-gray-700">
+              Hành động này sẽ đóng phiếu và nhập kho thành phẩm tổng cộng <strong class="text-gray-900">{{ receipt?.totalBags || 0 }}</strong> bao 
+              (<strong class="text-gray-900">{{ receipt?.totalPackets || 0 }}</strong> gói).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="completeDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button
+            type="primary"
+            :loading="completing"
+            @click="submitComplete"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Lưu lại
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Dialog Xác nhận xóa -->
+    <el-dialog
+      v-model="removeDialogVisible"
+      width="440px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="branded-pallet-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Xác nhận xóa</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="removeDialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+
+      <div style="padding: 24px 24px 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 14px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px;">
+          <el-icon class="text-red-500 mt-1" :size="20"><WarningFilled /></el-icon>
+          <div>
+            <div class="text-sm font-semibold text-red-800 mb-1">Xóa bao {{ bagToRemove?.bagSerial }} khỏi phiếu?</div>
+            <div class="text-xs text-gray-700">
+              Bao này sẽ được hủy liên kết khỏi phiếu. Hành động này không thể hoàn tác.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="removeDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+          <el-button
+            type="danger"
+            :loading="removingBag"
+            @click="submitRemoveBag"
+            style="border-radius: 8px; padding: 10px 20px;"
+          >
+            Xác nhận Xóa
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -178,7 +364,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, Refresh, Download } from '@element-plus/icons-vue';
+import { ArrowLeft, Refresh, Download, InfoFilled } from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { productionOrderApi } from '../api/productionOrderApi';
 import { transportApi } from '../api/transportApi';
 import PacketDetailPopup from '../components/PacketDetailPopup.vue';
@@ -219,6 +406,16 @@ const completing = ref(false);
 const savingDraft = ref(false);
 const exporting = ref(false);
 const reopening = ref(false);
+const reopenDialogVisible = ref(false);
+const isDirty = ref(false);
+
+const unsavedDialogVisible = ref(false);
+let unsavedDialogResolve: ((value: boolean | 'save' | 'discard') => void) | null = null;
+
+const completeDialogVisible = ref(false);
+const removeDialogVisible = ref(false);
+const bagToRemove = ref<any>(null);
+const removingBag = ref(false);
 
 const formatDate = (d: string | Date) => {
   if (!d) return '—';
@@ -347,6 +544,7 @@ const handleScan = async () => {
     }
 
     await fetchBags();
+    isDirty.value = true;
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || 'Quét mã thất bại');
   } finally {
@@ -357,13 +555,8 @@ const handleScan = async () => {
 
 // ==================== ACTIONS ====================
 
-const handleWarehouseChange = async (id: string) => {
-  if (!receipt.value?.id) return;
-  try {
-    await productionOrderApi.updateReceiptWarehouse(receipt.value.id, { warehouse_id: id });
-  } catch (e: any) {
-    ElMessage.error('Cập nhật kho thất bại');
-  }
+const handleWarehouseChange = (id: string) => {
+  isDirty.value = true;
 };
 
 const openPacketDetail = (row: any) => {
@@ -384,73 +577,129 @@ const openReplaceFromDetail = (serial: string) => {
 
 const onReplaced = () => {
   fetchBags();
+  isDirty.value = true;
 };
 
 const handleRemoveBag = (row: any) => {
-  ElMessageBox.confirm(
-    `Xóa bao ${row.bagSerial} khỏi phiếu? Lô sẽ trở về trạng thái chưa liên kết.`,
-    'Xác nhận xóa',
-    { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning' }
-  ).then(async () => {
-    try {
-      const { data } = await productionOrderApi.removeBagFromReceipt(receipt.value.id, row.id);
-      const result = data.data || data;
-      ElMessage.success('Đã xóa bao');
-      if (result.receiptTotals) {
-        receipt.value.totalBags = result.receiptTotals.totalBags;
-        receipt.value.totalPackets = result.receiptTotals.totalPackets;
-      }
-      await fetchBags();
-    } catch (e: any) {
-      ElMessage.error(e?.response?.data?.message || 'Xóa thất bại');
-    }
-  }).catch(() => {});
+  bagToRemove.value = row;
+  removeDialogVisible.value = true;
 };
 
-const handleSaveDraft = async () => {
+const submitRemoveBag = async () => {
+  if (!bagToRemove.value) return;
+  removingBag.value = true;
+  try {
+    const { data } = await productionOrderApi.removeBagFromReceipt(receipt.value.id, bagToRemove.value.id);
+    const result = data.data || data;
+    ElMessage.success('Đã xóa bao');
+    if (result.receiptTotals) {
+      receipt.value.totalBags = result.receiptTotals.totalBags;
+      receipt.value.totalPackets = result.receiptTotals.totalPackets;
+    }
+    await fetchBags();
+    removeDialogVisible.value = false;
+    isDirty.value = true;
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Xóa thất bại');
+  } finally {
+    removingBag.value = false;
+  }
+};
+
+const handleSaveDraft = async (): Promise<boolean> => {
+  if (!selectedWarehouseId.value) {
+    ElMessage.warning('Vui lòng chọn Kho lưu trước khi lưu phiếu!');
+    // Cuộn lên chỗ chọn kho lưu để người dùng dễ thấy
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
+  }
+
   savingDraft.value = true;
   try {
+    if (selectedWarehouseId.value && selectedWarehouseId.value !== receipt.value?.warehouseId) {
+      await productionOrderApi.updateReceiptWarehouse(receipt.value.id, { warehouse_id: selectedWarehouseId.value });
+      receipt.value.warehouseId = selectedWarehouseId.value;
+    }
     await productionOrderApi.saveDraftReceipt(receipt.value.id);
     ElMessage.success('Đã lưu tạm phiếu');
+    isDirty.value = false;
+    return true;
   } catch (e: any) {
     ElMessage.error('Lưu tạm thất bại');
+    return false;
   } finally {
     savingDraft.value = false;
   }
 };
 
-const handleComplete = async () => {
-  ElMessageBox.confirm(
-    `Lưu phiếu ${receipt.value.receiptCode} và nhập kho ${receipt.value.totalBags} bao (${receipt.value.totalPackets} gói)?`,
-    'Xác nhận lưu phiếu',
-    { confirmButtonText: 'Lưu lại', cancelButtonText: 'Hủy', type: 'info' }
-  ).then(async () => {
-    completing.value = true;
-    try {
-      await productionOrderApi.completeReceipt(receipt.value.id);
-      ElMessage.success('Đã lưu phiếu và nhập kho thành phẩm');
-      receipt.value.status = 'COMPLETED';
-    } catch (e: any) {
-      ElMessage.error(e?.response?.data?.message || 'Lưu phiếu thất bại');
-    } finally {
-      completing.value = false;
-    }
-  }).catch(() => {});
+const promptUnsavedChanges = (): Promise<boolean | 'save' | 'discard'> => {
+  return new Promise((resolve) => {
+    unsavedDialogVisible.value = true;
+    unsavedDialogResolve = resolve;
+  });
 };
 
-const handleReopen = async () => {
+const handleUnsavedAction = async (action: 'save' | 'discard' | 'cancel') => {
+  if (action === 'save') {
+    const success = await handleSaveDraft();
+    if (!success) {
+      // Đóng dialog cảnh báo và hủy việc chuyển trang (trả về false) để người dùng chọn kho
+      unsavedDialogVisible.value = false;
+      if (unsavedDialogResolve) unsavedDialogResolve(false);
+      unsavedDialogResolve = null;
+      return;
+    }
+    unsavedDialogVisible.value = false;
+    if (unsavedDialogResolve) unsavedDialogResolve('save');
+  } else if (action === 'discard') {
+    unsavedDialogVisible.value = false;
+    if (unsavedDialogResolve) unsavedDialogResolve('discard');
+  } else {
+    unsavedDialogVisible.value = false;
+    if (unsavedDialogResolve) unsavedDialogResolve(false);
+  }
+  unsavedDialogResolve = null;
+};
+
+const handleComplete = () => {
+  if (!selectedWarehouseId.value) {
+    ElMessage.warning('Vui lòng chọn Kho lưu trước khi chốt phiếu!');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  completeDialogVisible.value = true;
+};
+
+const submitComplete = async () => {
+  completing.value = true;
   try {
-    await ElMessageBox.confirm(
-      `Mở lại phiếu ${receipt.value.receiptCode} để đóng tiếp?\nHiện tại: ${receipt.value.totalBags} bao, ${receipt.value.totalPackets} gói.`,
-      'Xác nhận mở lại',
-      { confirmButtonText: 'Mở lại', cancelButtonText: 'Hủy', type: 'warning' }
-    );
-    reopening.value = true;
+    if (selectedWarehouseId.value && selectedWarehouseId.value !== receipt.value?.warehouseId) {
+      await productionOrderApi.updateReceiptWarehouse(receipt.value.id, { warehouse_id: selectedWarehouseId.value });
+      receipt.value.warehouseId = selectedWarehouseId.value;
+    }
+    await productionOrderApi.completeReceipt(receipt.value.id);
+    ElMessage.success('Đã lưu phiếu và nhập kho thành phẩm');
+    receipt.value.status = 'COMPLETED';
+    completeDialogVisible.value = false;
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || 'Lưu phiếu thất bại');
+  } finally {
+    completing.value = false;
+  }
+};
+
+const handleReopen = () => {
+  reopenDialogVisible.value = true;
+};
+
+const submitReopen = async () => {
+  reopening.value = true;
+  try {
     await productionOrderApi.reopenReceipt(receipt.value.id);
     ElMessage.success('Đã mở lại phiếu — có thể đóng bao tiếp');
     receipt.value.status = 'PACKING';
+    reopenDialogVisible.value = false;
   } catch (e: any) {
-    if (e === 'cancel') return;
     ElMessage.error(e?.response?.data?.message || 'Không thể mở lại phiếu');
   } finally {
     reopening.value = false;
@@ -476,47 +725,23 @@ const handleExportBagCodes = async () => {
 };
 
 const handleBack = () => {
-  if (receipt.value?.status !== 'COMPLETED' && bags.value.length > 0) {
-    ElMessageBox.confirm(
-      'Phiếu chưa hoàn thành. Lưu tạm trước khi thoát?',
-      'Lưu tạm',
-      { confirmButtonText: 'Lưu tạm & Thoát', cancelButtonText: 'Thoát không lưu', type: 'warning', distinguishCancelAndClose: true }
-    ).then(async () => {
-      await handleSaveDraft();
-      router.back();
-    }).catch((action) => {
-      if (action === 'cancel') router.back();
-    });
-  } else {
-    router.back();
-  }
+  router.back();
 };
 
 // === Navigation guard ===
 const hasUnsavedWork = computed(() =>
-  receipt.value?.status !== 'COMPLETED' && bags.value.length > 0
+  receipt.value?.status !== 'COMPLETED' && isDirty.value
 );
 
 // Guard 1: Vue Router (click menu, navigate)
 onBeforeRouteLeave(async (_to, _from) => {
   if (!hasUnsavedWork.value) return true;
-  try {
-    await ElMessageBox.confirm(
-      'Phiếu đóng bao chưa hoàn tất. Bạn muốn lưu tạm trước khi rời đi?',
-      'Cảnh báo',
-      {
-        confirmButtonText: 'Lưu tạm & Thoát',
-        cancelButtonText: 'Thoát không lưu',
-        distinguishCancelAndClose: true,
-        type: 'warning',
-      }
-    );
-    await handleSaveDraft();
+  
+  const action = await promptUnsavedChanges();
+  if (action === 'save' || action === 'discard') {
     return true;
-  } catch (action) {
-    if (action === 'cancel') return true; // Thoát không lưu
-    return false; // Đóng dialog = ở lại
   }
+  return false;
 });
 
 // Guard 2: Browser close / refresh / mất điện → trình duyệt hỏi

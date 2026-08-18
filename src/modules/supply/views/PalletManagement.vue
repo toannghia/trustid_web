@@ -251,15 +251,69 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- Delete Confirm Dialog -->
+    <el-dialog v-model="showDeleteDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận xóa Pallet
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn xóa Pallet này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Pallet <strong>{{ deletingPallet?.palletCode || 'N/A' }}</strong> sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Việc xóa pallet sẽ giải phóng các sản phẩm (nếu có) bên trong pallet này.
+        </div>
+
+        <el-checkbox v-model="deleteConfirmed" class="mt-2" style="white-space: normal; word-break: break-word;">
+          <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa Pallet này</span>
+        </el-checkbox>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeleteDialog = false">Hủy</el-button>
+          <el-button
+            type="danger"
+            :disabled="!deleteConfirmed"
+            :loading="isDeleting"
+            @click="confirmDeletePallet"
+          >
+            Xóa Pallet
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Download, Search } from '@element-plus/icons-vue'
+import { Plus, Download, Search, WarningFilled } from '@element-plus/icons-vue'
 import api from '@/common/utils/api'
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
+
+const showDeleteDialog = ref(false)
+const deleteConfirmed = ref(false)
+const deletingPallet = ref<any>(null)
+const isDeleting = ref(false)
 
 const pallets = ref<any[]>([])
 const total = ref(0)
@@ -374,13 +428,25 @@ async function handleUpdate() {
   }
 }
 
-async function deletePallet(row: any) {
+function deletePallet(row: any) {
+  deletingPallet.value = row
+  deleteConfirmed.value = false
+  showDeleteDialog.value = true
+}
+
+async function confirmDeletePallet() {
+  if (!deletingPallet.value) return
+  isDeleting.value = true
   try {
-    await ElMessageBox.confirm(`Xoá pallet ${row.palletCode}?`, 'Xác nhận', { type: 'warning' })
-    await api.delete(`/supply/pallets/${row.id}`)
-    ElMessage.success('Đã xoá')
+    await api.delete(`/supply/pallets/${deletingPallet.value.id}`)
+    ElMessage.success('Đã xoá pallet thành công')
+    showDeleteDialog.value = false
     fetchPallets()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Lỗi khi xóa pallet')
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 async function unlinkBag(mapping: any) {

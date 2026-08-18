@@ -1,17 +1,32 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="`Chi tiết gói — Bao ${bagSerial}`"
-    width="640px"
+    width="800px"
     :close-on-click-modal="false"
+    :show-close="false"
+    class="branded-pallet-dialog"
   >
-    <div class="mb-4 flex items-center gap-4 text-sm text-gray-600">
-      <span><strong>Lô:</strong> {{ groupIndex }}</span>
-      <span><strong>Mã QR bao:</strong> <code class="text-green-700">{{ bagQrCode || bagSerial }}</code></span>
-      <span><strong>Tổng gói:</strong> {{ packetCount }}</span>
-    </div>
+    <template #header>
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+        <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
+          {{ `Chi tiết gói — Bao ${bagSerial}` }}
+        </span>
+        <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+          <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+        </div>
+      </div>
+    </template>
 
-    <el-table :data="packets" border stripe size="small" v-loading="loading" max-height="400">
+    <div style="padding: 24px 24px 8px;">
+      <div class="mb-4 flex items-center gap-4 text-sm text-gray-600">
+        <span><strong>Lô:</strong> {{ groupIndex }}</span>
+        <span><strong>Mã QR bao:</strong> <code class="text-green-700">{{ bagQrCode || bagSerial }}</code></span>
+        <span><strong>Tổng gói:</strong> {{ packetCount }}</span>
+      </div>
+
+    <el-table :data="packets" border stripe size="small" v-loading="loading" max-height="500">
       <el-table-column prop="stt" label="STT" width="60" align="center" />
       <el-table-column prop="serial" label="Mã gói" min-width="140">
         <template #default="{ row }">
@@ -55,9 +70,12 @@
         <span class="ml-2">{{ formatDate(r.replacedAt) }}</span>
       </div>
     </div>
-
+    </div>
+    
     <template #footer>
-      <el-button @click="visible = false">Đóng</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Đóng</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -66,6 +84,7 @@
 import { ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { productionOrderApi } from '../api/productionOrderApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -121,3 +140,22 @@ const fetchData = async () => {
 watch(() => props.mappingId, () => { if (visible.value) fetchData(); });
 watch(visible, v => { if (v) fetchData(); });
 </script>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
+</style>

@@ -1,13 +1,26 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="Thay thế gói hỏng"
     width="500px"
     :close-on-click-modal="false"
+    :show-close="false"
+    class="branded-pallet-dialog"
     @closed="resetForm"
     @opened="onOpened"
   >
-    <el-form label-position="top" class="replace-form">
+    <template #header>
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+        <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Thay thế gói hỏng</span>
+        <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+          <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+        </div>
+      </div>
+    </template>
+
+    <div style="padding: 24px 24px 8px;">
+      <el-form label-position="top" class="replace-form">
       <!-- Lý do (đầu tiên, mặc định sẵn) -->
       <el-form-item label="Lý do thay thế" required>
         <el-select
@@ -68,12 +81,15 @@
     <div v-if="submitting" class="text-center text-blue-500 text-sm py-2">
       Đang xử lý thay thế...
     </div>
+    </div>
 
     <template #footer>
-      <el-button @click="visible = false">Hủy</el-button>
-      <el-button type="warning" @click="submitReplace" :loading="submitting" :disabled="!canSubmit">
-        Xác nhận thay
-      </el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+        <el-button type="warning" @click="submitReplace" :loading="submitting" :disabled="!canSubmit" style="border-radius: 8px; padding: 10px 20px;">
+          Xác nhận thay
+        </el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -82,6 +98,7 @@
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { productionOrderApi } from '../api/productionOrderApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -167,5 +184,24 @@ const resetForm = () => {
 <style scoped>
 .replace-form :deep(.el-input__inner) {
   font-size: 16px;
+}
+</style>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
 }
 </style>

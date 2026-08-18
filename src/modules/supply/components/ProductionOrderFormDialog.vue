@@ -1,26 +1,35 @@
 <template>
   <el-dialog
     v-model="visible"
-    width="820px"
+    width="860px"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     @closed="resetForm"
     append-to-body
+    :show-close="false"
+    class="branded-pallet-dialog"
   >
     <template #header>
-      <div class="flex justify-between items-center w-full pr-8">
-        <span class="text-lg font-bold text-gray-800">
+      <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+        <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+        <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+        <span style="color: #ffffff; font-size: 16px; font-weight: 600;">
           {{ editMode ? `Chỉnh sửa Lệnh sản xuất: ${form.order_code}` : 'Tạo Lệnh Sản Xuất Mới' }}
         </span>
-        <span class="text-xs text-gray-500 font-normal">
-          Người tạo: <strong>{{ editMode ? (form.creator || 'N/A') : (authStore.user?.fullName || authStore.user?.full_name || authStore.user?.username || 'N/A') }}</strong>
-          <span class="mx-2">•</span>
-          Ngày tạo: <strong>{{ editMode ? (form.created_at || 'N/A') : new Date().toLocaleDateString('vi-VN') }}</strong>
-        </span>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">
+          <span style="color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 400;">
+            Người tạo: <strong style="color: #fff;">{{ editMode ? (form.creator || 'N/A') : (authStore.user?.fullName || authStore.user?.full_name || authStore.user?.username || 'N/A') }}</strong>
+            <span style="margin: 0 8px;">•</span>
+            Ngày tạo: <strong style="color: #fff;">{{ editMode ? (form.created_at || 'N/A') : new Date().toLocaleDateString('vi-VN') }}</strong>
+          </span>
+          <div style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="visible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
       </div>
     </template>
 
-    <el-form :model="form" label-position="top" :rules="rules" ref="formRef" v-loading="loadingData">
+    <el-form :model="form" label-position="top" :rules="rules" ref="formRef" v-loading="loadingData" style="padding: 24px 24px 8px;">
       
       <!-- Row 2: Sản phẩm và Ngày thực hiện -->
       <el-row :gutter="20">
@@ -273,12 +282,12 @@
     </el-form>
 
     <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="visible = false">Hủy</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitForm">
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+        <el-button @click="visible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitForm" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">
           {{ editMode ? 'Cập nhật Lệnh' : 'Tạo Lệnh Sản Xuất' }}
         </el-button>
-      </span>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -293,6 +302,7 @@ import { supplyApi } from '../api/supplyApi';
 import { productionOrderApi } from '../api/productionOrderApi';
 import type { FormInstance, FormRules } from 'element-plus';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const emit = defineEmits(['success']);
 
@@ -714,4 +724,23 @@ defineExpose({ open });
 
 <style scoped>
 /* Scoped styles for precise spacing */
+</style>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
 </style>
