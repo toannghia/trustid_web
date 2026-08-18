@@ -161,7 +161,7 @@
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 max-h-[220px] overflow-y-auto pr-1">
                 <div v-for="(pkt, idx) in item.packets" :key="pkt.serial"
                   class="bg-white border border-gray-200/90 rounded px-2 py-1 text-[11px] font-mono flex items-center justify-between shadow-2xs hover:border-blue-400 transition-colors">
-                  <span class="text-gray-400 select-none">{{ idx + 1 }}.</span>
+                  <span class="text-gray-400 select-none">{{ Number(idx) + 1 }}.</span>
                   <span class="font-semibold text-gray-700 truncate" :title="pkt.qrCode || pkt.serial">{{ pkt.qrCode || pkt.serial }}</span>
                 </div>
               </div>

@@ -40,13 +40,14 @@
                     v-model="selectedHarvestCode" 
                     placeholder="Chọn lô thu hoạch..." 
                     filterable 
+                    clearable
                     class="flex-1 min-w-0"
                     @change="onHarvestSelect"
                     size="default"
                     :disabled="!!activeBatchId"
                  >
                     <el-option 
-                        v-for="h in harvestList" 
+                        v-for="h in filteredHarvestList" 
                         :key="h.id" 
                         :label="`${h.batchCode} (${h.product?.name || h.productName || 'Chưa rõ SP'}) - ${h.quantityKg}kg`" 
                         :value="h.batchCode" 
@@ -61,6 +62,7 @@
                     v-model="selectedExternalBatchId" 
                     placeholder="Chọn lô nhập ngoài/chuyển giao..." 
                     filterable 
+                    clearable
                     class="flex-1 min-w-0"
                     @change="onExternalBatchSelect"
                     size="default"
@@ -84,6 +86,7 @@
                     v-model="selectedSemiFinishedBatchId" 
                     placeholder="Chọn lô bán thành phẩm..." 
                     filterable 
+                    clearable
                     class="flex-1 min-w-0"
                     @change="onSemiFinishedSelect"
                     size="default"
@@ -114,6 +117,7 @@
                     v-model="selectedProductId" 
                     placeholder="Chọn sản phẩm..." 
                     filterable 
+                    clearable
                     class="flex-1 min-w-0"
                     @change="onProductSelect"
                     size="default"
@@ -432,12 +436,30 @@ const selectedPoolInfo = computed(() => {
     return poolList.value.find(p => p.id === selectedPoolId.value) || null;
 });
 
+const matchesProduct = (item: any, productId: string) => {
+    if (!productId) return true;
+    return item.productId === productId || item.product_id === productId || item.product?.id === productId;
+};
+
+const filteredHarvestList = computed(() => {
+    if (!selectedProductId.value) return harvestList.value;
+    return harvestList.value.filter(h => matchesProduct(h, selectedProductId.value));
+});
+
 const externalOnlyList = computed(() => {
-    return externalBatchList.value.filter(b => b.batchType !== 'SEMI_FINISHED');
+    let list = externalBatchList.value.filter(b => b.batchType !== 'SEMI_FINISHED');
+    if (selectedProductId.value) {
+        list = list.filter(b => matchesProduct(b, selectedProductId.value));
+    }
+    return list;
 });
 
 const semiFinishedOnlyList = computed(() => {
-    return externalBatchList.value.filter(b => b.batchType === 'SEMI_FINISHED' || b.batchType === 'CROSS_TENANT');
+    let list = externalBatchList.value.filter(b => b.batchType === 'SEMI_FINISHED' || b.batchType === 'CROSS_TENANT');
+    if (selectedProductId.value) {
+        list = list.filter(b => matchesProduct(b, selectedProductId.value));
+    }
+    return list;
 });
 
 const defaultWarehouse = computed(() => {
@@ -505,7 +527,7 @@ const loadBatchIfExists = async () => {
             activeBatchId.value = data.id;
             batchCode.value = data.batchCode;
             activeBatchType.value = data.batchType;
-            batchSourceType.value = (data.batchType === 'FARM') ? 'FARM' : 'EXTERNAL';
+            batchSourceType.value = (data.batchType === 'FARM') ? 'FARM' : (data.batchType === 'SEMI_FINISHED' ? 'SEMI_FINISHED' : 'EXTERNAL');
             batchQrSerial.value = data.batchQrSerial;
             
             selectedHarvestCode.value = data.farmBatchCode;
@@ -615,6 +637,29 @@ const onProductSelect = () => {
             const unit = (p.weightUnit || 'kg').toLowerCase();
             if (unit === 'g' || unit === 'ml') weight /= 1000;
             unitWeight.value = weight;
+        }
+    }
+
+    if (!activeBatchId.value) {
+        if (selectedHarvestCode.value) {
+            const h = harvestList.value.find(item => item.batchCode === selectedHarvestCode.value);
+            if (h && selectedProductId.value && !matchesProduct(h, selectedProductId.value)) {
+                selectedHarvestCode.value = '';
+                harvestQuantity.value = 0;
+                previouslyPackagedCount.value = 0;
+            }
+        }
+        if (selectedExternalBatchId.value) {
+            const b = externalBatchList.value.find(item => item.id === selectedExternalBatchId.value);
+            if (b && selectedProductId.value && !matchesProduct(b, selectedProductId.value)) {
+                selectedExternalBatchId.value = '';
+            }
+        }
+        if (selectedSemiFinishedBatchId.value) {
+            const b = externalBatchList.value.find(item => item.id === selectedSemiFinishedBatchId.value);
+            if (b && selectedProductId.value && !matchesProduct(b, selectedProductId.value)) {
+                selectedSemiFinishedBatchId.value = '';
+            }
         }
     }
 };

@@ -2,6 +2,9 @@
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-900">Quản lý Lô Thành Phẩm</h1>
+      <el-button type="primary" :icon="Plus" @click="router.push('/supply/packaging')">
+        Tạo phiếu đóng gói mới
+      </el-button>
     </div>
 
     <!-- Stats or List would go here -->
@@ -214,7 +217,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
 import { ElMessage } from 'element-plus';
-import { Loading, CircleCheckFilled, TopRight, Search } from '@element-plus/icons-vue';
+import { Loading, CircleCheckFilled, TopRight, Search, Plus } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 const getBatchStatusLabel = (status: string) => {

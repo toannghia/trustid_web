@@ -77,6 +77,8 @@ export const MENU_GROUPS: MenuGroupConfig[] = [
     icon: Box,
     items: [
       { title: 'Lệnh Sản Xuất', path: '/supply/production-orders', permission: 'PRODUCTION_ORDER_VIEW', icon: Tickets },
+      { title: 'Đóng gói trực tiếp', path: '/supply/packaging', permission: 'PACKAGING_DIRECT_MANAGE', icon: Box },
+      { title: 'Lô thành phẩm', path: '/supply/batches', permission: 'BATCH_VIEW', icon: Collection },
       { title: 'Quản lý Pallet', path: '/supply/pallets', permission: 'PALLET_MANAGE', icon: Box },
       { title: 'Sản phẩm Active', path: '/supply/items', permission: 'PACKAGING_ITEM_VIEW', icon: Goods },
     ]
