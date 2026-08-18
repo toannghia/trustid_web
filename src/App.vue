@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
-const route = useRoute();
 </script>
 
 <template>
-  <router-view v-slot="{ Component }">
-    <component :is="Component" :key="route.fullPath" />
-  </router-view>
+  <router-view />
 </template>
 
 <style>
 /* Reset CSS cơ bản */
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden; /* Cấm xuất hiện thanh cuộn ngoài cùng để chống giật màn hình (jitter) */
   font-family: 'Inter', sans-serif;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/modules/core/store/auth';
 import { useRoute, useRouter } from 'vue-router';
 import { Setting, SwitchButton } from '@element-plus/icons-vue';
@@ -32,6 +32,28 @@ const openGroups = ref<Set<string>>(getInitialGroups());
 const saveOpenGroups = () => {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(Array.from(openGroups.value)));
 };
+
+// Lắng nghe sự kiện storage để đồng bộ trạng thái khi có thay đổi từ Tab khác hoặc khôi phục Tab
+const handleStorageChange = (e: StorageEvent) => {
+  if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
+    try {
+      const newGroups = JSON.parse(e.newValue);
+      if (Array.isArray(newGroups)) {
+        openGroups.value = new Set(newGroups);
+      }
+    } catch (err) {
+      console.warn('Failed to parse storage event for sidebar_open_groups', err);
+    }
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('storage', handleStorageChange);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange);
+});
 // Permission-based filtering with 3-layer check
 const filteredGroups = computed(() => {
   return MENU_GROUPS
@@ -127,7 +149,7 @@ watch(() => route.path, () => {
                 :class="{ active: isActive(item.path) }"
                 @click="navigateTo(item.path)"
               >
-                <el-icon :size="20"><component :is="group.icon" /></el-icon>
+                <el-icon :size="20"><component :is="item.icon || group.icon" /></el-icon>
               </div>
             </el-tooltip>
           </template>

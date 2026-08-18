@@ -284,7 +284,9 @@
               {{ getTransferStatusLabel(detailRow.status) }}
             </el-tag>
           </div>
-          <el-button type="info" link :icon="Close" @click="detailVisible = false" style="color: rgba(255,255,255,0.8); font-size: 20px;" />
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="detailVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
@@ -366,9 +368,9 @@
               Danh sách mã — {{ batchCodesLabel }}
               <el-tag effect="dark" size="small" type="info" class="ml-1">{{ batchCodesList.length }} mã</el-tag>
             </div>
-            <el-button size="small" link style="color: rgba(255,255,255,0.8);" @click="batchCodesVisible = false">
-              <el-icon><Close /></el-icon>
-            </el-button>
+            <div style="cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="batchCodesVisible = false">
+              <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+            </div>
           </div>
           <div class="max-h-60 overflow-y-auto">
             <el-table :data="batchCodesList" size="small" stripe>
@@ -601,6 +603,8 @@ const handleManualSelect = (val: string) => {
 };
 
 const viewDetail = (row: any) => {
+  batchCodesVisible.value = false;
+  batchCodesList.value = [];
   detailRow.value = row;
   detailVisible.value = true;
 };

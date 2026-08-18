@@ -83,7 +83,7 @@
       width="450px"
       :close-on-click-modal="false"
       :show-close="false"
-      class="branded-pallet-create-dialog"
+      class="branded-pallet-dialog"
     >
       <template #header>
         <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
@@ -128,7 +128,7 @@
       width="860px"
       :close-on-click-modal="false"
       :show-close="false"
-      class="branded-pallet-detail-dialog"
+      class="branded-pallet-dialog"
     >
       <template #header>
         <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
@@ -204,17 +204,23 @@
     </el-dialog>
 
     <!-- Link Dialog -->
-    <el-dialog v-model="showLinkDialog" width="860" :close-on-click-modal="false" class="rounded-dialog" @closed="onLinkDialogClosed">
+    <el-dialog v-model="showLinkDialog" width="860" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false" @closed="onLinkDialogClosed">
       <template #header>
-        <div class="link-dialog-header">
-          <span class="link-dialog-title">Liên kết SP vào Pallet BTP</span>
-          <el-tag v-if="linkSelectedPallet" :type="linkIsFull ? 'danger' : 'info'" effect="plain" size="default" style="font-size: 13px; font-weight: 700">
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Liên kết SP vào Pallet BTP</span>
+          <el-tag v-if="linkSelectedPallet" :type="linkIsFull ? 'danger' : 'info'" effect="dark" size="small" style="font-weight: 700; border: none;">
             {{ linkTotalCount }}/{{ linkSelectedPallet.maxBatches || '∞' }}
             <template v-if="linkIsFull"> — ĐẦY</template>
           </el-tag>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showLinkDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
         </div>
       </template>
 
+      <div style="padding: 24px 24px 8px;">
       <!-- Inline: Pallet + Serial on same row -->
       <div class="link-input-row">
         <div class="link-input-col" style="flex: 0 0 280px">
@@ -264,32 +270,110 @@
         <el-alert :title="lastStatus.message" :type="lastStatus.type === 'error' ? 'error' : 'success'" show-icon :closable="false" />
       </div>
 
+      </div>
       <template #footer>
-        <el-button @click="showLinkDialog = false">Thoát</el-button>
-        <el-button type="primary" @click="showLinkDialog = false; fetchPallets()">Lưu lại</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showLinkDialog = false" style="border-radius: 8px; padding: 10px 20px;">Thoát</el-button>
+          <el-button type="primary" @click="showLinkDialog = false; fetchPallets()" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">Lưu lại</el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Force Transfer Confirm Dialog -->
-    <el-dialog v-model="showForceDialog" title="⚠️ Sản phẩm đã thuộc pallet khác" width="440" :close-on-click-modal="false" class="rounded-dialog">
-      <p style="margin-bottom: 12px;">{{ forceInfo.message }}</p>
-      <el-checkbox v-model="forceConfirmed" label="Tôi xác nhận chuyển sản phẩm này sang pallet mới" />
+    <el-dialog v-model="showForceDialog" width="440" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #E6A23C; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <el-icon style="color: #ffffff; font-size: 20px;"><Warning /></el-icon>
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Sản phẩm đã thuộc pallet khác</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.2);" @click="showForceDialog = false; forceConfirmed = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px 24px 8px;">
+        <p style="margin-bottom: 12px;">{{ forceInfo.message }}</p>
+        <el-checkbox v-model="forceConfirmed" label="Tôi xác nhận chuyển sản phẩm này sang pallet mới" />
+      </div>
       <template #footer>
-        <el-button @click="showForceDialog = false; forceConfirmed = false">Huỷ</el-button>
-        <el-button type="warning" @click="handleForceLink" :disabled="!forceConfirmed" :loading="linking">Xác nhận chuyển</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showForceDialog = false; forceConfirmed = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+          <el-button type="warning" @click="handleForceLink" :disabled="!forceConfirmed" :loading="linking" style="border-radius: 8px; padding: 10px 20px;">Xác nhận chuyển</el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- Edit Dialog -->
-    <el-dialog v-model="showEditDialog" title="Cập nhật Pallet BTP" width="380" class="rounded-dialog">
-      <el-form label-position="top">
+    <el-dialog v-model="showEditDialog" width="380" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.3);"></div>
+          <span style="color: #ffffff; font-size: 16px; font-weight: 600;">Cập nhật Pallet BTP</span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showEditDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <el-form label-position="top" style="padding: 24px 24px 8px;">
         <el-form-item label="Giới hạn SP / pallet">
           <el-input-number v-model="editForm.maxBatches" :min="0" :max="999" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">Huỷ</el-button>
-        <el-button type="primary" @click="handleUpdate" :loading="updating">Lưu</el-button>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showEditDialog = false" style="border-radius: 8px; padding: 10px 20px;">Huỷ</el-button>
+          <el-button type="primary" @click="handleUpdate" :loading="updating" style="background: #00875A; border-color: #00875A; border-radius: 8px; padding: 10px 20px;">Cập nhật</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Delete Confirm Dialog -->
+    <el-dialog v-model="showDeleteDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận xóa Pallet
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeleteDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn xóa Pallet này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Pallet <strong>{{ deletingPallet?.palletCode || 'N/A' }}</strong> sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Việc xóa pallet sẽ giải phóng các sản phẩm (nếu có) bên trong pallet này.
+        </div>
+
+        <el-checkbox v-model="deleteConfirmed" class="mt-2" style="white-space: normal; word-break: break-word;">
+          <span class="text-sm font-medium text-gray-700">Tôi đã đọc và xác nhận muốn xóa Pallet này</span>
+        </el-checkbox>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeleteDialog = false">Hủy</el-button>
+          <el-button
+            type="danger"
+            :disabled="!deleteConfirmed"
+            :loading="isDeleting"
+            @click="confirmDeletePallet"
+          >
+            Xóa Pallet
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -298,9 +382,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Connection } from '@element-plus/icons-vue'
+import { Plus, Search, Connection, Warning, WarningFilled } from '@element-plus/icons-vue'
 import { supplyApi } from '../api/supplyApi'
 import brandLogo from '@/assets/images/TrusID-TV_w.png'
+
+const showDeleteDialog = ref(false)
+const deleteConfirmed = ref(false)
+const deletingPallet = ref<any>(null)
+const isDeleting = ref(false)
 
 const pallets = ref<any[]>([])
 const total = ref(0)
@@ -438,13 +527,25 @@ async function handleUpdate() {
   }
 }
 
-async function deletePallet(row: any) {
+function deletePallet(row: any) {
+  deletingPallet.value = row
+  deleteConfirmed.value = false
+  showDeleteDialog.value = true
+}
+
+async function confirmDeletePallet() {
+  if (!deletingPallet.value) return
+  isDeleting.value = true
   try {
-    await ElMessageBox.confirm(`Xoá pallet ${row.palletCode}?`, 'Xác nhận', { type: 'warning' })
-    await supplyApi.deleteSFPallet(row.id)
-    ElMessage.success('Đã xoá')
+    await supplyApi.deleteSFPallet(deletingPallet.value.id)
+    ElMessage.success('Đã xoá pallet thành công')
+    showDeleteDialog.value = false
     fetchPallets()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Lỗi khi xóa pallet')
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 async function unlinkItem(mapping: any) {
@@ -664,23 +765,19 @@ onMounted(fetchPallets)
 </style>
 
 <style>
-.branded-pallet-create-dialog,
-.branded-pallet-detail-dialog {
+.branded-pallet-dialog {
   border-radius: 8px !important;
   overflow: hidden !important;
   padding: 0 !important;
 }
-.branded-pallet-create-dialog .el-dialog__header,
-.branded-pallet-detail-dialog .el-dialog__header {
+.branded-pallet-dialog .el-dialog__header {
   padding: 0 !important;
   margin: 0 !important;
 }
-.branded-pallet-create-dialog .el-dialog__body,
-.branded-pallet-detail-dialog .el-dialog__body {
+.branded-pallet-dialog .el-dialog__body {
   padding: 0 !important;
 }
-.branded-pallet-create-dialog .el-dialog__footer,
-.branded-pallet-detail-dialog .el-dialog__footer {
+.branded-pallet-dialog .el-dialog__footer {
   padding: 0 !important;
   border-top: none !important;
 }

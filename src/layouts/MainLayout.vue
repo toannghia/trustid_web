@@ -92,7 +92,9 @@ const toggleSidebar = () => {
 
       <main class="flex-1 overflow-y-auto p-6 scroll-smooth bg-[var(--tid-bg)]">
         <div class="mx-auto w-full max-w-[1600px]">
-          <router-view />
+          <router-view v-slot="{ Component, route }">
+            <component :is="Component" :key="route.fullPath" />
+          </router-view>
         </div>
         
         <footer class="mt-8 py-4 border-t border-gray-200 text-center text-xs text-gray-400">
