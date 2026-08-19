@@ -300,13 +300,79 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- Unlink Confirm Dialog -->
+    <el-dialog v-model="showUnlinkDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận gỡ bao
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showUnlinkDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Xác nhận gỡ bao khỏi Pallet?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Bao <strong>{{ unlinkingMapping?.bagSerial || 'N/A' }}</strong> sẽ được gỡ khỏi pallet hiện tại.
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showUnlinkDialog = false">Hủy</el-button>
+          <el-button type="danger" :loading="isUnlinking" @click="confirmUnlinkBag">Gỡ bao</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Release Confirm Dialog -->
+    <el-dialog v-model="showReleaseDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Giải phóng Pallet
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showReleaseDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Xác nhận giải phóng tất cả?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Tất cả các bao sẽ được gỡ khỏi pallet này. Hành động này không thể hoàn tác.
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showReleaseDialog = false">Hủy</el-button>
+          <el-button type="warning" :loading="isReleasing" @click="confirmReleasePallet">Giải phóng</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Download, Search, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Plus, Download, Search, Warning, WarningFilled } from '@element-plus/icons-vue'
 import api from '@/common/utils/api'
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
@@ -314,6 +380,13 @@ const showDeleteDialog = ref(false)
 const deleteConfirmed = ref(false)
 const deletingPallet = ref<any>(null)
 const isDeleting = ref(false)
+
+const showUnlinkDialog = ref(false)
+const unlinkingMapping = ref<any>(null)
+const isUnlinking = ref(false)
+
+const showReleaseDialog = ref(false)
+const isReleasing = ref(false)
 
 const pallets = ref<any[]>([])
 const total = ref(0)
@@ -449,23 +522,43 @@ async function confirmDeletePallet() {
   }
 }
 
-async function unlinkBag(mapping: any) {
-  try {
-    await ElMessageBox.confirm(`Gỡ bao ${mapping.bagSerial} khỏi pallet?`, 'Xác nhận')
-    await api.post(`/supply/pallets/${detailPallet.value.id}/unlink-bag`, { bagSerial: mapping.bagSerial })
-    ElMessage.success('Đã gỡ bao')
-    viewDetail(detailPallet.value)
-  } catch {}
+function unlinkBag(mapping: any) {
+  unlinkingMapping.value = mapping
+  showUnlinkDialog.value = true
 }
 
-async function releasePallet() {
+async function confirmUnlinkBag() {
+  if (!unlinkingMapping.value) return
+  isUnlinking.value = true
   try {
-    await ElMessageBox.confirm('Giải phóng tất cả bao khỏi pallet?', 'Xác nhận', { type: 'warning' })
+    await api.post(`/supply/pallets/${detailPallet.value.id}/unlink-bag`, { bagSerial: unlinkingMapping.value.bagSerial })
+    ElMessage.success('Đã gỡ bao')
+    showUnlinkDialog.value = false
+    viewDetail(detailPallet.value)
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Lỗi gỡ bao')
+  } finally {
+    isUnlinking.value = false
+  }
+}
+
+function releasePallet() {
+  showReleaseDialog.value = true
+}
+
+async function confirmReleasePallet() {
+  isReleasing.value = true
+  try {
     await api.post(`/supply/pallets/${detailPallet.value.id}/release`)
     ElMessage.success('Đã giải phóng pallet')
+    showReleaseDialog.value = false
     showDetailDialog.value = false
     fetchPallets()
-  } catch {}
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || 'Lỗi giải phóng pallet')
+  } finally {
+    isReleasing.value = false
+  }
 }
 
 async function handleExportCodes() {
