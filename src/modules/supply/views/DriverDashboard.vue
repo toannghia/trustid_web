@@ -163,8 +163,20 @@
     </div>
 
     <!-- DETAIL DIALOG -->
-    <el-dialog v-model="showDetail" :title="'Chi tiết phiếu ' + (currentShipment?.trackingCode || '')" width="520px" class="detail-dialog">
-      <div v-if="currentShipment">
+    <el-dialog v-model="showDetail" width="520px" :close-on-click-modal="false" class="detail-dialog branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Chi tiết phiếu {{ currentShipment?.trackingCode || '' }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDetail = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div v-if="currentShipment" style="padding: 16px 24px 24px;">
         <!-- Status flow -->
         <div class="status-flow">
           <div :class="['flow-step', { active: true }]">
@@ -241,14 +253,82 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- Pickup Confirm Dialog -->
+    <el-dialog v-model="showPickupDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận Nhận hàng
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showPickupDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-blue-500 text-2xl mt-0.5"><InfoFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Xác nhận nhận hàng phiếu {{ pickupShipment?.trackingCode }}?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Sau khi nhận, phiếu sẽ chuyển sang trạng thái "Đang giao".
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showPickupDialog = false">Hủy</el-button>
+          <el-button type="primary" :loading="actionLoading === pickupShipment?.id" @click="executePickup">Xác nhận nhận</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Delivery Confirm Dialog -->
+    <el-dialog v-model="showDeliveryDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận Giao hàng
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDeliveryDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-green-500 text-2xl mt-0.5"><CircleCheck /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Xác nhận ĐÃ GIAO HÀNG phiếu {{ deliveryShipment?.trackingCode }}?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Đại lý nhận: <strong>{{ deliveryShipment?.dealer?.name || '---' }}</strong><br/>
+              Sau khi xác nhận, phiếu sẽ hoàn thành.
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showDeliveryDialog = false">Hủy</el-button>
+          <el-button type="success" :loading="actionLoading === deliveryShipment?.id" @click="executeDelivery">Đã giao xong</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Van, Refresh, Download, CircleCheck, Phone } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { Van, Refresh, Download, CircleCheck, Phone, WarningFilled, InfoFilled } from '@element-plus/icons-vue';
 import { transportApi } from '../api/transportApi';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const activeTab = ref('all');
 const loading = ref(false);
@@ -256,6 +336,12 @@ const actionLoading = ref<string | null>(null);
 const shipments = ref<any[]>([]);
 const showDetail = ref(false);
 const currentShipment = ref<any>(null);
+
+const showPickupDialog = ref(false);
+const pickupShipment = ref<any>(null);
+
+const showDeliveryDialog = ref(false);
+const deliveryShipment = ref<any>(null);
 
 // Clear status-based lists
 const waitingList = computed(() => shipments.value.filter(s =>
@@ -335,15 +421,16 @@ const getGPS = (): Promise<{ lat: number; long: number }> =>
     );
   });
 
-const confirmPickup = async (s: any) => {
-  try {
-    await ElMessageBox.confirm(
-      `Xác nhận NHẬN HÀNG phiếu ${s.trackingCode}?\n\nSau khi nhận, phiếu sẽ chuyển sang trạng thái "Đang giao".`,
-      '📦 Nhận hàng',
-      { type: 'warning', confirmButtonText: 'Xác nhận nhận', cancelButtonText: 'Hủy' }
-    );
+const confirmPickup = (s: any) => {
+  pickupShipment.value = s;
+  showPickupDialog.value = true;
+};
 
-    actionLoading.value = s.id;
+const executePickup = async () => {
+  if (!pickupShipment.value) return;
+  const s = pickupShipment.value;
+  actionLoading.value = s.id;
+  try {
     let gps = { lat: 0, long: 0 };
     try { gps = await getGPS(); } catch { /* fallback */ }
 
@@ -355,24 +442,26 @@ const confirmPickup = async (s: any) => {
     });
 
     ElMessage.success('✅ Đã nhận hàng! Phiếu chuyển sang "Đang giao"');
+    showPickupDialog.value = false;
     activeTab.value = 'transit';
     await loadShipments();
   } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error(e.response?.data?.message || 'Lỗi nhận hàng');
+    ElMessage.error(e.response?.data?.message || 'Lỗi nhận hàng');
   } finally {
     actionLoading.value = null;
   }
 };
 
-const confirmDelivery = async (s: any) => {
-  try {
-    await ElMessageBox.confirm(
-      `Xác nhận ĐÃ GIAO HÀNG phiếu ${s.trackingCode} cho đại lý "${s.dealer?.name || '---'}"?\n\nSau khi xác nhận, phiếu sẽ hoàn thành.`,
-      '🚛 Giao hàng',
-      { type: 'success', confirmButtonText: 'Đã giao xong', cancelButtonText: 'Hủy' }
-    );
+const confirmDelivery = (s: any) => {
+  deliveryShipment.value = s;
+  showDeliveryDialog.value = true;
+};
 
-    actionLoading.value = s.id;
+const executeDelivery = async () => {
+  if (!deliveryShipment.value) return;
+  const s = deliveryShipment.value;
+  actionLoading.value = s.id;
+  try {
     let gps = { lat: 0, long: 0 };
     try { gps = await getGPS(); } catch { /* fallback */ }
 
@@ -384,10 +473,11 @@ const confirmDelivery = async (s: any) => {
     });
 
     ElMessage.success('✅ Đã giao hàng thành công!');
+    showDeliveryDialog.value = false;
     activeTab.value = 'done';
     await loadShipments();
   } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error(e.response?.data?.message || 'Lỗi xác nhận giao');
+    ElMessage.error(e.response?.data?.message || 'Lỗi xác nhận giao');
   } finally {
     actionLoading.value = null;
   }
@@ -647,4 +737,23 @@ div[class*="transit"] .ship-card,
 .text-green-600 { color: #16a34a; }
 .text-gray-400 { color: #9ca3af; }
 .text-xs { font-size: 12px; }
+</style>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
 </style>

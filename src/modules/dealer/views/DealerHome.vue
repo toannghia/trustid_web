@@ -90,7 +90,7 @@
             <span class="font-bold text-gray-800">Top Sản phẩm Bán chạy</span>
           </template>
           <el-table :data="topProducts" style="width: 100%" v-loading="loadingTop">
-            <el-table-column type="index" width="50" />
+            <el-table-column type="index" width="100" label="STT"  align="center"  />
             <el-table-column prop="name" label="Sản phẩm" />
             <el-table-column prop="qty" label="Đã bán" width="100" align="center">
               <template #default="{row}">

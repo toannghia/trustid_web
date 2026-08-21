@@ -104,8 +104,20 @@
     </el-card>
 
     <!-- DETAIL DIALOG -->
-    <el-dialog v-model="detailVisible" title="Thông tin Đơn hàng Chi tiết" width="800px" destroy-on-close>
-        <div v-if="currentDetail" v-loading="detailLoading" class="p-2">
+    <el-dialog v-model="detailVisible" width="800px" destroy-on-close class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Thông tin Đơn hàng Chi tiết
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="detailVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+        <div v-if="currentDetail" v-loading="detailLoading" style="padding: 24px;">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-2xl mb-6">
                 <div class="space-y-3">
                     <div class="flex justify-between border-b pb-2">
@@ -248,18 +260,91 @@
             <div v-else class="text-xs text-gray-400 italic ml-2">Chưa có thông tin lịch trình</div>
         </div>
     </el-dialog>
+
+    <!-- Receive Confirm Dialog -->
+    <el-dialog v-model="showReceiveDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Nhận hàng vào kho
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showReceiveDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-blue-500 text-2xl mt-0.5"><InfoFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Nhận hàng phiếu {{ receiveRow?.trackingCode }}?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Xác nhận bạn đã nhận đủ danh sách mã Serial. Hệ thống sẽ tự động nhập hàng vào kho của đại lý.
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showReceiveDialog = false">Hủy</el-button>
+          <el-button type="primary" :loading="confirmingId === receiveRow?.id" @click="executeReceive">Đồng ý nhận</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Repair Confirm Dialog -->
+    <el-dialog v-model="showRepairDialog" width="450px" :close-on-click-modal="false" class="branded-pallet-dialog" :show-close="false">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Sửa lỗi tồn kho
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showRepairDialog = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" style="padding: 24px;">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-blue-500 text-2xl mt-0.5"><RefreshRight /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Sửa lỗi phiếu {{ repairRow?.trackingCode }}?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Phiếu đã nhận nhưng tồn kho có thể bị thiếu. Bạn có muốn sửa lỗi tồn kho không?
+            </p>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
+          <el-button @click="showRepairDialog = false">Hủy</el-button>
+          <el-button type="primary" :loading="repairingId === repairRow?.id" @click="executeRepair">Đồng ý sửa</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { Refresh, Check, Box, FullScreen, Memo, Calendar, Clock, RefreshRight } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Refresh, Check, Box, FullScreen, Memo, Calendar, Clock, RefreshRight, InfoFilled } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import api from '@/common/utils/api';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const shipments = ref<any[]>([]);
 const loading = ref(false);
 const confirmingId = ref<string | null>(null);
+
+const showReceiveDialog = ref(false);
+const receiveRow = ref<any>(null);
+
+const showRepairDialog = ref(false);
+const repairRow = ref<any>(null);
 
 // Filters & Detailed Dialog State
 const filterShowAll = ref(false);
@@ -454,26 +539,22 @@ const getScanMethodLabel = (method: string) => {
   }
 };
 
-const confirmReceive = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(
-      `Xác nhận bạn đã nhận đủ danh sách mã Serial cho phiếu ${row.trackingCode}? Hệ thống sẽ tự động nhập hàng vào kho của đại lý.`,
-      'Nhận hàng vào kho',
-      {
-        confirmButtonText: 'Đồng ý nhận',
-        cancelButtonText: 'Hủy',
-        type: 'warning',
-      }
-    );
+const confirmReceive = (row: any) => {
+  receiveRow.value = row;
+  showReceiveDialog.value = true;
+};
 
+const executeReceive = async () => {
+  if (!receiveRow.value) return;
+  const row = receiveRow.value;
+  try {
     confirmingId.value = row.id;
     await api.post(`/shipments-v2/${row.id}/confirm-receive`);
     ElMessage.success('Đã nhận kho thành công! Sản phẩm đã nằm trong Tồn Kho.');
+    showReceiveDialog.value = false;
     loadShipments();
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || 'Lỗi khi xác nhận nhận hàng');
-    }
+    ElMessage.error(error.response?.data?.message || 'Lỗi khi xác nhận nhận hàng');
   } finally {
     confirmingId.value = null;
   }
@@ -481,18 +562,15 @@ const confirmReceive = async (row: any) => {
 
 const repairingId = ref<string | null>(null);
 
-const repairInbound = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(
-      `Phiếu ${row.trackingCode} đã nhận nhưng tồn kho có thể bị thiếu. Bạn có muốn sửa lỗi tồn kho không?`,
-      'Sửa lỗi tồn kho',
-      {
-        confirmButtonText: 'Đồng ý sửa',
-        cancelButtonText: 'Hủy',
-        type: 'info',
-      }
-    );
+const repairInbound = (row: any) => {
+  repairRow.value = row;
+  showRepairDialog.value = true;
+};
 
+const executeRepair = async () => {
+  if (!repairRow.value) return;
+  const row = repairRow.value;
+  try {
     repairingId.value = row.id;
     const { data } = await api.post(`/shipments-v2/${row.id}/repair-inbound`);
     
@@ -505,10 +583,9 @@ const repairInbound = async (row: any) => {
     } else {
       ElMessage.warning(data.message || 'Không tìm thấy sản phẩm cần nhập');
     }
+    showRepairDialog.value = false;
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || 'Lỗi khi sửa tồn kho');
-    }
+    ElMessage.error(error.response?.data?.message || 'Lỗi khi sửa tồn kho');
   } finally {
     repairingId.value = null;
   }
@@ -518,3 +595,22 @@ onMounted(() => {
   loadShipments();
 });
 </script>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
+</style>

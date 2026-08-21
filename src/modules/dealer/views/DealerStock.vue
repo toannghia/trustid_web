@@ -111,12 +111,25 @@
     <!-- Dialog for Serial Details -->
     <el-dialog
       v-model="dialogVisible"
-      :title="'Chi tiết Mã Serial - ' + selectedProduct?.productName"
-      width="1200px"
-      class="rounded-xl overflow-hidden"
+      width="95%"
+      class="branded-pallet-dialog custom-width-dialog"
+      :show-close="false"
       destroy-on-close
     >
-      <div class="mb-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Chi tiết Mã Serial - {{ selectedProduct?.productName }}
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="dialogVisible = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div style="padding: 24px;">
+        <div class="mb-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <span class="text-sm font-medium text-gray-600">
           Danh sách mã serial/gói có sẵn: 
           <span class="text-blue-600 font-bold ml-1">{{ filteredSerials.length }} / {{ selectedProduct?.serials?.length || 0 }}</span>
@@ -143,19 +156,19 @@
         >
           <el-table-column type="index" width="55" label="STT" align="center" fixed="left" />
           
-          <el-table-column prop="fullQrCode" label="Mã QR gói" min-width="190" align="center">
+          <el-table-column prop="fullQrCode" label="Mã QR gói" min-width="120" align="center">
             <template #default="{ row }">
               <span class="font-mono text-gray-700 select-all font-semibold whitespace-nowrap">{{ row.fullQrCode || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="serialNumber" label="Mã gói (Serial)" min-width="160" align="center">
+          <el-table-column prop="serialNumber" label="Mã gói (Serial)" min-width="120" align="center">
             <template #default="{ row }">
               <span class="font-mono font-bold text-gray-800 whitespace-nowrap">{{ row.serialNumber }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="parentBagSerial" label="Mã bao" min-width="180" align="center">
+          <el-table-column prop="parentBagSerial" label="Mã bao" min-width="140" align="center">
             <template #default="{ row }">
               <span v-if="row.parentBagSerial" class="font-mono font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-100 whitespace-nowrap inline-block">
                 {{ row.parentBagSerial }}
@@ -164,7 +177,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="batchCode" label="Lô" min-width="130" align="center">
+          <el-table-column prop="batchCode" label="Lô" min-width="140" align="center">
             <template #default="{ row }">
               <span class="font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 whitespace-nowrap inline-block">
                 {{ row.batchCode || 'N/A' }}
@@ -172,7 +185,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" min-width="160" align="center">
+          <el-table-column prop="trackingCode" label="Phiếu nhập / Giao hàng" min-width="120" align="center">
             <template #default="{ row }">
               <el-tag v-if="row.trackingCode && row.trackingCode !== 'N/A'" type="info" effect="plain" class="font-mono font-bold border-gray-200 text-gray-700 whitespace-nowrap">
                 {{ row.trackingCode }}
@@ -181,13 +194,13 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="200" show-overflow-tooltip>
+          <el-table-column prop="sourceUnit" label="Nguồn từ đơn vị nào" min-width="120" show-overflow-tooltip align="center">
             <template #default="{ row }">
               <span class="font-medium text-gray-700 whitespace-nowrap" :title="row.sourceUnit">{{ row.sourceUnit || 'N/A' }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="importDate" label="Ngày nhập" min-width="150" align="center">
+          <el-table-column prop="importDate" label="Ngày nhập" min-width="120" align="center">
             <template #default="{ row }">
               <span class="text-gray-600 whitespace-nowrap">{{ formatDateDisplay(row.importDate) }}</span>
             </template>
@@ -197,10 +210,11 @@
         <div v-else class="text-center py-16 text-gray-400 bg-gray-50/50">
           <p class="text-sm">Không tìm thấy mã serial nào phù hợp hoặc sản phẩm đã hết hàng</p>
         </div>
+        </div>
       </div>
       
       <template #footer>
-        <div class="flex justify-end gap-2 border-t pt-4">
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
           <el-button @click="dialogVisible = false" class="!rounded-lg">Đóng</el-button>
         </div>
       </template>
@@ -213,6 +227,7 @@ import { ref, computed, onMounted } from 'vue';
 import { Refresh, Search, InfoFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import api from '@/common/utils/api';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const loading = ref(false);
 const inventory = ref<any[]>([]);
@@ -320,5 +335,27 @@ onMounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+</style>
+
+<style>
+.branded-pallet-dialog {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-pallet-dialog .el-dialog__footer {
+  padding: 0 !important;
+  border-top: none !important;
+}
+.custom-width-dialog {
+  max-width: 1350px !important;
 }
 </style>
