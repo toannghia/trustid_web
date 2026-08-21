@@ -18,5 +18,8 @@ export const codeApi = {
     },
     getItems(params: any) {
         return api.get(`${baseUrl}/items`, { params });
+    },
+    getPoolSuggestedRange(poolId: string, neededCount?: number) {
+        return api.get<any>(`${baseUrl}/pools/${poolId}/suggest-range`, { params: { neededCount } });
     }
 };

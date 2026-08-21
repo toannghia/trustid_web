@@ -49,8 +49,30 @@
                  </span>
              </template>
         </el-table-column>
-        <el-table-column prop="farmBatchCode" label="Lô Nguyên Liệu" width="250" />
-        <el-table-column prop="productGtin" label="GTIN Sản phẩm" width="180" />
+        <el-table-column label="Lô Nguyên Liệu" min-width="220">
+             <template #default="{row}">
+                 <div v-if="row.farmBatchCode || row.parentBatch?.batchCode || row.sourceInfo?.origin_batch_code">
+                     <span class="font-medium text-slate-800">
+                         {{ row.farmBatchCode || row.parentBatch?.batchCode || row.sourceInfo?.origin_batch_code }}
+                     </span>
+                     <div v-if="row.sourceInfo?.origin_tenant_name" class="text-xs text-blue-600">
+                         Từ: {{ row.sourceInfo.origin_tenant_name }}
+                     </div>
+                     <div v-else-if="row.batchType === 'CROSS_TENANT' || row.batchType === 'SEMI_FINISHED'" class="text-xs text-emerald-600">
+                         Bán thành phẩm
+                     </div>
+                 </div>
+                 <span v-else class="text-gray-400">---</span>
+             </template>
+        </el-table-column>
+        <el-table-column label="Sản phẩm" min-width="200">
+             <template #default="{row}">
+                 <div class="font-medium text-slate-800">{{ row.product?.name || '---' }}</div>
+                 <div class="text-xs text-gray-400" v-if="row.productGtin || row.product?.gtinCode">
+                     GTIN: {{ row.productGtin || row.product?.gtinCode }}
+                 </div>
+             </template>
+        </el-table-column>
         <el-table-column label="Tiến độ" min-width="200">
              <template #default="{row}">
                  <div class="flex items-center gap-2">
@@ -71,18 +93,28 @@
                  {{ formatDate(row.createdAt) }}
              </template>
         </el-table-column>
-        <el-table-column label="Trạng thái" width="120" align="center">
+        <el-table-column label="Trạng thái" width="130" align="center">
             <template #default="{row}">
-                <el-tag :type="getStatusType(row.status)" class="mr-2">{{ getBatchStatusLabel(row.status) }}</el-tag>
-                <el-button 
-                    v-if="row.status === 'PACKING'" 
-                    type="primary" 
-                    link 
-                    size="small" 
-                    @click="continuePacking(row)"
-                >
-                    Tiếp tục
-                </el-button>
+                <el-tag :type="getStatusType(row.status)">{{ getBatchStatusLabel(row.status) }}</el-tag>
+                <div v-if="row.sourceInfo?.isDistributed" class="mt-1">
+                    <el-tag size="small" type="warning" effect="plain">Đang phân phối</el-tag>
+                </div>
+            </template>
+        </el-table-column>
+        <el-table-column label="Thao tác" width="160" align="center" fixed="right">
+            <template #default="{row}">
+                <div class="flex items-center justify-center gap-1">
+                    <el-tooltip content="Xem chi tiết" placement="top">
+                        <el-button type="info" link :icon="View" size="small" @click.stop="viewDetails(row)" />
+                    </el-tooltip>
+                    <el-tooltip v-if="row.status === 'PACKING'" content="Tiếp tục đóng gói" placement="top">
+                        <el-button type="primary" link :icon="Edit" size="small" @click.stop="continuePacking(row)">Tiếp tục</el-button>
+                    </el-tooltip>
+                    <el-tooltip v-else-if="row.status === 'COMPLETED' && !row.sourceInfo?.isDistributed" content="Chuyển sang phân phối" placement="top">
+                        <el-button type="warning" link :icon="Promotion" size="small" @click.stop="handleDistribute(row)">Phân phối</el-button>
+                    </el-tooltip>
+                    <el-tag v-else-if="row.sourceInfo?.isDistributed" size="small" type="warning" effect="dark">Đã phân phối</el-tag>
+                </div>
             </template>
         </el-table-column>
     </el-table>
@@ -108,7 +140,14 @@
                 <el-tab-pane label="Thông tin chung" name="general">
                     <el-descriptions border :column="2" class="mb-4 mt-2">
                         <el-descriptions-item label="Mã Lô">{{ selectedBatch.batchCode }}</el-descriptions-item>
-                        <el-descriptions-item label="Lô Farm">{{ selectedBatch.farmBatchCode }}</el-descriptions-item>
+                        <el-descriptions-item label="Lô Nguồn / Farm">
+                            <div>
+                                <span class="font-bold">{{ selectedBatch.farmBatchCode || selectedBatch.parentBatch?.batchCode || selectedBatch.sourceInfo?.origin_batch_code || '---' }}</span>
+                                <span v-if="selectedBatch.sourceInfo?.origin_tenant_name" class="text-xs text-blue-600 block">
+                                    (Từ: {{ selectedBatch.sourceInfo.origin_tenant_name }})
+                                </span>
+                            </div>
+                        </el-descriptions-item>
                         <el-descriptions-item label="Sản phẩm">
                             <div>
                                 <div class="font-bold">{{ selectedBatch.product?.name || '---' }}</div>
@@ -118,11 +157,26 @@
                         <el-descriptions-item label="Trạng thái">
                             <el-tag>{{ getBatchStatusLabel(selectedBatch.status) }}</el-tag>
                         </el-descriptions-item>
-                        <el-descriptions-item label="Quy cách đóng">{{ selectedBatch.farmDataSnapshot?.unitWeight || 1 }} kg/sp</el-descriptions-item>
+                        <el-descriptions-item label="Quy cách đóng">{{ selectedBatch.farmDataSnapshot?.unitWeightKg || selectedBatch.farmDataSnapshot?.unitWeight || selectedBatch.product?.netWeight || 1 }} kg/sp</el-descriptions-item>
                         <el-descriptions-item label="Tổng SL">{{ selectedBatch.totalQuantity }} kg</el-descriptions-item>
                     </el-descriptions>
 
-                    <div class="mb-2 font-bold text-gray-700">Danh sách Tem / Sản phẩm ({{ items.length }})</div>
+                    <div class="flex justify-between items-center mb-2 mt-4">
+                        <div class="font-bold text-gray-700">Danh sách Tem / Sản phẩm ({{ items.length }})</div>
+                        <el-button 
+                            v-if="selectedBatch.status === 'COMPLETED' && !selectedBatch.sourceInfo?.isDistributed" 
+                            type="warning" 
+                            size="small" 
+                            :icon="Promotion" 
+                            :loading="distributing"
+                            @click="handleDistribute(selectedBatch)"
+                        >
+                            Chuyển sang phân phối
+                        </el-button>
+                        <el-tag v-else-if="selectedBatch.sourceInfo?.isDistributed" type="warning" effect="dark" size="small">
+                            Lô đang phân phối
+                        </el-tag>
+                    </div>
                     <el-table :data="items" height="400" border stripe>
                         <el-table-column type="index" label="STT" width="60" align="center" />
                         <el-table-column prop="fullQrCode" label="Mã QR (Full)" min-width="180">
@@ -131,9 +185,11 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="parentCode" label="Thùng (Container)" width="150" />
-                        <el-table-column prop="status" label="Trạng thái" width="100">
+                        <el-table-column prop="status" label="Trạng thái" width="130" align="center">
                             <template #default="{row}">
-                                <el-tag size="small" type="success">{{ row.status === 'ACTIVE' ? 'Đã kích hoạt' : row.status === 'INACTIVE' ? 'Chưa kích hoạt' : row.status }}</el-tag>
+                                <el-tag size="small" :type="getItemStatusTagType(row.status)">
+                                    {{ getItemStatusLabel(row.status) }}
+                                </el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="Thời gian" width="160">
@@ -216,9 +272,31 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
-import { ElMessage } from 'element-plus';
-import { Loading, CircleCheckFilled, TopRight, Search, Plus } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Loading, CircleCheckFilled, TopRight, Search, Plus, Promotion, View, Edit } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+
+const distributing = ref(false);
+
+const getItemStatusLabel = (status: string) => {
+    switch(status) {
+        case 'ACTIVE': return 'Đã đóng gói';
+        case 'AT_DEALER': return 'Đang phân phối';
+        case 'SOLD': return 'Đã bán';
+        case 'LOST': return 'Đã báo mất';
+        default: return status || 'Chưa kích hoạt';
+    }
+};
+
+const getItemStatusTagType = (status: string) => {
+    switch(status) {
+        case 'ACTIVE': return 'success';
+        case 'AT_DEALER': return 'warning';
+        case 'SOLD': return 'info';
+        case 'LOST': return 'danger';
+        default: return 'info';
+    }
+};
 
 const getBatchStatusLabel = (status: string) => {
   switch (status) {
@@ -355,6 +433,41 @@ const viewDetails = async (row: any) => {
         ElMessage.error('Lỗi tải danh sách tem');
     }
 }
+
+const handleDistribute = async (batch: any) => {
+    if (!batch?.id) return;
+    try {
+        await ElMessageBox.confirm(
+            `Bạn có chắc chắn muốn chuyển toàn bộ sản phẩm trong lô ${batch.batchCode} sang trạng thái PHÂN PHỐI?`,
+            'Xác nhận phân phối',
+            {
+                confirmButtonText: 'Xác nhận chuyển',
+                cancelButtonText: 'Hủy',
+                type: 'warning'
+            }
+        );
+
+        distributing.value = true;
+        const { data } = await supplyApi.distributeBatch(batch.id);
+        ElMessage.success(data.message || 'Đã chuyển trạng thái sang Phân phối thành công!');
+        
+        if (selectedBatch.value && selectedBatch.value.id === batch.id) {
+            selectedBatch.value.sourceInfo = {
+                ...(selectedBatch.value.sourceInfo || {}),
+                isDistributed: true
+            };
+            const itemsRes = await supplyApi.getBatchItems(batch.id);
+            items.value = itemsRes.data;
+        }
+        await loadBatches();
+    } catch (e: any) {
+        if (e !== 'cancel') {
+            ElMessage.error(e.response?.data?.message || 'Lỗi khi chuyển trạng thái phân phối');
+        }
+    } finally {
+        distributing.value = false;
+    }
+};
  
 onUnmounted(() => {
     stopPolling();

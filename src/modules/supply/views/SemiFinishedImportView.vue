@@ -37,14 +37,14 @@
             v-model="selectedTransferId" 
             filterable 
             size="small"
-            class="!w-52" 
+            class="!w-72" 
             placeholder="Phiếu đang chờ..."
             @change="handleManualSelect"
           >
             <el-option 
               v-for="t in pendingTransfers" 
               :key="t.id" 
-              :label="`${t.transferCode || t.id.split('-')[0]} - ${getTenantName(t.fromTenantId)}`" 
+              :label="`${t.transferCode || t.id.split('-')[0]} - ${getTransferProductSummary(t) ? getTransferProductSummary(t) + ' - ' : ''}${getTenantName(t.fromTenantId)}`" 
               :value="t.id"
             />
           </el-select>
@@ -198,11 +198,11 @@
           <div class="flex items-center gap-3">
             <el-input 
               v-model="historySearch" 
-              placeholder="Tìm mã phiếu..." 
+              placeholder="Tìm mã phiếu, sản phẩm, mã lô..." 
               :prefix-icon="Search" 
               clearable 
               size="small" 
-              class="!w-52"
+              class="!w-64"
             />
             <el-select v-model="historyStatusFilter" size="small" clearable placeholder="Trạng thái" class="!w-40">
               <el-option label="Hoàn thành" value="COMPLETED" />
@@ -230,16 +230,46 @@
             <span class="font-mono font-bold cursor-pointer hover:underline" style="color: #0F2B46;" @click="viewDetail(row)">{{ row.transferCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Ngày Nhập" width="180">
+        <el-table-column label="Ngày Nhập" width="160">
           <template #default="{ row }">
             <div class="flex items-center gap-1 text-xs">
               <el-icon><Calendar /></el-icon> {{ formatDate(row.importedAt || row.updatedAt) }}
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Đơn vị xuất" min-width="180">
+        <el-table-column label="Đơn vị xuất" min-width="160">
           <template #default="{ row }">
             <span class="font-medium text-gray-700">{{ getTenantName(row.fromTenantId) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Sản phẩm" min-width="220">
+          <template #default="{ row }">
+            <div v-if="row.items && row.items.length" class="space-y-1.5 py-1">
+              <div 
+                v-for="(item, idx) in row.items" 
+                :key="idx" 
+                class="flex flex-col text-xs leading-tight"
+                :class="{ 'border-b border-gray-100 pb-1.5': idx < row.items.length - 1 }"
+              >
+                <div class="flex items-center gap-1.5 font-semibold text-gray-800">
+                  <el-icon class="text-blue-600 text-xs shrink-0"><Box /></el-icon>
+                  <span>{{ getTransferItemProductName(item) }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5 pl-4">
+                  <span v-if="getTransferItemBatchCode(item)" class="font-mono text-blue-600 font-medium">
+                    Lô: {{ getTransferItemBatchCode(item) }}
+                  </span>
+                  <span class="text-gray-300">•</span>
+                  <span class="font-semibold text-green-700">
+                    {{ (Number(item.receivedQuantity || item.expectedQuantity) || 0).toLocaleString() }} kg
+                  </span>
+                  <span v-if="getItemBagCount(item)" class="text-gray-400">
+                    ({{ getItemBagCount(item) }} bao)
+                  </span>
+                </div>
+              </div>
+            </div>
+            <span v-else class="text-xs text-gray-400 italic">---</span>
           </template>
         </el-table-column>
         <el-table-column label="Trạng thái" width="140" align="center">
@@ -525,8 +555,16 @@ const uniqueFromTenants = computed(() => {
 const filteredImportedTransfers = computed(() => {
   let list = importedTransfers.value;
   if (historySearch.value) {
-    const q = historySearch.value.toLowerCase();
-    list = list.filter((t: any) => t.transferCode?.toLowerCase().includes(q));
+    const q = historySearch.value.toLowerCase().trim();
+    list = list.filter((t: any) => {
+      const matchCode = t.transferCode?.toLowerCase().includes(q);
+      const matchProduct = t.items?.some((i: any) => {
+        const pName = getTransferItemProductName(i).toLowerCase();
+        const bCode = getTransferItemBatchCode(i).toLowerCase();
+        return pName.includes(q) || bCode.includes(q);
+      });
+      return matchCode || matchProduct;
+    });
   }
   if (historyStatusFilter.value) {
     list = list.filter((t: any) => t.status === historyStatusFilter.value);
@@ -782,6 +820,21 @@ const getBatchInfo = (id: string) => {
 const getBatchCode = (id: string) => {
   const b = getBatchInfo(id);
   return b ? b.batchCode : id;
+};
+
+const getTransferItemProductName = (item: any) => {
+  return item.batch?.product?.name || item.batch?.productName || getBatchInfo(item.batchId)?.product?.name || getBatchInfo(item.batchId)?.productName || 'Sản phẩm BTP';
+};
+
+const getTransferItemBatchCode = (item: any) => {
+  return item.batch?.batchCode || getBatchCode(item.batchId) || '';
+};
+
+const getTransferProductSummary = (t: any) => {
+  if (!t.items || t.items.length === 0) return '';
+  const names = t.items.map((i: any) => getTransferItemProductName(i));
+  const uniqueNames = Array.from(new Set(names.filter(Boolean)));
+  return uniqueNames.join(', ');
 };
 
 const getActualBagCount = (row: any) => {

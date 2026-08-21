@@ -70,7 +70,7 @@
                     <el-option 
                         v-for="b in externalOnlyList" 
                         :key="b.id" 
-                        :label="`${b.batchCode} (${b.product?.name}) - Còn lại: ${b.totalUnitsExpected - (b.packCount || 0) - (b.exportedQuantity || 0)}`" 
+                        :label="`${b.batchCode} (${b.product?.name || 'Sản phẩm'}) - Còn lại: ${b.availableQuantity ?? b.totalQuantity ?? 0} kg`" 
                         :value="b.id" 
                     />
                  </el-select>
@@ -94,18 +94,24 @@
                     <el-option 
                         v-for="b in semiFinishedOnlyList" 
                         :key="b.id" 
-                        :label="`${b.batchCode} (${b.product?.name}) - SL: ${b.totalQuantity}kg`" 
+                        :label="getSemiFinishedLabel(b)" 
                         :value="b.id" 
                     />
                  </el-select>
              </div>
 
-             <!-- Khi đã có activeBatchId, hiển thị thông tin loại lô -->
-             <div class="flex items-center gap-2 text-sm" v-if="activeBatchId">
-                 <label class="w-32 font-medium text-gray-700">Loại lô:</label>
-                 <el-tag :type="batchTypeTagType">{{ batchTypeLabel }}</el-tag>
-                 <span v-if="batchQrSerial" class="ml-2 text-gray-500">QR Lô: <b class="text-blue-600">{{ batchQrSerial }}</b></span>
-             </div>
+             <!-- Khi đã có activeBatchId, hiển thị thông tin loại lô & lô nguồn -->
+              <div class="flex items-center gap-2 text-sm flex-wrap" v-if="activeBatchId">
+                  <label class="w-32 font-medium text-gray-700 shrink-0">Loại & Nguồn:</label>
+                  <el-tag :type="batchTypeTagType">{{ batchTypeLabel }}</el-tag>
+                  <span v-if="activeSourceBatchCode" class="text-slate-700 font-medium ml-1">
+                      Lô nguồn: <b class="text-slate-900">{{ activeSourceBatchCode }}</b>
+                  </span>
+                  <span v-if="activeOriginTenantName" class="text-xs text-blue-600">
+                      (Từ: {{ activeOriginTenantName }})
+                  </span>
+                  <span v-if="batchQrSerial" class="ml-2 text-gray-500">QR Lô: <b class="text-blue-600">{{ batchQrSerial }}</b></span>
+              </div>
         </div>
 
         <!-- RIGHT COL -->
@@ -146,16 +152,31 @@
                  <el-input-number v-model="unitWeight" :precision="2" :step="0.1" class="flex-1 min-w-0" size="default" />
              </div>
 
-             <!-- Default Warehouse Info -->
-             <div class="flex items-center gap-2">
-                 <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Kho nhập:</label>
-                 <div class="flex-1 min-w-0 px-3 py-1 bg-gray-50 rounded border border-dashed border-gray-300 flex items-center gap-2">
-                     <el-icon v-if="defaultWarehouse" class="text-orange-500"><HomeFilled /></el-icon>
-                     <span v-if="defaultWarehouse" class="text-sm font-medium text-gray-700 truncate">{{ defaultWarehouse.name }}</span>
-                     <span v-else class="text-sm text-gray-400 italic">Chưa cấu hình kho mặc định</span>
-                     <el-tag v-if="defaultWarehouse" size="small" type="danger" effect="plain" class="ml-auto shrink-0">Mặc định</el-tag>
-                 </div>
-             </div>
+             <!-- Warehouse Selection (Default & Changeable) -->
+              <div class="flex items-center gap-2">
+                  <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Kho nhập:</label>
+                  <el-select 
+                      v-model="selectedWarehouseId" 
+                      placeholder="Chọn kho nhập..." 
+                      filterable 
+                      clearable
+                      class="flex-1 min-w-0"
+                      size="default"
+                      :disabled="!!activeBatchId"
+                  >
+                      <el-option 
+                          v-for="w in warehouseList" 
+                          :key="w.id" 
+                          :label="`${w.name}${w.isDefault ? ' (Mặc định)' : ''}`" 
+                          :value="w.id" 
+                      >
+                          <div class="flex items-center justify-between w-full">
+                              <span>{{ w.name }}</span>
+                              <el-tag v-if="w.isDefault" size="small" type="danger" effect="plain" class="ml-2">Mặc định</el-tag>
+                          </div>
+                      </el-option>
+                  </el-select>
+              </div>
         </div>
     </div>
 
@@ -221,7 +242,7 @@
                         size="default"
                      >
                          <el-option 
-                            v-for="p in poolList" 
+                            v-for="p in standalonePoolList" 
                             :key="p.id" 
                             :label="`${p.name}`" 
                             :value="p.id" 
@@ -254,10 +275,19 @@
              </div>
 
              <!-- Pool Hint Info -->
-             <div v-if="selectedPoolInfo" class="text-xs text-blue-600 mt-1 pl-[136px]">
-                 Gợi ý: <b>{{ selectedPoolInfo.prefix }}-{{ String(selectedPoolInfo.startSerial).padStart(5, '0') }}</b> 
-                 đến <b>{{ selectedPoolInfo.prefix }}-{{ String(selectedPoolInfo.endSerial).padStart(5, '0') }}</b>
-                 | Đã dùng: <b>{{ selectedPoolInfo.usedCount || 0 }} / {{ selectedPoolInfo.quantity }}</b> mã
+             <div v-if="poolSuggestionInfo || selectedPoolInfo" class="text-xs text-blue-600 mt-1 pl-[136px]">
+                 <template v-if="poolSuggestionInfo && poolSuggestionInfo.suggestedStart">
+                     Gợi ý chưa dùng: <b>{{ poolSuggestionInfo.suggestedStart }}</b> đến <b>{{ poolSuggestionInfo.suggestedEnd }}</b>
+                     | Khả dụng: <b>{{ poolSuggestionInfo.availableCount }} / {{ poolSuggestionInfo.totalQuantity }}</b> mã (Đã dùng: <b>{{ poolSuggestionInfo.usedCount }}</b>)
+                 </template>
+                 <template v-else-if="poolSuggestionInfo && poolSuggestionInfo.availableCount === 0">
+                     <span class="text-red-500 font-medium">Lô mã này đã sử dụng hết (0 / {{ poolSuggestionInfo.totalQuantity }} mã khả dụng)</span>
+                 </template>
+                 <template v-else-if="selectedPoolInfo">
+                     Gợi ý: <b>{{ selectedPoolInfo.prefix }}-{{ String(selectedPoolInfo.startSerial).padStart(5, '0') }}</b> 
+                     đến <b>{{ selectedPoolInfo.prefix }}-{{ String(selectedPoolInfo.endSerial).padStart(5, '0') }}</b>
+                     | Đã dùng: <b>{{ selectedPoolInfo.usedCount || 0 }} / {{ selectedPoolInfo.quantity }}</b> mã
+                 </template>
              </div>
         </div>
     </div>
@@ -373,6 +403,7 @@ const tenantList = ref<any[]>([]);
 const selectedHarvestCode = ref('');
 const selectedExternalBatchId = ref('');
 const selectedProductId = ref('');
+const selectedWarehouseId = ref('');
 const unitWeight = ref(1);
 const harvestQuantity = ref(0);
 const previouslyPackagedCount = ref(0);
@@ -404,6 +435,8 @@ const transferring = ref(false);
 const activeBatchId = ref<string | null>(null);
 const activeBatchType = ref('FARM');
 const activeBatchQrSerial = ref('');
+const activeSourceBatchCode = ref('');
+const activeOriginTenantName = ref('');
 
 const tableData = ref<any[]>([]);
 const saving = ref(false);
@@ -415,8 +448,9 @@ const refreshingProducts = ref(false);
 // labels mapping
 const batchTypeLabel = computed(() => {
     switch(activeBatchType.value) {
+        case 'CROSS_TENANT': return 'Bán thành phẩm';
+        case 'SEMI_FINISHED': return 'Bán thành phẩm';
         case 'EXTERNAL': return 'Nhập ngoài/Sẵn có';
-        case 'CROSS_TENANT': return 'Nhận từ Tenant khác';
         case 'LEGACY': return 'Lô cũ';
         default: return 'Từ Farm';
     }
@@ -424,8 +458,9 @@ const batchTypeLabel = computed(() => {
 
 const batchTypeTagType = computed(() => {
     switch(activeBatchType.value) {
-        case 'EXTERNAL': return 'success';
         case 'CROSS_TENANT': return 'warning';
+        case 'SEMI_FINISHED': return 'success';
+        case 'EXTERNAL': return 'info';
         case 'LEGACY': return 'info';
         default: return 'primary';
     }
@@ -436,18 +471,35 @@ const selectedPoolInfo = computed(() => {
     return poolList.value.find(p => p.id === selectedPoolId.value) || null;
 });
 
+const standalonePoolList = computed(() => {
+    return poolList.value.filter(p => !p.name?.startsWith('LSX-') && !p.name?.startsWith('LSX'));
+});
+
+const poolSuggestionInfo = ref<any>(null);
+
 const matchesProduct = (item: any, productId: string) => {
     if (!productId) return true;
     return item.productId === productId || item.product_id === productId || item.product?.id === productId;
 };
 
 const filteredHarvestList = computed(() => {
-    if (!selectedProductId.value) return harvestList.value;
-    return harvestList.value.filter(h => matchesProduct(h, selectedProductId.value));
+    let list = harvestList.value.filter(h => {
+        const qty = Number(h.availableKg ?? h.quantityKg ?? 0);
+        return qty > 0;
+    });
+    if (selectedProductId.value) {
+        list = list.filter(h => matchesProduct(h, selectedProductId.value));
+    }
+    return list;
 });
 
 const externalOnlyList = computed(() => {
-    let list = externalBatchList.value.filter(b => b.batchType !== 'SEMI_FINISHED');
+    let list = externalBatchList.value.filter(b => {
+        const isExt = b.batchType !== 'SEMI_FINISHED' && b.batchType !== 'CROSS_TENANT';
+        if (!isExt) return false;
+        const remain = Number(b.availableQuantity ?? b.totalQuantity ?? 0);
+        return remain > 0;
+    });
     if (selectedProductId.value) {
         list = list.filter(b => matchesProduct(b, selectedProductId.value));
     }
@@ -455,35 +507,85 @@ const externalOnlyList = computed(() => {
 });
 
 const semiFinishedOnlyList = computed(() => {
-    let list = externalBatchList.value.filter(b => b.batchType === 'SEMI_FINISHED' || b.batchType === 'CROSS_TENANT');
-    if (selectedProductId.value) {
-        list = list.filter(b => matchesProduct(b, selectedProductId.value));
-    }
-    return list;
+    return externalBatchList.value.filter(b => {
+        const isBtp = b.batchType === 'SEMI_FINISHED' || b.batchType === 'CROSS_TENANT';
+        if (!isBtp) return false;
+        const qty = Number(b.availableQuantity ?? b.totalQuantity ?? 0);
+        return qty > 0;
+    });
 });
+
+const getSemiFinishedLabel = (b: any) => {
+    const pName = b.originProductName || b.product?.name || b.sourceInfo?.origin_product_name || 'Bán thành phẩm';
+    const tenantName = b.originTenantName || b.sourceInfo?.origin_tenant_name || '';
+    const fromStr = tenantName ? ` - Từ: ${tenantName}` : '';
+    const qty = Number(b.availableQuantity ?? b.totalQuantity ?? 0);
+    return `${b.batchCode} (${pName}${fromStr}) - Còn lại: ${qty}kg`;
+};
 
 const defaultWarehouse = computed(() => {
     return warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION');
 });
 
 const expectedCount = computed(() => {
-    if (batchSourceType.value === 'EXTERNAL') return externalQuantity.value;
-    if (!harvestQuantity.value || !unitWeight.value) return 0;
+    if (!harvestQuantity.value || !unitWeight.value || unitWeight.value <= 0) return 0;
     return Math.floor(harvestQuantity.value / unitWeight.value);
 });
 
 const currentCount = computed(() => tableData.value.length + previouslyPackagedCount.value);
 
-// --- WATCHERS ---
-watch(selectedPoolId, (newId) => {
-    if (newId && isRangeMode.value && selectedPoolInfo.value) {
-        const pool = selectedPoolInfo.value;
-        const prefix = pool.prefix ? `${pool.prefix}-` : '';
-        rangeStart.value = `${prefix}${String(pool.startSerial).padStart(5, '0')}`;
-        rangeEnd.value = `${prefix}${String(pool.endSerial).padStart(5, '0')}`;
-    } else {
+// --- WATCHERS & RANGE SUGGESTION ---
+const fetchPoolRangeSuggestion = async (poolId: string) => {
+    if (!poolId || !isRangeMode.value) {
         rangeStart.value = '';
         rangeEnd.value = '';
+        poolSuggestionInfo.value = null;
+        return;
+    }
+
+    try {
+        const alreadySelected = tableData.value.length;
+        const alreadyPackaged = previouslyPackagedCount.value;
+        const totalExp = expectedCount.value;
+        let needed = totalExp > 0 ? Math.max(1, totalExp - (alreadySelected + alreadyPackaged)) : 10;
+        if (needed <= 0) needed = 1;
+
+        const { data } = await codeApi.getPoolSuggestedRange(poolId, needed);
+        if (data) {
+            poolSuggestionInfo.value = data;
+            if (data.availableCount === 0) {
+                ElMessage.warning(data.message || 'Lô mã này đã được sử dụng hết!');
+                rangeStart.value = '';
+                rangeEnd.value = '';
+            } else {
+                rangeStart.value = data.suggestedStart;
+                rangeEnd.value = data.suggestedEnd;
+            }
+        }
+    } catch (e: any) {
+        console.error('Error fetching suggested range:', e);
+        const pool = selectedPoolInfo.value;
+        if (pool) {
+            const prefix = pool.prefix ? `${pool.prefix}-` : '';
+            rangeStart.value = `${prefix}${String(pool.startSerial).padStart(5, '0')}`;
+            rangeEnd.value = `${prefix}${String(pool.endSerial).padStart(5, '0')}`;
+        }
+    }
+};
+
+watch(selectedPoolId, (newId) => {
+    fetchPoolRangeSuggestion(newId);
+});
+
+watch(expectedCount, () => {
+    if (selectedPoolId.value) {
+        fetchPoolRangeSuggestion(selectedPoolId.value);
+    }
+});
+
+watch(isRangeMode, (isRange) => {
+    if (isRange && selectedPoolId.value) {
+        fetchPoolRangeSuggestion(selectedPoolId.value);
     }
 });
 
@@ -507,6 +609,14 @@ const loadMasterData = async () => {
         const extData = (extRes as any).data?.data || (extRes as any).data || [];
         externalBatchList.value = extData.filter((b: any) => b.status === 'PACKING' || b.status === 'COMPLETED');
 
+        // Gán kho mặc định nếu chưa chọn
+        if (!selectedWarehouseId.value && warehouseList.value.length > 0) {
+            const defWh = warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION') 
+                       || warehouseList.value.find(w => w.isDefault) 
+                       || warehouseList.value[0];
+            if (defWh) selectedWarehouseId.value = defWh.id;
+        }
+
         // Load some available codes for Batch QR assignment
         const codeRes = await codeApi.getItems({ status: 'AVAILABLE', limit: 100 });
         availableCodes.value = codeRes.data?.data || [];
@@ -527,11 +637,13 @@ const loadBatchIfExists = async () => {
             activeBatchId.value = data.id;
             batchCode.value = data.batchCode;
             activeBatchType.value = data.batchType;
-            batchSourceType.value = (data.batchType === 'FARM') ? 'FARM' : (data.batchType === 'SEMI_FINISHED' ? 'SEMI_FINISHED' : 'EXTERNAL');
+            batchSourceType.value = (data.batchType === 'FARM') ? 'FARM' : (data.batchType === 'SEMI_FINISHED' || data.batchType === 'CROSS_TENANT' ? 'SEMI_FINISHED' : 'EXTERNAL');
             batchQrSerial.value = data.batchQrSerial;
             
             selectedHarvestCode.value = data.farmBatchCode;
             selectedProductId.value = data.productId;
+            activeSourceBatchCode.value = data.farmBatchCode || data.parentBatch?.batchCode || data.sourceInfo?.origin_batch_code || '';
+            activeOriginTenantName.value = data.sourceInfo?.origin_tenant_name || '';
             
             if (data.farmDataSnapshot) {
                 harvestQuantity.value = data.farmDataSnapshot.quantityKg;
@@ -540,6 +652,10 @@ const loadBatchIfExists = async () => {
             
             if (data.batchType === 'EXTERNAL' || data.batchType === 'CROSS_TENANT') {
                 externalQuantity.value = data.totalUnitsExpected;
+            }
+
+            if (data.sourceInfo?.warehouse_id) {
+                selectedWarehouseId.value = data.sourceInfo.warehouse_id;
             }
 
             previouslyPackagedCount.value = data.packCount || 0;
@@ -606,12 +722,11 @@ const onHarvestSelect = async () => {
 const onExternalBatchSelect = () => {
     if (!selectedExternalBatchId.value) return;
     const b = externalBatchList.value.find(x => x.id === selectedExternalBatchId.value);
-    if (b && b.batchCode.startsWith('PKG-')) {
-        router.push({ query: { batchId: selectedExternalBatchId.value } });
-        setTimeout(() => loadBatchIfExists(), 100);
-    } else {
-        // Source batch selected, will create PKG on save
-        if (b?.productId) {
+    if (b) {
+        const qty = Number(b.availableQuantity ?? b.totalQuantity ?? 0);
+        harvestQuantity.value = qty;
+        externalQuantity.value = qty;
+        if (b.productId && productList.value.some(p => p.id === b.productId)) {
             selectedProductId.value = b.productId;
             onProductSelect();
         }
@@ -622,7 +737,9 @@ const onSemiFinishedSelect = () => {
     if (!selectedSemiFinishedBatchId.value) return;
     const b = externalBatchList.value.find(x => x.id === selectedSemiFinishedBatchId.value);
     if (b) {
-        if (b.productId) {
+        harvestQuantity.value = Number(b.totalQuantity ?? b.availableQuantity ?? 0);
+        // Chỉ chọn tự động sản phẩm nếu productId đó tồn tại trong danh mục của tenant hiện tại
+        if (b.productId && productList.value.some(p => p.id === b.productId)) {
             selectedProductId.value = b.productId;
             onProductSelect();
         }
@@ -632,12 +749,13 @@ const onSemiFinishedSelect = () => {
 const onProductSelect = () => {
     const p = productList.value.find(item => item.id === selectedProductId.value);
     if (p) {
+        let weight = 1;
         if (p.netWeight && Number(p.netWeight) > 0) {
-            let weight = Number(p.netWeight);
+            weight = Number(p.netWeight);
             const unit = (p.weightUnit || 'kg').toLowerCase();
             if (unit === 'g' || unit === 'ml') weight /= 1000;
-            unitWeight.value = weight;
         }
+        unitWeight.value = weight;
     }
 
     if (!activeBatchId.value) {
@@ -655,12 +773,7 @@ const onProductSelect = () => {
                 selectedExternalBatchId.value = '';
             }
         }
-        if (selectedSemiFinishedBatchId.value) {
-            const b = externalBatchList.value.find(item => item.id === selectedSemiFinishedBatchId.value);
-            if (b && selectedProductId.value && !matchesProduct(b, selectedProductId.value)) {
-                selectedSemiFinishedBatchId.value = '';
-            }
-        }
+        // Lưu ý: Không tự động xóa selectedSemiFinishedBatchId khi đổi sản phẩm để cho phép đóng với SP mới của tenant này
     }
 };
 
@@ -746,38 +859,62 @@ const addRangeOrPool = async () => {
             codes.push(...rangeInput.value.split(',').map(s => s.trim()).filter(Boolean));
         }
 
-        // Fetch codeString (QR) for these serials from backend
-        let codeMap = new Map<string, string>();
-        if (codes.length > 0) {
-            try {
-                const res = await codeApi.getItems({ serials: codes.join(','), limit: codes.length });
-                const items = res.data?.data || res.data || [];
-                for (const item of items) {
-                    if (item.serial && item.codeString) {
-                        codeMap.set(item.serial, item.codeString);
-                    }
+        if (codes.length === 0) {
+            ElMessage.warning('Vui lòng nhập dãy mã hợp lệ');
+            return;
+        }
+
+        // Fetch codeItems from backend to verify status and map QRCode correctly
+        let codeMap = new Map<string, { codeString: string; status: string }>();
+        const usedOrInvalidCodes: string[] = [];
+        try {
+            const res = await codeApi.getItems({ serials: codes.join(','), limit: codes.length });
+            const items = res.data?.data || res.data || [];
+            for (const item of items) {
+                if (item.serial) {
+                    codeMap.set(item.serial, {
+                        codeString: item.codeString,
+                        status: item.productItemStatus || item.status
+                    });
                 }
-            } catch (e) {
-                console.warn('Could not fetch code strings for range:', e);
             }
+        } catch (e) {
+            console.warn('Could not fetch code strings for range:', e);
         }
 
         const pName = productList.value.find(p => p.id === selectedProductId.value)?.name || '';
+        let addedCount = 0;
         codes.forEach(c => {
+            const info = codeMap.get(c);
+            if (info && info.status && info.status !== 'AVAILABLE' && info.status !== 'UNATTACHED') {
+                usedOrInvalidCodes.push(c);
+                return;
+            }
             if (!tableData.value.find(x => x.code === c)) {
                 tableData.value.unshift({
                     code: c,
-                    codeString: codeMap.get(c) || '',
+                    codeString: info?.codeString || '',
                     productName: pName,
                     parentCode: isCarton.value ? cartonCode.value : ''
                 });
+                addedCount++;
             }
         });
         
+        if (usedOrInvalidCodes.length > 0) {
+            ElMessage.warning(`Bỏ qua ${usedOrInvalidCodes.length} mã đã được sử dụng hoặc không hợp lệ.`);
+        }
+
         rangeInput.value = '';
         rangeStart.value = '';
         rangeEnd.value = '';
-        ElMessage.success(`Đã thêm ${codes.length} mã vào danh sách chờ.`);
+        if (addedCount > 0) {
+            ElMessage.success(`Đã thêm ${addedCount} mã vào danh sách chờ.`);
+        }
+        // Refresh suggestion for next batch if pool is still selected
+        if (selectedPoolId.value) {
+            fetchPoolRangeSuggestion(selectedPoolId.value);
+        }
     } finally {
         scanning.value = false;
     }
@@ -792,10 +929,14 @@ const doSave = async () => {
             if (batchSourceType.value === 'FARM') {
                 const res = await supplyApi.createBatch({
                     farm_batch_code: selectedHarvestCode.value,
-                    product_id: selectedProductId.value
+                    product_id: selectedProductId.value,
+                    warehouse_id: selectedWarehouseId.value || undefined
                 });
                 activeBatchId.value = res.data.id;
                 batchCode.value = res.data.batchCode;
+                activeBatchType.value = res.data.batchType || 'FARM';
+                activeSourceBatchCode.value = selectedHarvestCode.value || '';
+                activeOriginTenantName.value = '';
             } else if (batchSourceType.value === 'SEMI_FINISHED') {
                 if (!selectedSemiFinishedBatchId.value) {
                     ElMessage.warning('Vui lòng chọn lô bán thành phẩm');
@@ -804,10 +945,15 @@ const doSave = async () => {
                 }
                 const res = await supplyApi.createBatch({
                     source_batch_id: selectedSemiFinishedBatchId.value,
-                    product_id: selectedProductId.value
+                    product_id: selectedProductId.value,
+                    warehouse_id: selectedWarehouseId.value || undefined
                 });
                 activeBatchId.value = res.data.id;
                 batchCode.value = res.data.batchCode;
+                activeBatchType.value = res.data.batchType || 'CROSS_TENANT';
+                const selectedBtp = semiFinishedOnlyList.value.find(b => b.id === selectedSemiFinishedBatchId.value);
+                activeSourceBatchCode.value = selectedBtp?.batchCode || res.data.farmBatchCode || '';
+                activeOriginTenantName.value = selectedBtp?.originTenantName || res.data.sourceInfo?.origin_tenant_name || '';
             } else {
                 // EXTERNAL
                 if (!selectedExternalBatchId.value) {
@@ -816,18 +962,18 @@ const doSave = async () => {
                     return;
                 }
                 
-                const b = externalBatchList.value.find(x => x.id === selectedExternalBatchId.value);
-                if (b && b.batchCode.startsWith('PKG-')) {
-                    activeBatchId.value = selectedExternalBatchId.value;
-                } else {
-                    // Create new PKG from source
-                    const res = await supplyApi.createBatch({
-                        source_batch_id: selectedExternalBatchId.value,
-                        product_id: selectedProductId.value
-                    });
-                    activeBatchId.value = res.data.id;
-                    batchCode.value = res.data.batchCode;
-                }
+                // Create new PKG from source
+                const res = await supplyApi.createBatch({
+                    source_batch_id: selectedExternalBatchId.value,
+                    product_id: selectedProductId.value,
+                    warehouse_id: selectedWarehouseId.value || undefined
+                });
+                activeBatchId.value = res.data.id;
+                batchCode.value = res.data.batchCode;
+                activeBatchType.value = res.data.batchType || 'EXTERNAL';
+                const b = externalOnlyList.value.find(x => x.id === selectedExternalBatchId.value);
+                activeSourceBatchCode.value = b?.batchCode || res.data.farmBatchCode || '';
+                activeOriginTenantName.value = '';
             }
         }
 
@@ -840,6 +986,16 @@ const doSave = async () => {
         
         ElNotification({ title: 'Kết quả', message: `Đã lưu ${data.added} mã.`, type: 'success' });
         tableData.value = [];
+
+        // Nếu lô đã hoàn thành đủ 100% tiến độ sau khi lưu
+        if (data.batchStats?.progress >= 100 || (data.batchStats?.packCount && expectedCount.value > 0 && data.batchStats.packCount >= expectedCount.value)) {
+            ElMessage.success('Lô hàng đã đóng đủ số lượng và hoàn tất nhập kho!');
+            setTimeout(() => {
+                router.push('/supply/batches');
+            }, 800);
+        } else if (data.batchStats?.packCount) {
+            previouslyPackagedCount.value = data.batchStats.packCount;
+        }
     } catch (e: any) {
         ElMessage.error(e.response?.data?.message || 'Lỗi lưu dữ liệu');
     } finally {
@@ -853,8 +1009,10 @@ const finishActiveBatch = async () => {
         await ElMessageBox.confirm('Đóng và nhập kho lô hàng này?', 'Xác nhận', { type: 'warning' });
         finishing.value = true;
         await supplyApi.finishBatch(activeBatchId.value);
-        ElMessage.success('Thành công!');
-        resetForm();
+        ElMessage.success('Đóng lô hoàn tất và đã chuyển sang kho thành phẩm!');
+        setTimeout(() => {
+            router.push('/supply/batches');
+        }, 500);
     } catch (e) {
         console.error(e);
     } finally {
@@ -883,7 +1041,12 @@ const resetForm = () => {
     tableData.value = [];
     selectedHarvestCode.value = '';
     selectedExternalBatchId.value = '';
+    selectedSemiFinishedBatchId.value = '';
     selectedProductId.value = '';
+    const defWh = warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION') 
+               || warehouseList.value.find(w => w.isDefault) 
+               || warehouseList.value[0];
+    selectedWarehouseId.value = defWh ? defWh.id : '';
     router.replace({ query: {} });
     loadMasterData();
 };

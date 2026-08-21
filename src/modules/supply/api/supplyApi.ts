@@ -6,6 +6,7 @@ export interface CreateBatchDto {
     farm_batch_code?: string;
     source_batch_id?: string;
     product_id: string; // Changed from gtin
+    warehouse_id?: string;
 }
 
 export interface ActivateItemDto {
@@ -171,6 +172,9 @@ export const supplyApi = {
     },
     cancelBatch(id: string) {
         return api.post<any>(`${baseUrl}/batches/${id}/cancel`);
+    },
+    distributeBatch(id: string) {
+        return api.post<any>(`${baseUrl}/batches/${id}/distribute`);
     },
     getBatchItems(batchId: string) {
         return api.get<any[]>(`${baseUrl}/batches/${batchId}/items`);
