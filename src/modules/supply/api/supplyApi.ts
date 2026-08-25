@@ -161,7 +161,7 @@ export const supplyApi = {
     getHarvestStats(harvestCode: string) {
         return api.get(`${baseUrl}/packaging/harvest-stats`, { params: { harvestCode } });
     },
-    getBatches(params?: { page?: number; limit?: number; batchType?: string; excludeBatchType?: string; onlyPackaged?: boolean | string; search?: string; status?: string; fromDate?: string; toDate?: string }) {
+    getBatches(params?: { page?: number; limit?: number; batchType?: string; excludeBatchType?: string; onlyPackaged?: boolean | string; productId?: string; search?: string; status?: string; fromDate?: string; toDate?: string }) {
         return api.get<any>(`${baseUrl}/batches`, { params });
     },
     getBatch(id: string) {

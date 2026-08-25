@@ -12,17 +12,33 @@
     <div class="flex flex-wrap gap-3 items-center mb-4">
       <el-input
         v-model="searchTerm"
-        placeholder="Tìm theo mã lô, sản phẩm..."
+        placeholder="Tìm theo mã lô..."
         clearable
-        style="width: 280px"
+        style="width: 200px"
         @input="debouncedSearch"
         :prefix-icon="Search"
       />
       <el-select
+        v-model="filterProductId"
+        placeholder="Tất cả sản phẩm"
+        clearable
+        filterable
+        style="width: 220px"
+        @change="handleFilterChange"
+      >
+        <el-option label="Tất cả sản phẩm" value="" />
+        <el-option
+          v-for="p in productList"
+          :key="p.id"
+          :label="p.name"
+          :value="p.id"
+        />
+      </el-select>
+      <el-select
         v-model="filterStatus"
         placeholder="Trạng thái"
         clearable
-        style="width: 160px"
+        style="width: 150px"
         @change="handleFilterChange"
       >
         <el-option label="Tất cả trạng thái" value="" />
@@ -31,25 +47,37 @@
         <el-option label="Đã xuất" value="SHIPPED" />
         <el-option label="Hoàn thành" value="COMPLETED" />
       </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="đến"
+        start-placeholder="Từ ngày"
+        end-placeholder="Đến ngày"
+        format="DD/MM/YYYY"
+        value-format="YYYY-MM-DD"
+        clearable
+        class="compact-date-picker"
+        @change="handleFilterChange"
+      />
       <span class="ml-auto text-sm text-slate-500">
         Tổng: <strong>{{ total }}</strong> lô
       </span>
     </div>
 
-    <el-table :data="batches" stripe border style="width: 100%">
-        <el-table-column label="STT" width="60" align="center">
+    <el-table :data="batches" stripe border style="width: 100%" class="w-full">
+        <el-table-column label="STT" width="55" align="center">
             <template #default="{ $index }">
                 {{ (currentPage - 1) * pageSize + $index + 1 }}
             </template>
         </el-table-column>
-        <el-table-column prop="batchCode" label="Mã Lô" width="250" sortable>
+        <el-table-column prop="batchCode" label="Mã Lô" min-width="170" sortable>
              <template #default="{row}">
-                 <span class="font-bold cursor-pointer text-blue-600" @click="viewDetails(row)">
+                 <span class="font-bold cursor-pointer text-blue-600 hover:underline" @click="viewDetails(row)">
                      {{ row.batchCode }}
                  </span>
              </template>
         </el-table-column>
-        <el-table-column label="Lô Nguyên Liệu" min-width="220">
+        <el-table-column label="Lô Nguyên Liệu" min-width="160">
              <template #default="{row}">
                  <div v-if="row.farmBatchCode || row.parentBatch?.batchCode || row.sourceInfo?.origin_batch_code">
                      <span class="font-medium text-slate-800">
@@ -65,7 +93,7 @@
                  <span v-else class="text-gray-400">---</span>
              </template>
         </el-table-column>
-        <el-table-column label="Sản phẩm" min-width="200">
+        <el-table-column label="Sản phẩm" min-width="170">
              <template #default="{row}">
                  <div class="font-medium text-slate-800">{{ row.product?.name || '---' }}</div>
                  <div class="text-xs text-gray-400" v-if="row.productGtin || row.product?.gtinCode">
@@ -73,22 +101,26 @@
                  </div>
              </template>
         </el-table-column>
-        <el-table-column label="Tiến độ" min-width="200">
+        <el-table-column label="Tiến độ" min-width="150">
              <template #default="{row}">
                  <div class="flex items-center gap-2">
                      <el-progress 
                         :percentage="calcProgress(row)" 
                         :status="row.status === 'COMPLETED' ? 'success' : ''" 
-                        class="w-32" 
+                        class="w-20" 
                      />
-                     <span class="text-xs text-gray-500">
-                         {{ row.packCount }} / {{ row.totalUnitsExpected }}
+                     <span class="text-xs text-gray-500 whitespace-nowrap">
+                         {{ row.packCount }}/{{ row.totalUnitsExpected }}
                      </span>
                  </div>
              </template>
         </el-table-column>
-        <el-table-column prop="totalQuantity" label="Tổng KL (kg)" width="120" />
-        <el-table-column label="Ngày tạo" width="150" sortable>
+        <el-table-column prop="totalQuantity" label="Tổng KL (kg)" width="110" align="right">
+             <template #default="{row}">
+                 <span class="font-medium">{{ row.totalQuantity ? Number(row.totalQuantity).toLocaleString() : '0' }}</span>
+             </template>
+        </el-table-column>
+        <el-table-column label="Ngày tạo" width="140" align="center" sortable>
              <template #default="{row}">
                  {{ formatDate(row.createdAt) }}
              </template>
@@ -101,19 +133,14 @@
                 </div>
             </template>
         </el-table-column>
-        <el-table-column label="Thao tác" width="160" align="center" fixed="right">
+        <el-table-column label="Thao tác" width="130" align="center">
             <template #default="{row}">
-                <div class="flex items-center justify-center gap-1">
-                    <el-tooltip content="Xem chi tiết" placement="top">
-                        <el-button type="info" link :icon="View" size="small" @click.stop="viewDetails(row)" />
-                    </el-tooltip>
-                    <el-tooltip v-if="row.status === 'PACKING'" content="Tiếp tục đóng gói" placement="top">
-                        <el-button type="primary" link :icon="Edit" size="small" @click.stop="continuePacking(row)">Tiếp tục</el-button>
-                    </el-tooltip>
-                    <el-tooltip v-else-if="row.status === 'COMPLETED' && !row.sourceInfo?.isDistributed" content="Chuyển sang phân phối" placement="top">
+                <div class="flex items-center justify-center">
+                    <el-tooltip v-if="row.status === 'COMPLETED' && !row.sourceInfo?.isDistributed" content="Chuyển sang phân phối" placement="top">
                         <el-button type="warning" link :icon="Promotion" size="small" @click.stop="handleDistribute(row)">Phân phối</el-button>
                     </el-tooltip>
-                    <el-tag v-else-if="row.sourceInfo?.isDistributed" size="small" type="warning" effect="dark">Đã phân phối</el-tag>
+                    <el-tag v-else-if="row.sourceInfo?.isDistributed" size="small" type="warning" effect="plain">Đã phân phối</el-tag>
+                    <span v-else class="text-gray-300">---</span>
                 </div>
             </template>
         </el-table-column>
@@ -272,6 +299,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supplyApi } from '../api/supplyApi';
+import { productApi } from '@/modules/core/api/product';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, CircleCheckFilled, TopRight, Search, Plus, Promotion, View, Edit } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
@@ -314,6 +342,9 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const searchTerm = ref('');
 const filterStatus = ref('');
+const filterProductId = ref('');
+const dateRange = ref<[string, string] | null>(null);
+const productList = ref<any[]>([]);
 const items = ref<any[]>([]);
 const selectedBatch = ref<any>(null);
 const showDetail = ref(false);
@@ -368,6 +399,15 @@ const continuePacking = (row: any) => {
     router.push({ path: '/supply/packaging', query: { batchId: row.id } });
 };
 
+const loadProducts = async () => {
+    try {
+        const { data } = await productApi.getList({ page: 1, limit: 1000 });
+        productList.value = data?.data || (Array.isArray(data) ? data : []);
+    } catch (e) {
+        console.error('Lỗi tải danh sách sản phẩm:', e);
+    }
+};
+
 const loadBatches = async () => {
     try {
         const params: any = {
@@ -377,14 +417,19 @@ const loadBatches = async () => {
         };
         if (searchTerm.value) params.search = searchTerm.value;
         if (filterStatus.value) params.status = filterStatus.value;
+        if (filterProductId.value) params.productId = filterProductId.value;
+        if (dateRange.value && dateRange.value.length === 2) {
+            params.fromDate = dateRange.value[0];
+            params.toDate = dateRange.value[1];
+        }
 
         const { data } = await supplyApi.getBatches(params);
         const rawList = data?.data || (Array.isArray(data) ? data : []);
-        // Đảm bảo chỉ hiển thị các lô được đóng gói trực tiếp (PKG-* hoặc FINISHED)
+        // Đảm bảo chỉ hiển thị các lô được đóng gói trực tiếp (PKG-*)
         batches.value = rawList.filter((b: any) => {
             const code = (b.batchCode || '').trim();
-            const type = (b.batchType || '').toUpperCase();
-            return code.startsWith('PKG-') || type === 'FINISHED';
+            const matchProd = !filterProductId.value || b.productId === filterProductId.value || b.product?.id === filterProductId.value;
+            return code.startsWith('PKG-') && matchProd;
         });
         total.value = typeof data?.total === 'number' ? data.total : batches.value.length;
     } catch (err: any) {
@@ -490,6 +535,37 @@ const getStatusType = (status: string) => {
 }
 
 onMounted(() => {
+   loadProducts();
    loadBatches(); 
 });
 </script>
+
+<style scoped>
+:deep(.compact-date-picker) {
+  width: 220px !important;
+  max-width: 220px !important;
+  padding: 0 6px !important;
+}
+
+:deep(.compact-date-picker .el-range-input) {
+  width: 42% !important;
+  font-size: 12px !important;
+  text-align: center !important;
+}
+
+:deep(.compact-date-picker .el-range-separator) {
+  padding: 0 2px !important;
+  font-size: 11px !important;
+  color: #9ca3af !important;
+}
+
+:deep(.compact-date-picker .el-range__icon) {
+  margin-right: 4px !important;
+  font-size: 13px !important;
+  color: #9ca3af !important;
+}
+
+:deep(.compact-date-picker .el-range__close-icon) {
+  font-size: 12px !important;
+}
+</style>
