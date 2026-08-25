@@ -443,7 +443,7 @@ const routes: Array<RouteRecordRaw> = [
         path: '/supply/batches',
         name: 'SupplyBatches',
         component: () => import('@/modules/supply/views/BatchManagement.vue'),
-        meta: { title: 'Lô thành phẩm' }
+        meta: { title: 'Lô đóng gói trực tiếp' }
       },
       {
         path: '/supply/items',

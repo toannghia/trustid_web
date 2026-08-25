@@ -1,7 +1,7 @@
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Quản lý Lô Thành Phẩm</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Quản lý Lô Đóng Gói Trực Tiếp</h1>
       <el-button type="primary" :icon="Plus" @click="router.push('/supply/packaging')">
         Tạo phiếu đóng gói mới
       </el-button>
@@ -133,7 +133,7 @@
     </div>
 
     <!-- Drawer Details -->
-    <el-drawer v-model="showDetail" title="Chi tiết Lô Thành Phẩm" size="60%" destroy-on-close>
+    <el-drawer v-model="showDetail" title="Chi tiết Lô Đóng Gói Trực Tiếp" size="60%" destroy-on-close>
          <div v-if="selectedBatch">
             <el-tabs v-model="activeTab" class="demo-tabs">
                 <!-- Tab 1: Thông tin chung -->
@@ -379,8 +379,14 @@ const loadBatches = async () => {
         if (filterStatus.value) params.status = filterStatus.value;
 
         const { data } = await supplyApi.getBatches(params);
-        batches.value = data.data || [];
-        total.value = data.total || 0;
+        const rawList = data?.data || (Array.isArray(data) ? data : []);
+        // Đảm bảo chỉ hiển thị các lô được đóng gói trực tiếp (PKG-* hoặc FINISHED)
+        batches.value = rawList.filter((b: any) => {
+            const code = (b.batchCode || '').trim();
+            const type = (b.batchType || '').toUpperCase();
+            return code.startsWith('PKG-') || type === 'FINISHED';
+        });
+        total.value = typeof data?.total === 'number' ? data.total : batches.value.length;
     } catch (err: any) {
         ElMessage.error('Lỗi tải danh sách lô');
     }
