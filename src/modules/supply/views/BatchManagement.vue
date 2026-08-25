@@ -329,15 +329,7 @@ const startPolling = () => {
         // Only poll if drawer is open and status is WAITING
         if (showDetail.value && selectedBatch.value && selectedBatch.value.ndaSyncStatus === 'WAITING') {
              try {
-                 // Refresh detailed batch info
-                 // Assuming supplyApi.getBatchById exists, otherwise fetch list or implement new api
-                 // For now, let's re-fetch list to be simple or pretend we check api
-                 // But wait, user wants Real-time effect.
-                 // Ideally: const { data } = await supplyApi.getBatch(selectedBatch.value.id);
-                 // If getBatch matches list item structure:
-                 const { data } = await supplyApi.getBatches(); // This is heavy if list is long. Better to have getDetail.
-                 // Find updated batch
-                 const updated = data.find((b: any) => b.id === selectedBatch.value.id);
+                 const { data: updated } = await supplyApi.getBatch(selectedBatch.value.id);
                  if (updated) {
                      // Check if status changed
                      if (updated.ndaSyncStatus !== selectedBatch.value.ndaSyncStatus) {
@@ -381,7 +373,7 @@ const loadBatches = async () => {
         const params: any = {
             page: currentPage.value,
             limit: pageSize.value,
-            excludeBatchType: 'SEMI_FINISHED'
+            onlyPackaged: true
         };
         if (searchTerm.value) params.search = searchTerm.value;
         if (filterStatus.value) params.status = filterStatus.value;
