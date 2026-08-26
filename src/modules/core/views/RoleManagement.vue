@@ -21,7 +21,8 @@ const form = reactive({
     displayName: '',
     description: '',
     permissions: [] as string[],
-    hiddenMenus: [] as string[]
+    hiddenMenus: [] as string[],
+    isSystemRole: false
 });
 
 const rules = {
@@ -113,7 +114,7 @@ const hiddenMenuCount = computed(() => form.hiddenMenus.length);
 // ==================== DIALOG HANDLERS ====================
 const openCreateDialog = () => {
     isEdit.value = false;
-    Object.assign(form, { id: '', name: '', displayName: '', description: '', permissions: [], hiddenMenus: [] });
+    Object.assign(form, { id: '', name: '', displayName: '', description: '', permissions: [], hiddenMenus: [], isSystemRole: false });
     activeGroups.value = Object.keys(permissionGroups.value);
     activeTab.value = 'permissions';
     dialogVisible.value = true;
@@ -127,7 +128,8 @@ const openEditDialog = (role: any) => {
         displayName: role.displayName || '',
         description: role.description || '',
         permissions: role.permissions ? [...role.permissions] : [],
-        hiddenMenus: role.hiddenMenus ? [...role.hiddenMenus] : []
+        hiddenMenus: role.hiddenMenus ? [...role.hiddenMenus] : [],
+        isSystemRole: role.isSystemRole || false
     });
     activeGroups.value = Object.entries(permissionGroups.value)
         .filter(([, perms]) => perms.some(p => form.permissions.includes(p.key)))
@@ -147,7 +149,8 @@ const handleSubmit = async () => {
                     displayName: form.displayName,
                     description: form.description,
                     permissions: form.permissions,
-                    hiddenMenus: form.hiddenMenus
+                    hiddenMenus: form.hiddenMenus,
+                    isSystemRole: form.isSystemRole
                 };
                 if (isEdit.value) {
                     await api.put(`/admin/roles/${form.id}`, payload);
@@ -292,6 +295,15 @@ onMounted(() => {
                     </template>
                 </el-table-column>
 
+                <el-table-column label="Cấp hệ thống" width="130" align="center">
+                    <template #default="{ row }">
+                        <el-tag v-if="row.isSystemRole" type="danger" effect="dark" size="small" round>
+                            🔒 System
+                        </el-tag>
+                        <span v-else class="text-gray-300">—</span>
+                    </template>
+                </el-table-column>
+
                 <el-table-column label="Hành động" width="150" align="right">
                     <template #default="{ row }">
                         <el-button-group>
@@ -383,6 +395,27 @@ onMounted(() => {
                     <el-form-item label="Tên hiển thị">
                         <el-input v-model="form.displayName" placeholder="VD: Quản lý Nông trại" />
                     </el-form-item>
+                </div>
+
+                <div class="flex items-center gap-3 px-1 py-2 mb-2 bg-red-50 border border-red-200 rounded-lg" v-if="form.isSystemRole || form.permissions.includes('ALL')">
+                    <el-switch
+                        v-model="form.isSystemRole"
+                        active-text="Vai trò cấp Hệ thống"
+                        inactive-text=""
+                        style="--el-switch-on-color: #dc2626"
+                        class="ml-3"
+                    />
+                    <span class="text-xs text-red-600">🔒 Role này sẽ không hiển thị cho Tenant Admin khi tạo user</span>
+                </div>
+                <div class="flex items-center gap-3 px-1 py-2 mb-2" v-else>
+                    <el-switch
+                        v-model="form.isSystemRole"
+                        active-text="Vai trò cấp Hệ thống"
+                        inactive-text=""
+                        style="--el-switch-on-color: #dc2626"
+                        class="ml-3"
+                    />
+                    <span class="text-xs text-gray-500">Đánh dấu nếu role này chỉ dành cho System Admin</span>
                 </div>
 
                 <!-- Tabs: Permissions + Menu Visibility -->

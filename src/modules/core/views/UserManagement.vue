@@ -17,7 +17,7 @@ const roles = ref<any[]>([]);
 
 const fetchRoles = async () => {
     try {
-        const { data } = await api.get('/admin/roles');
+        const { data } = await api.get('/admin/assignable-roles');
         roles.value = data || [];
     } catch (e) {
         console.error('Failed to fetch roles:', e);
@@ -32,11 +32,7 @@ import { computed } from 'vue';
 const authStore = useAuthStore();
 const isSystemAdmin = computed(() => authStore.user?.role === 'ADMIN');
 
-const availableRoles = computed(() => {
-    if (isSystemAdmin.value) return roles.value;
-    const restricted = ['ADMIN', 'REGULATOR_OFFICER'];
-    return roles.value.filter(r => !restricted.includes(r.name));
-});
+const availableRoles = computed(() => roles.value);
 
 const router = useRouter();
 const isDealerRole = computed(() => userForm.role === 'DEALER');
