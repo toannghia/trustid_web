@@ -136,7 +136,10 @@
         <el-table-column label="Thao tác" width="130" align="center">
             <template #default="{row}">
                 <div class="flex items-center justify-center">
-                    <el-tooltip v-if="row.status === 'COMPLETED' && !row.sourceInfo?.isDistributed" content="Chuyển sang phân phối" placement="top">
+                    <el-tooltip v-if="row.status === 'PACKING'" content="Tiếp tục đóng gói" placement="top">
+                        <el-button type="primary" link :icon="Edit" size="small" @click.stop="continuePacking(row)">Tiếp tục</el-button>
+                    </el-tooltip>
+                    <el-tooltip v-else-if="row.status === 'COMPLETED' && !row.sourceInfo?.isDistributed" content="Chuyển sang phân phối" placement="top">
                         <el-button type="warning" link :icon="Promotion" size="small" @click.stop="handleDistribute(row)">Phân phối</el-button>
                     </el-tooltip>
                     <el-tag v-else-if="row.sourceInfo?.isDistributed" size="small" type="warning" effect="plain">Đã phân phối</el-tag>
