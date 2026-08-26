@@ -296,9 +296,11 @@ onMounted(() => {
   min-height: 1123px;
   margin: 0 auto;
 }
+</style>
 
+<style>
 @media print {
-  /* Ẩn tất cả UI xung quanh */
+  /* Ẩn tất cả UI xung quanh (layout header, sidebar) */
   body * {
     visibility: hidden;
   }
@@ -316,6 +318,7 @@ onMounted(() => {
     position: absolute;
     left: 0;
     top: 0;
+    width: 100%;
     box-shadow: none !important;
     background: white;
   }

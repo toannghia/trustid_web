@@ -606,12 +606,8 @@ const saveBatch = async () => {
         syncedFields[f.key] = f.value;
       });
     });
-    // Add legacy fields if any not present in blocks
-    Object.entries(customFieldsObj).forEach(([k, v]) => {
-      if (!(k in syncedFields)) {
-        syncedFields[k] = v;
-      }
-    });
+    
+    // Assign synced fields (this effectively drops any old customFields not present in blocks)
     payload.source_info.customFields = syncedFields;
 
     if (isEdit.value) {

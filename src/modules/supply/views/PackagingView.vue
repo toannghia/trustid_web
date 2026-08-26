@@ -3,9 +3,9 @@
     <div class="flex justify-between items-center mb-4 border-b pb-2">
         <h2 class="text-lg font-bold uppercase">Phiếu Đóng Gói Sản Phẩm</h2>
         <div class="flex gap-2">
-            <el-button type="warning" plain icon="Connection" @click="showReceiveDialog = true">
+            <!--<el-button type="warning" plain icon="Connection" @click="showReceiveDialog = true">
                 Nhận Lô Chuyển Giao (QR)
-            </el-button>
+            </el-button>-->
             <el-button type="info" plain icon="List" @click="router.push('/supply/batches')">
                 Danh sách lô
             </el-button>
@@ -324,9 +324,9 @@
             </el-button>
 
             <!-- Nút chuyển giao nếu là lô đang Packing/Closed -->
-            <el-button v-if="activeBatchId" type="warning" size="large" @click="showTransferDialog = true" plain>
+            <!--<el-button v-if="activeBatchId" type="warning" size="large" @click="showTransferDialog = true" plain>
                 Chuyển giao cho Tenant khác
-            </el-button>
+            </el-button>-->
         </div>
     </div>
 
