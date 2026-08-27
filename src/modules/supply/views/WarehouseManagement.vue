@@ -176,12 +176,12 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="Vĩ độ (Lat)" prop="lat">
-              <el-input-number v-model="form.lat" :precision="6" class="w-full" />
+              <el-input :model-value="form.lat" disabled placeholder="Tự động theo bản đồ" class="w-full" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="Kinh độ (Long)" prop="long">
-              <el-input-number v-model="form.long" :precision="6" class="w-full" />
+              <el-input :model-value="form.long" disabled placeholder="Tự động theo bản đồ" class="w-full" />
             </el-form-item>
           </el-col>
         </el-row>
