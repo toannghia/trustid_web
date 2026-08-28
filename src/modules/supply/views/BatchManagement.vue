@@ -46,6 +46,7 @@
         <el-option label="Đã đóng" value="CLOSED" />
         <el-option label="Đã xuất" value="SHIPPED" />
         <el-option label="Hoàn thành" value="COMPLETED" />
+        <el-option label="Đã hủy" value="CANCELLED" />
       </el-select>
       <el-date-picker
         v-model="dateRange"
@@ -101,23 +102,16 @@
                  </div>
              </template>
         </el-table-column>
-        <el-table-column label="Tiến độ" min-width="150">
+        <el-table-column prop="packCount" label="Số lượng mã" width="130" align="right">
              <template #default="{row}">
-                 <div class="flex items-center gap-2">
-                     <el-progress 
-                        :percentage="calcProgress(row)" 
-                        :status="row.status === 'COMPLETED' ? 'success' : ''" 
-                        class="w-20" 
-                     />
-                     <span class="text-xs text-gray-500 whitespace-nowrap">
-                         {{ row.packCount }}/{{ row.totalUnitsExpected }}
-                     </span>
-                 </div>
+                 <span class="font-semibold text-slate-700">
+                     {{ row.packCount ? Number(row.packCount).toLocaleString() : '0' }}
+                 </span>
              </template>
         </el-table-column>
         <el-table-column prop="totalQuantity" label="Tổng KL (kg)" width="110" align="right">
              <template #default="{row}">
-                 <span class="font-medium">{{ row.totalQuantity ? Number(row.totalQuantity).toLocaleString() : '0' }}</span>
+                 <span class="font-semibold text-slate-700">{{ row.totalQuantity ? Number(row.totalQuantity).toLocaleString() : '0' }}</span>
              </template>
         </el-table-column>
         <el-table-column label="Ngày tạo" width="140" align="center" sortable>
@@ -125,7 +119,7 @@
                  {{ formatDate(row.createdAt) }}
              </template>
         </el-table-column>
-        <el-table-column label="Trạng thái" width="130" align="center">
+        <el-table-column label="Trạng thái" width="160" align="center">
             <template #default="{row}">
                 <el-tag :type="getStatusType(row.status)">{{ getBatchStatusLabel(row.status) }}</el-tag>
                 <div v-if="row.sourceInfo?.isDistributed" class="mt-1">
@@ -185,7 +179,7 @@
                             </div>
                         </el-descriptions-item>
                         <el-descriptions-item label="Trạng thái">
-                            <el-tag>{{ getBatchStatusLabel(selectedBatch.status) }}</el-tag>
+                            <el-tag :type="getStatusType(selectedBatch.status)">{{ getBatchStatusLabel(selectedBatch.status) }}</el-tag>
                         </el-descriptions-item>
                         <el-descriptions-item label="Quy cách đóng">{{ selectedBatch.farmDataSnapshot?.unitWeightKg || selectedBatch.farmDataSnapshot?.unitWeight || selectedBatch.product?.netWeight || 1 }} kg/sp</el-descriptions-item>
                         <el-descriptions-item label="Tổng SL">{{ selectedBatch.totalQuantity }} kg</el-descriptions-item>
@@ -207,24 +201,29 @@
                             Lô đang phân phối
                         </el-tag>
                     </div>
-                    <el-table :data="items" height="400" border stripe>
+                    <el-table :data="items" height="400" border stripe class="rounded-lg overflow-hidden">
                         <el-table-column type="index" label="STT" width="60" align="center" />
-                        <el-table-column prop="fullQrCode" label="Mã QR (Full)" min-width="180">
+                        <el-table-column prop="fullQrCode" label="Mã QR (Full)" min-width="220">
                             <template #default="{row}">
-                                <div class="truncate text-xs font-mono" :title="row.fullQrCode">{{ row.fullQrCode }}</div>
+                                <div class="truncate text-xs font-mono text-gray-800" :title="row.fullQrCode">{{ row.fullQrCode }}</div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="parentCode" label="Thùng (Container)" width="150" />
-                        <el-table-column prop="status" label="Trạng thái" width="130" align="center">
+                        <el-table-column prop="parentCode" label="Thùng (Container)" width="160" align="center">
+                            <template #default="{row}">
+                                <span v-if="row.parentCode" class="font-mono text-xs font-semibold text-blue-600">{{ row.parentCode }}</span>
+                                <span v-else class="text-gray-300">---</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="status" label="Trạng thái" width="160" align="center">
                             <template #default="{row}">
                                 <el-tag size="small" :type="getItemStatusTagType(row.status)">
                                     {{ getItemStatusLabel(row.status) }}
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="Thời gian" width="160">
+                        <el-table-column label="Thời gian" width="160" align="center">
                             <template #default="{row}">
-                                {{ formatDate(row.activatedAt || row.createdAt) }}
+                                <span class="text-xs text-gray-600">{{ formatDate(row.activatedAt || row.createdAt) }}</span>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -295,6 +294,74 @@
             </el-tabs>
          </div>
     </el-drawer>
+
+    <!-- DIALOG: XÁC NHẬN PHÂN PHỐI -->
+    <el-dialog
+      v-model="showDistributeModal"
+      width="480px"
+      :show-close="false"
+      class="branded-distribute-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận phân phối
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showDistributeModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4" v-if="batchToDistribute">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><Promotion /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Chuyển sang trạng thái Phân phối?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Bạn có chắc chắn muốn chuyển toàn bộ sản phẩm trong lô <strong>{{ batchToDistribute.batchCode }}</strong> sang trạng thái <strong>PHÂN PHỐI</strong>?
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5 text-slate-700">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Mã Lô:</span>
+            <b class="text-slate-900 font-mono">{{ batchToDistribute.batchCode }}</b>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Sản phẩm:</span>
+            <b class="text-slate-900">{{ batchToDistribute.product?.name || '---' }}</b>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Số lượng tem:</span>
+            <b class="text-blue-600">{{ batchToDistribute.totalUnitsExpected || batchToDistribute.totalUnits || 0 }} tem</b>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Thời gian tạo:</span>
+            <b class="text-slate-700">{{ formatDate(batchToDistribute.createdAt) }}</b>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Sau khi chuyển trạng thái sang <strong>Phân phối</strong>, các tem trong lô sẽ sẵn sàng để giao cho Đại lý hoặc quét bán lẻ.
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <el-button @click="showDistributeModal = false">Hủy bỏ</el-button>
+          <el-button
+            type="warning"
+            :loading="distributing"
+            @click="confirmDistribute"
+          >
+            Xác nhận chuyển
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -306,8 +373,11 @@ import { productApi } from '@/modules/core/api/product';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, CircleCheckFilled, TopRight, Search, Plus, Promotion, View, Edit } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const distributing = ref(false);
+const showDistributeModal = ref(false);
+const batchToDistribute = ref<any>(null);
 
 const getItemStatusLabel = (status: string) => {
     switch(status) {
@@ -325,6 +395,7 @@ const getItemStatusTagType = (status: string) => {
         case 'AT_DEALER': return 'warning';
         case 'SOLD': return 'info';
         case 'LOST': return 'danger';
+        case 'CANCELLED': return 'danger';
         default: return 'info';
     }
 };
@@ -335,6 +406,7 @@ const getBatchStatusLabel = (status: string) => {
     case 'CLOSED': return 'Đã đóng';
     case 'SHIPPED': return 'Đã xuất';
     case 'COMPLETED': return 'Hoàn thành';
+    case 'CANCELLED': return 'Đã hủy';
     default: return status;
   }
 };
@@ -480,22 +552,20 @@ const viewDetails = async (row: any) => {
     }
 }
 
-const handleDistribute = async (batch: any) => {
+const handleDistribute = (batch: any) => {
     if (!batch?.id) return;
-    try {
-        await ElMessageBox.confirm(
-            `Bạn có chắc chắn muốn chuyển toàn bộ sản phẩm trong lô ${batch.batchCode} sang trạng thái PHÂN PHỐI?`,
-            'Xác nhận phân phối',
-            {
-                confirmButtonText: 'Xác nhận chuyển',
-                cancelButtonText: 'Hủy',
-                type: 'warning'
-            }
-        );
+    batchToDistribute.value = batch;
+    showDistributeModal.value = true;
+};
 
-        distributing.value = true;
+const confirmDistribute = async () => {
+    if (!batchToDistribute.value?.id) return;
+    const batch = batchToDistribute.value;
+    distributing.value = true;
+    try {
         const { data } = await supplyApi.distributeBatch(batch.id);
         ElMessage.success(data.message || 'Đã chuyển trạng thái sang Phân phối thành công!');
+        showDistributeModal.value = false;
         
         if (selectedBatch.value && selectedBatch.value.id === batch.id) {
             selectedBatch.value.sourceInfo = {
@@ -507,9 +577,7 @@ const handleDistribute = async (batch: any) => {
         }
         await loadBatches();
     } catch (e: any) {
-        if (e !== 'cancel') {
-            ElMessage.error(e.response?.data?.message || 'Lỗi khi chuyển trạng thái phân phối');
-        }
+        ElMessage.error(e.response?.data?.message || 'Lỗi khi chuyển trạng thái phân phối');
     } finally {
         distributing.value = false;
     }
@@ -534,6 +602,7 @@ const calcProgress = (row: any) => {
 const getStatusType = (status: string) => {
     if (status === 'PACKING') return 'warning';
     if (status === 'COMPLETED') return 'success';
+    if (status === 'CANCELLED') return 'danger';
     return 'info';
 }
 
@@ -570,5 +639,21 @@ onMounted(() => {
 
 :deep(.compact-date-picker .el-range__close-icon) {
   font-size: 12px !important;
+}
+
+:deep(.branded-distribute-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0 !important;
+}
+:deep(.branded-distribute-dialog .el-dialog__header) {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+:deep(.branded-distribute-dialog .el-dialog__body) {
+  padding: 24px !important;
+}
+:deep(.branded-distribute-dialog .el-dialog__footer) {
+  padding: 0 24px 24px !important;
 }
 </style>

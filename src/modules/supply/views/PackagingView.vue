@@ -127,7 +127,7 @@
                     class="flex-1 min-w-0"
                     @change="onProductSelect"
                     size="default"
-                    :disabled="!!activeBatchId && batchSourceType === 'FARM'"
+                    :disabled="!!activeBatchId"
                  >
                     <el-option 
                         v-for="p in productList" 
@@ -148,8 +148,14 @@
              
              <!-- Info: Quy cách -->
              <div class="flex items-center gap-2">
-                 <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Quy cách (kg):</label>
-                 <el-input-number v-model="unitWeight" :precision="2" :step="0.1" class="flex-1 min-w-0" size="default" />
+                 <label class="w-32 text-sm font-medium text-gray-700 shrink-0">Quy cách:</label>
+                 <el-input 
+                     :model-value="selectedProductId ? `${unitWeight} kg / gói` : ''" 
+                     disabled 
+                     placeholder="Tự động theo sản phẩm..." 
+                     class="flex-1 min-w-0" 
+                     size="default" 
+                 />
              </div>
 
              <!-- Warehouse Selection (Default & Changeable) -->
@@ -191,39 +197,54 @@
                 <el-input 
                     v-model="scanInput" 
                     ref="scanInputRef" 
-                    placeholder="Quét mã tem..." 
+                    :placeholder="canAddMoreCodes ? 'Quét mã tem...' : (currentCount >= expectedCount && expectedCount > 0 ? 'Đã quét đủ số lượng tối đa' : 'Lô nguồn đã hết nguyên liệu (0 kg)')" 
                     class="flex-1"
                     @keyup.enter="startScan"
                     size="default"
-                    :disabled="scanning"
+                    :disabled="scanning || !canAddMoreCodes"
                 >
                     <template #append>
-                        <el-button @click="startScan" :loading="scanning">Thêm</el-button>
+                        <el-button @click="startScan" :loading="scanning" :disabled="!canAddMoreCodes">Thêm</el-button>
                     </template>
                 </el-input>
             </div>
             
             <!-- Stats -->
-            <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1">
-                    <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Tiến độ:</label>
+            <div class="flex flex-col gap-1 flex-1">
+                <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1">
-                        <el-input :value="currentCount" readonly class="w-16 text-center font-bold text-blue-600" size="default" />
-                        <span class="text-gray-500">/</span>
-                        <el-input :value="expectedCount" readonly class="w-16 text-center" size="default" />
+                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Tiến độ:</label>
+                        <div class="flex items-center gap-1">
+                            <el-input :value="currentCount" readonly class="w-16 text-center font-bold text-blue-600" size="default" />
+                            <span class="text-gray-500">/</span>
+                            <el-input :value="expectedCount" readonly class="w-16 text-center" size="default" />
+                        </div>
+                    </div>
+                    
+                    <!-- Carton Mode -->
+                    <div class="flex items-center gap-2 flex-1 min-w-[150px]">
+                        <el-checkbox v-model="isCarton" label="Đóng thùng" border size="default" />
+                        <el-input 
+                            v-if="isCarton" 
+                            v-model="cartonCode" 
+                            placeholder="Quét mã thùng..." 
+                            class="flex-1" 
+                            size="default"
+                        />
                     </div>
                 </div>
-                
-                <!-- Carton Mode -->
-                <div class="flex items-center gap-2 flex-1 min-w-[150px]">
-                    <el-checkbox v-model="isCarton" label="Đóng thùng" border size="default" />
-                    <el-input 
-                        v-if="isCarton" 
-                        v-model="cartonCode" 
-                        placeholder="Quét mã thùng..." 
-                        class="flex-1" 
-                        size="default"
-                    />
+
+                <!-- Info Hint for Option B (Resume State) -->
+                <div v-if="activeBatchId" class="text-xs text-slate-500 flex items-center gap-1 flex-wrap pl-[48px]">
+                    <span>Đã đóng: <b class="text-slate-800">{{ previouslyPackagedCount }}</b> sp</span>
+                    <span>|</span>
+                    <span>Lô nguồn khả dụng: <b class="text-emerald-700">{{ availableRemainingStock.toLocaleString() }} kg</b></span>
+                    <span v-if="additionalUnitsPossible > 0" class="text-blue-600 font-medium">
+                        (Đóng thêm tối đa: +{{ additionalUnitsPossible.toLocaleString() }} sp)
+                    </span>
+                    <span v-else class="text-amber-600 font-medium">
+                        (Lô nguồn đã hết nguyên liệu, có thể chốt đóng lô)
+                    </span>
                 </div>
             </div>
         </div>
@@ -270,7 +291,7 @@
                             size="default"
                          />
                      </template>
-                     <el-button type="primary" size="default" @click="addRangeOrPool">Thêm</el-button>
+                     <el-button type="primary" size="default" @click="addRangeOrPool" :disabled="!canAddMoreCodes">Thêm</el-button>
                  </div>
              </div>
 
@@ -316,7 +337,17 @@
         
         <!-- FOOTER BUTTONS -->
         <div class="flex justify-center gap-4 mt-4">
-            <el-button size="large" @click="resetForm">Hủy bỏ / Tải lại</el-button>
+            <el-button v-if="!activeBatchId" size="large" @click="resetForm">
+                Hủy bỏ / Tải lại
+            </el-button>
+            <el-button 
+                v-else 
+                size="large"    
+                @click="clearPendingTable" 
+                :disabled="tableData.length === 0"
+            >
+                Xóa danh sách chờ
+            </el-button>
             <el-button v-if="activeBatchId" type="danger" size="large" @click="cancelActiveBatch" :loading="canceling">Hủy Lô này</el-button>
             <el-button v-if="activeBatchId" type="success" size="large" @click="finishActiveBatch" :loading="finishing">Đóng Lô (Hoàn tất đóng gói)</el-button>
             <el-button type="primary" size="large" @click="doSave" :loading="saving" :disabled="tableData.length === 0 && !rangeInput">
@@ -367,13 +398,126 @@
             <el-button type="primary" @click="handleTransfer" :loading="transferring">Xác nhận chuyển giao</el-button>
         </template>
     </el-dialog>
+
+    <!-- DIALOG: XÁC NHẬN HỦY LÔ -->
+    <el-dialog
+      v-model="showCancelModal"
+      width="450px"
+      :show-close="false"
+      class="branded-cancel-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận hủy lô hàng
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showCancelModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-amber-500 text-2xl mt-0.5"><WarningFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Bạn có chắc chắn muốn hủy bỏ lô hàng này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Lô <strong>{{ batchCode }}</strong> (Sản phẩm: {{ productList.find(p => p.id === selectedProductId)?.name || '---' }})<span v-if="previouslyPackagedCount > 0"> với <b>{{ previouslyPackagedCount }}</b> tem đã quét</span> sẽ bị hủy.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Toàn bộ dữ liệu đóng gói của lô này sẽ bị xóa bỏ và lượng nguyên liệu nguồn sẽ được hoàn trả lại tồn kho khả dụng.
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <el-button @click="showCancelModal = false">Hủy bỏ</el-button>
+          <el-button
+            type="danger"
+            :loading="canceling"
+            @click="confirmCancelBatch"
+          >
+            Xác nhận hủy
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- DIALOG: XÁC NHẬN ĐÓNG LÔ & NHẬP KHO -->
+    <el-dialog
+      v-model="showFinishModal"
+      width="480px"
+      :show-close="false"
+      class="branded-cancel-dialog"
+    >
+      <template #header>
+        <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; gap: 14px; width: 100%;">
+          <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+          <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+          <span style="color: #fff; font-size: 16px; font-weight: 600;">
+            Xác nhận đóng lô & nhập kho
+          </span>
+          <div style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1);" @click="showFinishModal = false">
+            <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+          </div>
+        </div>
+      </template>
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <el-icon class="text-emerald-600 text-2xl mt-0.5"><CircleCheckFilled /></el-icon>
+          <div>
+            <h4 class="font-bold text-gray-900 mb-1">Đóng và nhập kho lô hàng này?</h4>
+            <p class="text-sm text-gray-500 leading-relaxed">
+              Lô <strong>{{ batchCode }}</strong> sẽ được chốt và chuyển vào <strong>{{ warehouseList.find(w => w.id === selectedWarehouseId)?.name || 'Kho thành phẩm' }}</strong>.
+            </p>
+          </div>
+        </div>
+        
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5 text-slate-700">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Sản phẩm:</span>
+            <b class="text-slate-900">{{ productList.find(p => p.id === selectedProductId)?.name || '---' }}</b>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Số lượng đóng gói:</span>
+            <b class="text-blue-600">{{ previouslyPackagedCount }} gói ({{ (previouslyPackagedCount * unitWeight).toLocaleString() }} kg)</b>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Kho nhập đích:</span>
+            <b class="text-emerald-700">{{ warehouseList.find(w => w.id === selectedWarehouseId)?.name || '---' }}</b>
+          </div>
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-800 text-xs leading-relaxed">
+          <strong>Lưu ý:</strong> Sau khi đóng lô, trạng thái lô chuyển sang <strong>Hoàn thành</strong> và sẵn sàng để phân phối. Bạn sẽ không thể quét thêm mã vào lô này.
+        </div>
+      </div>
+
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <el-button @click="showFinishModal = false">Hủy bỏ</el-button>
+          <el-button
+            type="success"
+            :loading="finishing"
+            @click="confirmFinishBatch"
+          >
+            Xác nhận đóng lô
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Delete, HomeFilled, Plus, Refresh, InfoFilled, Connection, List } from '@element-plus/icons-vue';
+import { Delete, HomeFilled, Plus, Refresh, InfoFilled, Connection, List, WarningFilled, CircleCheckFilled } from '@element-plus/icons-vue';
 import { farmApi } from '@/modules/farm/api/farmApi';
 import { productApi } from '@/modules/core/api/product';
 import { codeApi } from '@/modules/core/api/codeApi';
@@ -382,11 +526,15 @@ import { transportApi, type Warehouse } from '../api/transportApi';
 import api from '@/common/utils/api'; // For generic tenant list
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import dayjs from 'dayjs';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const route = useRoute();
 const router = useRouter();
 
 // --- STATE ---
+const showCancelModal = ref(false);
+const showFinishModal = ref(false);
+
 const batchCode = ref('PKG-AUTO');
 const currentDate = ref(new Date());
 const batchSourceType = ref('FARM'); // FARM | EXTERNAL
@@ -409,6 +557,7 @@ const harvestQuantity = ref(0);
 const previouslyPackagedCount = ref(0);
 const externalBatchList = ref<any[]>([]);
 const selectedSemiFinishedBatchId = ref('');
+const loadedSourceBatchAvailableStock = ref<number | null>(null);
 
 const scanInput = ref('');
 const scanInputRef = ref<any>(null);
@@ -527,12 +676,80 @@ const defaultWarehouse = computed(() => {
     return warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION');
 });
 
+const availableRemainingStock = computed(() => {
+    // 1. Ưu tiên giá trị đã nạp / cập nhật chính xác (sau khi lưu hoặc khi mở lại lô)
+    if (loadedSourceBatchAvailableStock.value !== null) {
+        return loadedSourceBatchAvailableStock.value;
+    }
+
+    const srcCode = activeSourceBatchCode.value || selectedHarvestCode.value;
+    const srcId = selectedExternalBatchId.value || selectedSemiFinishedBatchId.value;
+
+    // 2. Tìm trong danh sách externalBatchList theo ID hoặc BatchCode
+    if (srcId || srcCode) {
+        const ext = externalBatchList.value.find(x => (srcId && x.id === srcId) || (srcCode && x.batchCode === srcCode));
+        if (ext) {
+            return Number(ext.availableQuantity ?? ext.remainingQuantity ?? ext.quantity ?? ext.totalQuantity ?? 0);
+        }
+    }
+
+    // 3. Tìm trong danh sách harvestList theo BatchCode
+    if (srcCode) {
+        const h = harvestList.value.find(item => item.batchCode === srcCode);
+        if (h) {
+            return Number(h.availableKg ?? h.availableQuantity ?? h.remainingQuantity ?? h.quantityKg ?? 0);
+        }
+    }
+
+    return 0;
+});
+
+const additionalUnitsPossible = computed(() => {
+    if (!unitWeight.value || unitWeight.value <= 0) return 0;
+    return Math.floor(availableRemainingStock.value / unitWeight.value);
+});
+
 const expectedCount = computed(() => {
-    if (!harvestQuantity.value || !unitWeight.value || unitWeight.value <= 0) return 0;
-    return Math.floor(harvestQuantity.value / unitWeight.value);
+    if (!unitWeight.value || unitWeight.value <= 0) return 0;
+    
+    // Nếu là lô tiếp tục đóng dở dang (activeBatchId tồn tại)
+    if (activeBatchId.value) {
+        return previouslyPackagedCount.value + additionalUnitsPossible.value;
+    }
+    
+    // Nếu là tạo lô mới từ đầu
+    if (batchSourceType.value === 'FARM') {
+        return Math.floor((harvestQuantity.value || 0) / unitWeight.value);
+    } else {
+        // EXTERNAL / SEMI_FINISHED
+        return Math.floor((harvestQuantity.value || externalQuantity.value || 0) / unitWeight.value);
+    }
 });
 
 const currentCount = computed(() => tableData.value.length + previouslyPackagedCount.value);
+
+const canAddMoreCodes = computed(() => {
+    // 1. Phải chọn sản phẩm
+    if (!selectedProductId.value) return false;
+
+    // 2. Phải có quy cách hợp lệ
+    if (!unitWeight.value || unitWeight.value <= 0) return false;
+
+    // 3. Phải có mẫu số dự kiến hợp lệ > 0
+    if (expectedCount.value <= 0) return false;
+
+    // 4. Nếu là lô tiếp tục đóng dở dang, lô nguồn phải còn tồn khả dụng > 0
+    if (activeBatchId.value && availableRemainingStock.value <= 0) {
+        return false;
+    }
+
+    // 5. Nếu số lượng tem hiện tại (đã đóng + chờ lưu) đã đạt hoặc vượt mức tối đa
+    if (currentCount.value >= expectedCount.value) {
+        return false;
+    }
+
+    return true;
+});
 
 // --- WATCHERS & RANGE SUGGESTION ---
 const fetchPoolRangeSuggestion = async (poolId: string) => {
@@ -607,7 +824,7 @@ const loadMasterData = async () => {
         warehouseList.value = (warehouseRes as any).data || [];
         tenantList.value = (tenantRes as any).data?.data || (tenantRes as any).data || [];
         const extData = (extRes as any).data?.data || (extRes as any).data || [];
-        externalBatchList.value = extData.filter((b: any) => b.status === 'PACKING' || b.status === 'COMPLETED');
+        externalBatchList.value = Array.isArray(extData) ? extData : [];
 
         // Gán kho mặc định nếu chưa chọn
         if (!selectedWarehouseId.value && warehouseList.value.length > 0) {
@@ -642,6 +859,10 @@ const loadBatchIfExists = async () => {
             
             selectedHarvestCode.value = data.farmBatchCode;
             selectedProductId.value = data.productId;
+            if (data.sourceBatchId) {
+                selectedExternalBatchId.value = data.sourceBatchId;
+                selectedSemiFinishedBatchId.value = data.sourceBatchId;
+            }
             activeSourceBatchCode.value = data.farmBatchCode || data.parentBatch?.batchCode || data.sourceInfo?.origin_batch_code || '';
             activeOriginTenantName.value = data.sourceInfo?.origin_tenant_name || '';
             
@@ -659,6 +880,39 @@ const loadBatchIfExists = async () => {
             }
 
             previouslyPackagedCount.value = data.packCount || 0;
+
+            // Nạp chính xác số dư tồn kho thời gian thực của Lô nguồn
+            const srcCode = activeSourceBatchCode.value;
+            const srcId = data.sourceBatchId || data.parentBatchId || data.sourceInfo?.origin_batch_id;
+
+            if (data.parentBatch && (data.parentBatch.availableQuantity !== undefined || data.parentBatch.remainingQuantity !== undefined)) {
+                loadedSourceBatchAvailableStock.value = Number(data.parentBatch.availableQuantity ?? data.parentBatch.remainingQuantity ?? 0);
+            } else if (data.sourceInfo?.available_quantity !== undefined) {
+                loadedSourceBatchAvailableStock.value = Number(data.sourceInfo.available_quantity);
+            } else {
+                // Thử tìm trong danh mục đã tải
+                const ext = externalBatchList.value.find(x => (srcId && x.id === srcId) || (srcCode && x.batchCode === srcCode));
+                if (ext) {
+                    loadedSourceBatchAvailableStock.value = Number(ext.availableQuantity ?? ext.remainingQuantity ?? ext.quantity ?? ext.totalQuantity ?? 0);
+                } else {
+                    const h = harvestList.value.find(x => x.batchCode === srcCode);
+                    if (h) {
+                        loadedSourceBatchAvailableStock.value = Number(h.availableKg ?? h.availableQuantity ?? h.quantityKg ?? 0);
+                    } else if (srcCode) {
+                        // Gọi API tìm nhanh lô nguồn theo mã
+                        try {
+                            const res = await supplyApi.getExternalBatches({ search: srcCode, limit: 10 });
+                            const list = (res as any).data?.data || (res as any).data || [];
+                            const matched = list.find((item: any) => item.batchCode === srcCode || (srcId && item.id === srcId));
+                            if (matched) {
+                                loadedSourceBatchAvailableStock.value = Number(matched.availableQuantity ?? matched.remainingQuantity ?? matched.quantity ?? matched.totalQuantity ?? 0);
+                            }
+                        } catch (err) {
+                            console.error('Không thể nạp tồn kho lô nguồn:', err);
+                        }
+                    }
+                }
+            }
         }
     } catch (e) {
         ElMessage.error('Không tìm thấy lô đóng gói');
@@ -793,6 +1047,14 @@ const fetchHarvestStats = async (harvestCode: string) => {
 const startScan = async () => {
     if (scanning.value) return;
     if (!selectedProductId.value) { ElMessage.error('Hãy chọn sản phẩm'); return; }
+    if (!canAddMoreCodes.value) {
+        if (expectedCount.value > 0 && currentCount.value >= expectedCount.value) {
+            ElMessage.warning('Đã quét đủ số lượng mã theo định mức tồn kho, không thể thêm mã!');
+        } else {
+            ElMessage.warning('Lô nguyên liệu nguồn đã hết tồn khả dụng (0 kg), không thể thêm mã!');
+        }
+        return;
+    }
 
     const code = scanInput.value.trim();
     if (!code) return;
@@ -839,6 +1101,14 @@ const startScan = async () => {
 
 const addRangeOrPool = async () => {
     if (!selectedProductId.value) { ElMessage.error('Hãy chọn sản phẩm'); return; }
+    if (!canAddMoreCodes.value) {
+        if (expectedCount.value > 0 && currentCount.value >= expectedCount.value) {
+            ElMessage.warning('Đã đạt đủ số lượng mã theo định mức tồn kho, không thể thêm mã!');
+        } else {
+            ElMessage.warning('Lô nguyên liệu nguồn đã hết tồn khả dụng (0 kg), không thể thêm mã!');
+        }
+        return;
+    }
     
     scanning.value = true;
     try {
@@ -984,17 +1254,39 @@ const doSave = async () => {
             parent_code: isCarton.value ? cartonCode.value : undefined
         });
         
-        ElNotification({ title: 'Kết quả', message: `Đã lưu ${data.added} mã.`, type: 'success' });
+        const addedCount = Number(data.added ?? codes.length ?? 0);
+        const prevStock = availableRemainingStock.value;
+        const consumedKg = addedCount * (unitWeight.value || 1);
+
         tableData.value = [];
 
-        // Nếu lô đã hoàn thành đủ 100% tiến độ sau khi lưu
-        if (data.batchStats?.progress >= 100 || (data.batchStats?.packCount && expectedCount.value > 0 && data.batchStats.packCount >= expectedCount.value)) {
-            ElMessage.success('Lô hàng đã đóng đủ số lượng và hoàn tất nhập kho!');
-            setTimeout(() => {
-                router.push('/supply/batches');
-            }, 800);
-        } else if (data.batchStats?.packCount) {
-            previouslyPackagedCount.value = data.batchStats.packCount;
+        if (data.batchStats?.packCount !== undefined) {
+            previouslyPackagedCount.value = Number(data.batchStats.packCount);
+        } else {
+            previouslyPackagedCount.value += addedCount;
+        }
+
+        // Cập nhật chính xác số kg tồn khả dụng còn lại của Lô nguồn
+        loadedSourceBatchAvailableStock.value = Math.max(0, prevStock - consumedKg);
+
+        // Tải lại danh mục ngầm để đồng bộ
+        loadMasterData();
+
+        // Thông báo lưu thành công và chỉ dẫn nếu đã đủ số lượng định mức
+        const isQuotaReached = (data.batchStats?.progress >= 100) || (expectedCount.value > 0 && previouslyPackagedCount.value >= expectedCount.value);
+        if (isQuotaReached) {
+            ElNotification({
+                title: 'Lưu thành công',
+                message: `Đã lưu ${addedCount} mã. Lô hàng đã đóng đủ số lượng, vui lòng nhấn [Đóng Lô] để hoàn tất nhập kho.`,
+                type: 'success',
+                duration: 4000
+            });
+        } else {
+            ElNotification({
+                title: 'Kết quả',
+                message: `Đã lưu ${addedCount} mã vào lô hàng.`,
+                type: 'success'
+            });
         }
     } catch (e: any) {
         ElMessage.error(e.response?.data?.message || 'Lỗi lưu dữ liệu');
@@ -1003,46 +1295,84 @@ const doSave = async () => {
     }
 };
 
-const finishActiveBatch = async () => {
+const finishActiveBatch = () => {
     if (!activeBatchId.value) return;
+    showFinishModal.value = true;
+};
+
+const confirmFinishBatch = async () => {
+    if (!activeBatchId.value) return;
+    finishing.value = true;
     try {
-        await ElMessageBox.confirm('Đóng và nhập kho lô hàng này?', 'Xác nhận', { type: 'warning' });
-        finishing.value = true;
         await supplyApi.finishBatch(activeBatchId.value);
         ElMessage.success('Đóng lô hoàn tất và đã chuyển sang kho thành phẩm!');
+        showFinishModal.value = false;
         setTimeout(() => {
             router.push('/supply/batches');
         }, 500);
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
+        ElMessage.error(e.response?.data?.message || 'Lỗi khi đóng lô hàng');
     } finally {
         finishing.value = false;
     }
 };
 
-const cancelActiveBatch = async () => {
+const cancelActiveBatch = () => {
     if (!activeBatchId.value) return;
+    showCancelModal.value = true;
+};
+
+const confirmCancelBatch = async () => {
+    if (!activeBatchId.value) return;
+    canceling.value = true;
     try {
-        await ElMessageBox.confirm('Hủy bỏ lô hàng này?', 'Cảnh báo', { type: 'error' });
-        canceling.value = true;
         await supplyApi.cancelBatch(activeBatchId.value);
-        ElMessage.success('Đã hủy!');
+        ElMessage.success('Đã hủy lô hàng thành công!');
+        showCancelModal.value = false;
         resetForm();
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
+        ElMessage.error(e.response?.data?.message || 'Lỗi khi hủy lô hàng');
     } finally {
         canceling.value = false;
     }
 };
 
+const clearPendingTable = () => {
+    if (tableData.value.length === 0) return;
+    tableData.value = [];
+    scanInput.value = '';
+    rangeInput.value = '';
+    rangeStart.value = '';
+    rangeEnd.value = '';
+    ElMessage.info('Đã xóa danh sách mã đang chờ lưu');
+};
+
 const resetForm = () => {
     activeBatchId.value = null;
     batchCode.value = 'PKG-AUTO';
+    previouslyPackagedCount.value = 0;
+    loadedSourceBatchAvailableStock.value = null;
+    harvestQuantity.value = 0;
+    externalQuantity.value = 0;
+    unitWeight.value = 1;
     tableData.value = [];
     selectedHarvestCode.value = '';
     selectedExternalBatchId.value = '';
     selectedSemiFinishedBatchId.value = '';
     selectedProductId.value = '';
+    activeSourceBatchCode.value = '';
+    activeOriginTenantName.value = '';
+    scanInput.value = '';
+    rangeInput.value = '';
+    rangeStart.value = '';
+    rangeEnd.value = '';
+    selectedPoolId.value = '';
+    cartonCode.value = '';
+    isCarton.value = false;
+    isRangeMode.value = true;
+
     const defWh = warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION') 
                || warehouseList.value.find(w => w.isDefault) 
                || warehouseList.value[0];
@@ -1068,4 +1398,20 @@ onMounted(async () => {
 
 <style scoped>
 .pl-34 { padding-left: 136px; }
+
+:deep(.branded-cancel-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0 !important;
+}
+:deep(.branded-cancel-dialog .el-dialog__header) {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+:deep(.branded-cancel-dialog .el-dialog__body) {
+  padding: 24px !important;
+}
+:deep(.branded-cancel-dialog .el-dialog__footer) {
+  padding: 0 24px 24px !important;
+}
 </style>
