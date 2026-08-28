@@ -347,7 +347,7 @@ const fetchUsers = async () => {
 
 const fetchFilterData = async () => {
   try {
-    const { data } = await tenantApi.getAll({});
+    const { data } = await tenantApi.getAll({ type: 'main', limit: 9999 });
     tenants.value = data.data || (Array.isArray(data) ? data : []); 
   } catch (e) {
     console.error(e);
@@ -390,7 +390,7 @@ onMounted(() => {
         </div>
         <div class="w-48" v-if="isSystemAdmin">
           <label class="text-sm font-medium text-gray-700 block mb-1">Doanh nghiệp</label>
-          <el-select v-model="filter.tenantId" clearable placeholder="Tất cả" class="w-full">
+          <el-select v-model="filter.tenantId" clearable filterable placeholder="Tất cả" class="w-full">
             <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </div>
@@ -565,7 +565,7 @@ onMounted(() => {
         </el-form-item>
 
         <el-form-item label="Doanh nghiệp" prop="tenant_id" v-else-if="isSystemAdmin">
-          <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable style="--el-border-radius-base: 8px;">
+          <el-select v-model="userForm.tenant_id" placeholder="Chọn doanh nghiệp (Nếu có)" class="w-full" clearable filterable style="--el-border-radius-base: 8px;">
              <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
