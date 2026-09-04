@@ -190,6 +190,10 @@ export const supplyApi = {
     addItems(data: AddItemsDto) {
         return api.post(`${baseUrl}/packaging/add-items`, data);
     },
+    // Atomic: Tạo lô + gán mã trong 1 transaction (tránh lô rỗng khi validation lỗi)
+    createBatchAndAddItems(data: any) {
+        return api.post(`${baseUrl}/packaging/create-and-add`, data);
+    },
 
     refineSemiFinished(data: RefineSemiFinishedDto) {
         return api.post(`${baseUrl}/batches/refine-semi-finished`, data);

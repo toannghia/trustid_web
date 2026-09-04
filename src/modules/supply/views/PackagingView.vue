@@ -221,16 +221,9 @@
                         </div>
                     </div>
                     
-                    <!-- Carton Mode -->
+                    <!-- Carton Mode Checkbox -->
                     <div class="flex items-center gap-2 flex-1 min-w-[150px]">
                         <el-checkbox v-model="isCarton" label="Đóng thùng" border size="default" />
-                        <el-input 
-                            v-if="isCarton" 
-                            v-model="cartonCode" 
-                            placeholder="Quét mã thùng..." 
-                            class="flex-1" 
-                            size="default"
-                        />
                     </div>
                 </div>
 
@@ -247,6 +240,95 @@
                     </span>
                 </div>
             </div>
+        </div>
+
+        <!-- CARTON PACKING PANEL (hiện khi tick Đóng thùng) -->
+        <div v-if="isCarton" class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <!-- Row 1: Quy cách -->
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-semibold text-blue-800 w-28 shrink-0">Quy cách thùng:</label>
+            <template v-if="!cartonPackingSpecEditable">
+              <span class="text-lg font-bold text-blue-900">{{ cartonPackingSpec }} gói/thùng</span>
+              <span class="text-xs text-blue-600">({{ unitWeight }} kg/gói × {{ cartonPackingSpec }} = {{ (unitWeight * cartonPackingSpec).toFixed(1) }} kg/thùng)</span>
+              <el-button link type="primary" size="small" @click="cartonPackingSpecEditable = true">Sửa</el-button>
+            </template>
+            <template v-else>
+              <el-input-number v-model="cartonPackingSpec" :min="1" :max="1000" size="default" class="w-32" />
+              <span class="text-sm text-blue-700">gói/thùng</span>
+              <el-button type="primary" size="small" @click="cartonPackingSpecEditable = false">OK</el-button>
+            </template>
+          </div>
+
+          <!-- Row 2: Quét mã thùng (State: SCAN_CARTON) -->
+          <div v-if="cartonStatus === 'SCAN_CARTON'" class="flex items-center gap-2">
+            <label class="text-sm font-semibold text-blue-800 w-28 shrink-0">📦 Quét mã thùng:</label>
+            <el-input
+              v-model="cartonScanInput"
+              ref="cartonScanInputRef"
+              placeholder="Quét mã QR trên thùng..."
+              class="flex-1"
+              size="default"
+              @keyup.enter="scanCartonCode"
+              :disabled="scanning"
+            >
+              <template #append>
+                <el-button @click="scanCartonCode" :loading="scanning">Xác nhận</el-button>
+              </template>
+            </el-input>
+          </div>
+
+          <!-- Row 2b: Thùng đang đóng (State: FILLING_CARTON) -->
+          <div v-if="cartonStatus === 'FILLING_CARTON'" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-blue-800">📦 Thùng:</span>
+                <el-tag type="primary" effect="dark" size="default">{{ currentCartonSerial }}</el-tag>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold" :class="cartonProgress >= cartonPackingSpec ? 'text-green-600' : 'text-blue-700'">
+                  {{ cartonProgress }}/{{ cartonPackingSpec }} gói
+                </span>
+                <el-button v-if="cartonProgress > 0 && cartonProgress < cartonPackingSpec"
+                  type="warning" size="small" plain @click="handleCartonFull">
+                  Đóng thùng sớm
+                </el-button>
+              </div>
+            </div>
+            <el-progress
+              :percentage="cartonProgressPercent"
+              :color="cartonProgressPercent >= 100 ? '#10b981' : '#3b82f6'"
+              :stroke-width="10"
+            />
+          </div>
+
+          <!-- Row 3: Bảng tổng kết thùng đã đóng -->
+          <div v-if="completedCartons.length > 0" class="border-t border-blue-200 pt-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-semibold text-blue-800">
+                📋 Thùng đã đóng: {{ completedCartons.length }} thùng ({{ totalCartonItems }} gói)
+              </span>
+            </div>
+            <el-table :data="completedCartons" size="small" border stripe max-height="200">
+              <el-table-column type="index" label="#" width="45" align="center" />
+              <el-table-column prop="cartonSerial" label="Mã thùng" min-width="140">
+                <template #default="{ row }">
+                  <span class="font-mono font-semibold text-blue-700">{{ row.cartonSerial }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Số gói" width="90" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.itemCount >= cartonPackingSpec ? 'success' : 'warning'" size="small">
+                    {{ row.itemCount }}/{{ cartonPackingSpec }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="Thời gian" width="140" align="center">
+                <template #default="{ row }">
+                  <span class="text-xs text-gray-600">{{ dayjs(row.closedAt).format('HH:mm:ss') }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </div>
         
         <!-- ROW 2: Code Pool + Range (Full Width) -->
@@ -571,6 +653,27 @@ const selectedPoolId = ref('');
 const isCarton = ref(false);
 const cartonCode = ref('');
 
+// === CARTON STATE MACHINE ===
+type CartonStatus = 'IDLE' | 'SCAN_CARTON' | 'FILLING_CARTON' | 'CARTON_FULL';
+
+interface CompletedCarton {
+  cartonCode: string;
+  cartonSerial: string;
+  itemCount: number;
+  items: Array<{ code: string; codeString: string; productName: string }>;
+  closedAt: Date;
+}
+
+const cartonStatus = ref<CartonStatus>('IDLE');
+const cartonPackingSpec = ref(40);
+const cartonPackingSpecEditable = ref(false);
+const currentCartonCode = ref('');
+const currentCartonSerial = ref('');
+const itemsInCurrentCarton = ref<any[]>([]);
+const completedCartons = ref<CompletedCarton[]>([]);
+const cartonScanInput = ref('');
+const cartonScanInputRef = ref<any>(null);
+
 // Dialogs
 const showReceiveDialog = ref(false);
 const receiveQrCode = ref('');
@@ -728,6 +831,18 @@ const expectedCount = computed(() => {
 
 const currentCount = computed(() => tableData.value.length + previouslyPackagedCount.value);
 
+// === CARTON COMPUTED ===
+const cartonProgress = computed(() => itemsInCurrentCarton.value.length);
+const cartonRemaining = computed(() => Math.max(0, cartonPackingSpec.value - cartonProgress.value));
+const cartonProgressPercent = computed(() =>
+  cartonPackingSpec.value > 0
+    ? Math.round((cartonProgress.value / cartonPackingSpec.value) * 100)
+    : 0
+);
+const totalCartonItems = computed(() =>
+  completedCartons.value.reduce((sum, c) => sum + c.itemCount, 0) + itemsInCurrentCarton.value.length
+);
+
 const canAddMoreCodes = computed(() => {
     // 1. Phải chọn sản phẩm
     if (!selectedProductId.value) return false;
@@ -805,6 +920,93 @@ watch(isRangeMode, (isRange) => {
         fetchPoolRangeSuggestion(selectedPoolId.value);
     }
 });
+
+// === CARTON WATCHER ===
+watch(isCarton, (enabled) => {
+    if (enabled) {
+        const product = productList.value.find(p => p.id === selectedProductId.value);
+        const spec = product?.defaultPackagingSpec;
+        cartonPackingSpec.value = (spec && Number(spec) > 0) ? Number(spec) : 40;
+        cartonStatus.value = 'SCAN_CARTON';
+        cartonPackingSpecEditable.value = false;
+        currentCartonCode.value = '';
+        currentCartonSerial.value = '';
+        itemsInCurrentCarton.value = [];
+        cartonScanInput.value = '';
+        nextTick(() => cartonScanInputRef.value?.focus());
+    } else {
+        cartonStatus.value = 'IDLE';
+        currentCartonCode.value = '';
+        currentCartonSerial.value = '';
+        itemsInCurrentCarton.value = [];
+        cartonCode.value = '';
+    }
+});
+
+// === CARTON FUNCTIONS ===
+const scanCartonCode = async () => {
+    const code = cartonScanInput.value.trim();
+    if (!code) return;
+
+    // Kiểm tra trùng với thùng đã đóng
+    if (completedCartons.value.some(c => c.cartonCode === code || c.cartonSerial === code)) {
+        ElMessage.warning('Mã thùng này đã được sử dụng cho thùng trước!');
+        cartonScanInput.value = '';
+        return;
+    }
+
+    scanning.value = true;
+    try {
+        const res = await codeApi.validate(code);
+        const info = res.data;
+
+        if (!info || !info.valid) {
+            ElMessage.error(info?.message || 'Mã thùng không hợp lệ!');
+            cartonScanInput.value = '';
+            return;
+        }
+
+        currentCartonCode.value = info.codeString || code;
+        currentCartonSerial.value = info.serial || code;
+        cartonCode.value = currentCartonSerial.value;
+        cartonScanInput.value = '';
+        cartonStatus.value = 'FILLING_CARTON';
+
+        ElMessage.success(`Thùng ${currentCartonSerial.value} — Bắt đầu quét gói (0/${cartonPackingSpec.value})`);
+        nextTick(() => scanInputRef.value?.focus());
+    } catch (e: any) {
+        ElMessage.error('Lỗi validate mã thùng: ' + (e.response?.data?.message || e.message));
+        cartonScanInput.value = '';
+    } finally {
+        scanning.value = false;
+    }
+};
+
+const handleCartonFull = () => {
+    const carton: CompletedCarton = {
+        cartonCode: currentCartonCode.value,
+        cartonSerial: currentCartonSerial.value,
+        itemCount: itemsInCurrentCarton.value.length,
+        items: [...itemsInCurrentCarton.value],
+        closedAt: new Date()
+    };
+    completedCartons.value.push(carton);
+
+    ElNotification({
+        title: `✅ Thùng ${currentCartonSerial.value} đã đóng!`,
+        message: `${carton.itemCount}/${cartonPackingSpec.value} gói. Tổng: ${completedCartons.value.length} thùng (${totalCartonItems.value} gói).`,
+        type: 'success',
+        duration: 4000
+    });
+
+    currentCartonCode.value = '';
+    currentCartonSerial.value = '';
+    itemsInCurrentCarton.value = [];
+    cartonScanInput.value = '';
+    cartonStatus.value = 'SCAN_CARTON';
+
+    nextTick(() => cartonScanInputRef.value?.focus());
+};
 
 // --- METHODS ---
 const loadMasterData = async () => {
@@ -1047,6 +1249,20 @@ const fetchHarvestStats = async (harvestCode: string) => {
 const startScan = async () => {
     if (scanning.value) return;
     if (!selectedProductId.value) { ElMessage.error('Hãy chọn sản phẩm'); return; }
+
+    // Guard: nếu đang ở SCAN_CARTON → chặn quét gói, phải quét thùng trước
+    if (isCarton.value && cartonStatus.value === 'SCAN_CARTON') {
+        ElMessage.warning('Vui lòng quét mã thùng trước!');
+        nextTick(() => cartonScanInputRef.value?.focus());
+        return;
+    }
+
+    // Guard: nếu đang ở carton mode, kiểm tra thùng đã đầy chưa
+    if (isCarton.value && cartonStatus.value === 'FILLING_CARTON' && cartonProgress.value >= cartonPackingSpec.value) {
+        ElMessage.warning('Thùng đã đầy! Quét mã thùng mới để tiếp tục.');
+        return;
+    }
+
     if (!canAddMoreCodes.value) {
         if (expectedCount.value > 0 && currentCount.value >= expectedCount.value) {
             ElMessage.warning('Đã quét đủ số lượng mã theo định mức tồn kho, không thể thêm mã!');
@@ -1082,13 +1298,27 @@ const startScan = async () => {
         }
         
         const pName = productList.value.find(p => p.id === selectedProductId.value)?.name || '';
+        const parentCodeValue = isCarton.value ? cartonCode.value : '';
         tableData.value.unshift({
             code: info.serial || code,
             codeString: info.codeString || '',
             productName: pName,
-            parentCode: isCarton.value ? cartonCode.value : ''
+            parentCode: parentCodeValue
         });
         
+        // Track vào carton nếu đang FILLING_CARTON
+        if (isCarton.value && cartonStatus.value === 'FILLING_CARTON') {
+            itemsInCurrentCarton.value.push({
+                code: info.serial || code,
+                codeString: info.codeString || '',
+                productName: pName
+            });
+            // Kiểm tra đủ gói chưa
+            if (itemsInCurrentCarton.value.length >= cartonPackingSpec.value) {
+                handleCartonFull();
+            }
+        }
+
         scanInput.value = '';
         ElMessage.success('Thêm thành công');
     } catch (e: any) {
@@ -1101,6 +1331,14 @@ const startScan = async () => {
 
 const addRangeOrPool = async () => {
     if (!selectedProductId.value) { ElMessage.error('Hãy chọn sản phẩm'); return; }
+
+    // Guard: nếu đang ở SCAN_CARTON → chặn quét gói, phải quét thùng trước
+    if (isCarton.value && cartonStatus.value === 'SCAN_CARTON') {
+        ElMessage.warning('Vui lòng quét mã thùng trước!');
+        nextTick(() => cartonScanInputRef.value?.focus());
+        return;
+    }
+
     if (!canAddMoreCodes.value) {
         if (expectedCount.value > 0 && currentCount.value >= expectedCount.value) {
             ElMessage.warning('Đã đạt đủ số lượng mã theo định mức tồn kho, không thể thêm mã!');
@@ -1119,8 +1357,39 @@ const addRangeOrPool = async () => {
             const matchEnd = rangeEnd.value.match(/(\d+)$/);
             if (matchStart && matchEnd) {
                 const prefix = rangeStart.value.substring(0, rangeStart.value.length - matchStart[0].length);
-                const start = parseInt(matchStart[0]);
-                const end = parseInt(matchEnd[0]);
+                let start = parseInt(matchStart[0]);
+                let end = parseInt(matchEnd[0]);
+
+                // Validate rangeEnd không vượt phạm vi pool (endSerial)
+                const pool = selectedPoolInfo.value;
+                if (pool && pool.endSerial) {
+                    const poolEnd = parseInt(String(pool.endSerial));
+                    if (!isNaN(poolEnd) && end > poolEnd) {
+                        ElMessage.warning(`Dãy kết thúc (${end}) vượt phạm vi lô mã (max: ${poolEnd}). Đã tự động cắt về ${poolEnd}.`);
+                        end = poolEnd;
+                    }
+                }
+                if (pool && pool.startSerial) {
+                    const poolStart = parseInt(String(pool.startSerial));
+                    if (!isNaN(poolStart) && start < poolStart) {
+                        ElMessage.warning(`Dãy bắt đầu (${start}) nhỏ hơn phạm vi lô mã (min: ${poolStart}). Đã tự động điều chỉnh.`);
+                        start = poolStart;
+                    }
+                }
+
+                // Validate rangeEnd không vượt suggestedEnd từ API (dãy khả dụng thực tế)
+                const suggestion = poolSuggestionInfo.value;
+                if (suggestion && suggestion.suggestedEnd) {
+                    const sugEndMatch = String(suggestion.suggestedEnd).match(/(\d+)$/);
+                    if (sugEndMatch) {
+                        const sugEnd = parseInt(sugEndMatch[0]);
+                        if (!isNaN(sugEnd) && end > sugEnd) {
+                            ElMessage.warning(`Dãy kết thúc (${end}) vượt quá dãy khả dụng (max gợi ý: ${suggestion.suggestedEnd}). Đã tự động cắt về ${sugEnd}.`);
+                            end = sugEnd;
+                        }
+                    }
+                }
+
                 for(let i=start; i<=end; i++) {
                     codes.push(`${prefix}${String(i).padStart(matchStart[0].length, '0')}`);
                 }
@@ -1132,6 +1401,43 @@ const addRangeOrPool = async () => {
         if (codes.length === 0) {
             ElMessage.warning('Vui lòng nhập dãy mã hợp lệ');
             return;
+        }
+
+        // Cắt giới hạn: dùng MIN(còn lại theo tồn kho, mã khả dụng trong pool)
+        let maxToAdd = codes.length;
+
+        // Giới hạn 1: Theo expectedCount (tồn kho nguyên liệu)
+        if (expectedCount.value > 0) {
+            const remainByStock = Math.max(0, expectedCount.value - currentCount.value);
+            maxToAdd = Math.min(maxToAdd, remainByStock);
+        }
+
+        // Giới hạn 2: Theo pool available count (số mã chưa dùng thực tế)
+        const poolAvail = poolSuggestionInfo.value?.availableCount;
+        if (poolAvail !== undefined && poolAvail !== null && poolAvail >= 0) {
+            maxToAdd = Math.min(maxToAdd, poolAvail);
+        }
+
+        // Giới hạn 3: Theo carton packing spec (nếu đang ở carton mode)
+        if (isCarton.value && cartonStatus.value === 'FILLING_CARTON') {
+            const cartonLimit = cartonPackingSpec.value - itemsInCurrentCarton.value.length;
+            if (cartonLimit <= 0) {
+                ElMessage.warning('Thùng đã đầy! Vui lòng quét mã thùng mới.');
+                scanning.value = false;
+                return;
+            }
+            maxToAdd = Math.min(maxToAdd, cartonLimit);
+        }
+
+        if (maxToAdd <= 0) {
+            ElMessage.warning('Đã đạt đủ số lượng mã hoặc lô mã đã hết mã khả dụng!');
+            return;
+        }
+
+        if (codes.length > maxToAdd) {
+            const truncated = codes.length - maxToAdd;
+            codes.splice(maxToAdd);
+            ElMessage.warning(`Chỉ thêm ${maxToAdd} mã (đã cắt ${truncated} mã vượt giới hạn khả dụng).`);
         }
 
         // Fetch codeItems from backend to verify status and map QRCode correctly
@@ -1153,7 +1459,9 @@ const addRangeOrPool = async () => {
         }
 
         const pName = productList.value.find(p => p.id === selectedProductId.value)?.name || '';
+        const parentCodeValue = isCarton.value ? cartonCode.value : '';
         let addedCount = 0;
+        const addedCodes: string[] = [];
         codes.forEach(c => {
             const info = codeMap.get(c);
             if (info && info.status && info.status !== 'AVAILABLE' && info.status !== 'UNATTACHED') {
@@ -1165,14 +1473,29 @@ const addRangeOrPool = async () => {
                     code: c,
                     codeString: info?.codeString || '',
                     productName: pName,
-                    parentCode: isCarton.value ? cartonCode.value : ''
+                    parentCode: parentCodeValue
                 });
                 addedCount++;
+                addedCodes.push(c);
             }
         });
         
         if (usedOrInvalidCodes.length > 0) {
             ElMessage.warning(`Bỏ qua ${usedOrInvalidCodes.length} mã đã được sử dụng hoặc không hợp lệ.`);
+        }
+
+        // Track vào carton nếu đang FILLING_CARTON
+        if (isCarton.value && cartonStatus.value === 'FILLING_CARTON' && addedCodes.length > 0) {
+            for (const c of addedCodes) {
+                itemsInCurrentCarton.value.push({
+                    code: c,
+                    codeString: codeMap.get(c)?.codeString || '',
+                    productName: pName
+                });
+            }
+            if (itemsInCurrentCarton.value.length >= cartonPackingSpec.value) {
+                handleCartonFull();
+            }
         }
 
         rangeInput.value = '';
@@ -1196,34 +1519,45 @@ const doSave = async () => {
     saving.value = true;
     try {
         if (!activeBatchId.value) {
+            // === TẠO LÔ MỚI + GÁN MÃ ===
+            // Khi carton mode: group items theo parentCode, gửi batch đầu tiên cùng createBatchAndAddItems
+            let allCodes = tableData.value.map(x => x.code);
+
+            // Build batch creation params (dùng parentCode của group đầu tiên nếu carton mode)
+            const firstParentCode = isCarton.value ? (tableData.value[0]?.parentCode || undefined) : undefined;
+            let batchParams: any = {
+                product_id: selectedProductId.value,
+                warehouse_id: selectedWarehouseId.value || undefined,
+                codes: allCodes.length ? allCodes : undefined,
+                parent_code: firstParentCode
+            };
+
+            // Nếu carton mode và có nhiều thùng khác nhau, chỉ gửi items của thùng đầu tiên
+            if (isCarton.value && allCodes.length > 0) {
+                const groups = new Map<string, string[]>();
+                for (const item of tableData.value) {
+                    const key = item.parentCode || '';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key)!.push(item.code);
+                }
+
+                if (groups.size > 1) {
+                    // Nhiều thùng: gửi thùng đầu tiên qua createBatchAndAddItems
+                    const entries = Array.from(groups.entries());
+                    batchParams.codes = entries[0][1];
+                    batchParams.parent_code = entries[0][0] || undefined;
+                }
+            }
+
             if (batchSourceType.value === 'FARM') {
-                const res = await supplyApi.createBatch({
-                    farm_batch_code: selectedHarvestCode.value,
-                    product_id: selectedProductId.value,
-                    warehouse_id: selectedWarehouseId.value || undefined
-                });
-                activeBatchId.value = res.data.id;
-                batchCode.value = res.data.batchCode;
-                activeBatchType.value = res.data.batchType || 'FARM';
-                activeSourceBatchCode.value = selectedHarvestCode.value || '';
-                activeOriginTenantName.value = '';
+                batchParams.farm_batch_code = selectedHarvestCode.value;
             } else if (batchSourceType.value === 'SEMI_FINISHED') {
                 if (!selectedSemiFinishedBatchId.value) {
                     ElMessage.warning('Vui lòng chọn lô bán thành phẩm');
                     saving.value = false;
                     return;
                 }
-                const res = await supplyApi.createBatch({
-                    source_batch_id: selectedSemiFinishedBatchId.value,
-                    product_id: selectedProductId.value,
-                    warehouse_id: selectedWarehouseId.value || undefined
-                });
-                activeBatchId.value = res.data.id;
-                batchCode.value = res.data.batchCode;
-                activeBatchType.value = res.data.batchType || 'CROSS_TENANT';
-                const selectedBtp = semiFinishedOnlyList.value.find(b => b.id === selectedSemiFinishedBatchId.value);
-                activeSourceBatchCode.value = selectedBtp?.batchCode || res.data.farmBatchCode || '';
-                activeOriginTenantName.value = selectedBtp?.originTenantName || res.data.sourceInfo?.origin_tenant_name || '';
+                batchParams.source_batch_id = selectedSemiFinishedBatchId.value;
             } else {
                 // EXTERNAL
                 if (!selectedExternalBatchId.value) {
@@ -1231,62 +1565,145 @@ const doSave = async () => {
                     saving.value = false;
                     return;
                 }
-                
-                // Create new PKG from source
-                const res = await supplyApi.createBatch({
-                    source_batch_id: selectedExternalBatchId.value,
-                    product_id: selectedProductId.value,
-                    warehouse_id: selectedWarehouseId.value || undefined
-                });
-                activeBatchId.value = res.data.id;
-                batchCode.value = res.data.batchCode;
-                activeBatchType.value = res.data.batchType || 'EXTERNAL';
+                batchParams.source_batch_id = selectedExternalBatchId.value;
+            }
+
+            const { data } = await supplyApi.createBatchAndAddItems(batchParams);
+
+            // Cập nhật state từ response atomic
+            activeBatchId.value = data.batch.id;
+            batchCode.value = data.batch.batchCode;
+            activeBatchType.value = data.batch.batchType || 'FARM';
+
+            if (batchSourceType.value === 'FARM') {
+                activeSourceBatchCode.value = selectedHarvestCode.value || '';
+                activeOriginTenantName.value = '';
+            } else if (batchSourceType.value === 'SEMI_FINISHED') {
+                const selectedBtp = semiFinishedOnlyList.value.find(b => b.id === selectedSemiFinishedBatchId.value);
+                activeSourceBatchCode.value = selectedBtp?.batchCode || data.batch.farmBatchCode || '';
+                activeOriginTenantName.value = selectedBtp?.originTenantName || data.batch.sourceInfo?.origin_tenant_name || '';
+            } else {
                 const b = externalOnlyList.value.find(x => x.id === selectedExternalBatchId.value);
-                activeSourceBatchCode.value = b?.batchCode || res.data.farmBatchCode || '';
+                activeSourceBatchCode.value = b?.batchCode || data.batch.farmBatchCode || '';
                 activeOriginTenantName.value = '';
             }
-        }
 
-        const codes = tableData.value.map(x => x.code);
-        const { data } = await supplyApi.addItems({
-            batch_id: activeBatchId.value as string,
-            codes: codes.length ? codes : undefined,
-            parent_code: isCarton.value ? cartonCode.value : undefined
-        });
-        
-        const addedCount = Number(data.added ?? codes.length ?? 0);
-        const prevStock = availableRemainingStock.value;
-        const consumedKg = addedCount * (unitWeight.value || 1);
+            let totalAdded = Number(data.added ?? batchParams.codes?.length ?? 0);
 
-        tableData.value = [];
+            // Nếu carton mode và có thêm groups còn lại → gọi addItems cho từng group
+            if (isCarton.value) {
+                const groups = new Map<string, string[]>();
+                for (const item of tableData.value) {
+                    const key = item.parentCode || '';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key)!.push(item.code);
+                }
+                const entries = Array.from(groups.entries());
+                // Bỏ qua group đầu tiên (đã gửi qua createBatchAndAddItems)
+                for (let i = 1; i < entries.length; i++) {
+                    const [parentCode, codes] = entries[i];
+                    try {
+                        const addRes = await supplyApi.addItems({
+                            batch_id: data.batch.id,
+                            codes,
+                            parent_code: parentCode || undefined
+                        });
+                        totalAdded += Number(addRes.data?.added ?? codes.length ?? 0);
+                    } catch (addErr: any) {
+                        ElMessage.warning(`Lỗi khi gán thùng ${parentCode}: ${addErr.response?.data?.message || addErr.message}`);
+                    }
+                }
+            }
 
-        if (data.batchStats?.packCount !== undefined) {
-            previouslyPackagedCount.value = Number(data.batchStats.packCount);
+            const prevStock = availableRemainingStock.value;
+            const consumedKg = totalAdded * (unitWeight.value || 1);
+
+            tableData.value = [];
+
+            if (data.batchStats?.packCount !== undefined) {
+                previouslyPackagedCount.value = Number(data.batchStats.packCount);
+            } else {
+                previouslyPackagedCount.value += totalAdded;
+            }
+
+            loadedSourceBatchAvailableStock.value = Math.max(0, prevStock - consumedKg);
+            loadMasterData();
+
+            const isQuotaReached = (data.batchStats?.progress >= 100) || (expectedCount.value > 0 && previouslyPackagedCount.value >= expectedCount.value);
+            if (isQuotaReached) {
+                ElNotification({ title: 'Lưu thành công', message: `Đã lưu ${totalAdded} mã. Lô hàng đã đóng đủ số lượng, vui lòng nhấn [Đóng Lô] để hoàn tất nhập kho.`, type: 'success', duration: 4000 });
+            } else {
+                ElNotification({ title: 'Kết quả', message: `Đã lưu ${totalAdded} mã vào lô hàng.`, type: 'success' });
+            }
         } else {
-            previouslyPackagedCount.value += addedCount;
-        }
+            // === LÔ ĐÃ TỒN TẠI: Gán thêm mã ===
+            let totalAdded = 0;
+            const prevStock = availableRemainingStock.value;
 
-        // Cập nhật chính xác số kg tồn khả dụng còn lại của Lô nguồn
-        loadedSourceBatchAvailableStock.value = Math.max(0, prevStock - consumedKg);
+            if (isCarton.value) {
+                // Carton mode: group items theo parentCode → gọi addItems cho từng group
+                const groups = new Map<string, string[]>();
+                for (const item of tableData.value) {
+                    const key = item.parentCode || '';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key)!.push(item.code);
+                }
 
-        // Tải lại danh mục ngầm để đồng bộ
-        loadMasterData();
+                let lastData: any = null;
+                for (const [parentCode, codes] of groups) {
+                    try {
+                        const { data } = await supplyApi.addItems({
+                            batch_id: activeBatchId.value as string,
+                            codes,
+                            parent_code: parentCode || undefined
+                        });
+                        totalAdded += Number(data.added ?? codes.length ?? 0);
+                        lastData = data;
+                    } catch (addErr: any) {
+                        ElMessage.warning(`Lỗi khi gán thùng ${parentCode}: ${addErr.response?.data?.message || addErr.message}`);
+                    }
+                }
 
-        // Thông báo lưu thành công và chỉ dẫn nếu đã đủ số lượng định mức
-        const isQuotaReached = (data.batchStats?.progress >= 100) || (expectedCount.value > 0 && previouslyPackagedCount.value >= expectedCount.value);
-        if (isQuotaReached) {
-            ElNotification({
-                title: 'Lưu thành công',
-                message: `Đã lưu ${addedCount} mã. Lô hàng đã đóng đủ số lượng, vui lòng nhấn [Đóng Lô] để hoàn tất nhập kho.`,
-                type: 'success',
-                duration: 4000
-            });
-        } else {
-            ElNotification({
-                title: 'Kết quả',
-                message: `Đã lưu ${addedCount} mã vào lô hàng.`,
-                type: 'success'
-            });
+                const consumedKg = totalAdded * (unitWeight.value || 1);
+                tableData.value = [];
+
+                if (lastData?.batchStats?.packCount !== undefined) {
+                    previouslyPackagedCount.value = Number(lastData.batchStats.packCount);
+                } else {
+                    previouslyPackagedCount.value += totalAdded;
+                }
+
+                loadedSourceBatchAvailableStock.value = Math.max(0, prevStock - consumedKg);
+            } else {
+                // Non-carton: gửi 1 lần như cũ
+                const codes = tableData.value.map(x => x.code);
+                const { data } = await supplyApi.addItems({
+                    batch_id: activeBatchId.value as string,
+                    codes: codes.length ? codes : undefined,
+                    parent_code: undefined
+                });
+
+                totalAdded = Number(data.added ?? codes.length ?? 0);
+                const consumedKg = totalAdded * (unitWeight.value || 1);
+                tableData.value = [];
+
+                if (data.batchStats?.packCount !== undefined) {
+                    previouslyPackagedCount.value = Number(data.batchStats.packCount);
+                } else {
+                    previouslyPackagedCount.value += totalAdded;
+                }
+
+                loadedSourceBatchAvailableStock.value = Math.max(0, prevStock - consumedKg);
+            }
+
+            loadMasterData();
+
+            const isQuotaReached = (expectedCount.value > 0 && previouslyPackagedCount.value >= expectedCount.value);
+            if (isQuotaReached) {
+                ElNotification({ title: 'Lưu thành công', message: `Đã lưu ${totalAdded} mã. Lô hàng đã đóng đủ số lượng, vui lòng nhấn [Đóng Lô] để hoàn tất nhập kho.`, type: 'success', duration: 4000 });
+            } else {
+                ElNotification({ title: 'Kết quả', message: `Đã lưu ${totalAdded} mã vào lô hàng.`, type: 'success' });
+            }
         }
     } catch (e: any) {
         ElMessage.error(e.response?.data?.message || 'Lỗi lưu dữ liệu');
@@ -1372,6 +1789,16 @@ const resetForm = () => {
     cartonCode.value = '';
     isCarton.value = false;
     isRangeMode.value = true;
+
+    // Reset carton state
+    cartonStatus.value = 'IDLE';
+    currentCartonCode.value = '';
+    currentCartonSerial.value = '';
+    itemsInCurrentCarton.value = [];
+    completedCartons.value = [];
+    cartonPackingSpec.value = 40;
+    cartonPackingSpecEditable.value = false;
+    cartonScanInput.value = '';
 
     const defWh = warehouseList.value.find(w => w.isDefault && w.type === 'PRODUCTION') 
                || warehouseList.value.find(w => w.isDefault) 

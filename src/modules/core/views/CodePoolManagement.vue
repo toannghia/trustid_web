@@ -7,7 +7,7 @@ import { ElMessage, ElNotification } from 'element-plus';
 import { tenantApi } from '../api/tenant';
 import type { Tenant } from '@/types/core';
 import LTEContentHeader from '@/components/lte/LTEContentHeader.vue';
-import { Download, Plus, Search, View, UploadFilled } from '@element-plus/icons-vue';
+import { Download, Plus, Search, View, UploadFilled, Calendar } from '@element-plus/icons-vue';
 import brandLogo from '@/assets/images/TrusID-TV_w.png';
 
 const router = useRouter();
@@ -46,7 +46,9 @@ const getDefaultBatchName = () => {
 const poolFilter = reactive({
   search: '',
   status: '',
-  tenantId: ''
+  tenantId: '',
+  source: '',
+  dateRange: null as [string, string] | null
 });
 const currentPage = ref(1);
 const pageSize = ref(10);
@@ -114,7 +116,18 @@ const isOverQuota = computed(() => {
 const fetchPools = async () => {
   loading.value = true;
   try {
-    const params: any = { ...poolFilter, page: currentPage.value, limit: pageSize.value };
+    const params: any = {
+      search: poolFilter.search || undefined,
+      status: poolFilter.status || undefined,
+      tenantId: poolFilter.tenantId || undefined,
+      source: poolFilter.source || undefined,
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    if (poolFilter.dateRange && poolFilter.dateRange.length === 2) {
+      params.fromDate = poolFilter.dateRange[0];
+      params.toDate = poolFilter.dateRange[1];
+    }
     Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
     const { data } = await codeApi.getPools(params);
     if (data && typeof data === 'object' && 'data' in data) {
@@ -131,10 +144,11 @@ const fetchPools = async () => {
 const handlePoolFilter = () => { currentPage.value = 1; fetchPools(); };
 const handleResetPoolFilter = () => {
   poolFilter.search = ''; poolFilter.status = ''; poolFilter.tenantId = '';
+  poolFilter.source = ''; poolFilter.dateRange = null;
   currentPage.value = 1; fetchPools();
 };
 
-watch([() => poolFilter.status, () => poolFilter.tenantId], () => { currentPage.value = 1; fetchPools(); });
+watch([() => poolFilter.status, () => poolFilter.tenantId, () => poolFilter.source, () => poolFilter.dateRange], () => { currentPage.value = 1; fetchPools(); });
 
 let poolSearchTimeout: any = null;
 watch(() => poolFilter.search, () => {
@@ -254,13 +268,35 @@ onMounted(() => {
             <el-option label="Đã xuất (EXPORTED)" value="EXPORTED" />
           </el-select>
         </div>
+        <div class="w-40">
+          <div class="text-xs mb-1 text-gray-500">Loại lô</div>
+          <el-select v-model="poolFilter.source" placeholder="Tất cả" clearable @change="handlePoolFilter">
+            <el-option label="Lệnh sản xuất (LSX)" value="LSX" />
+            <el-option label="Lô tự tạo" value="CUSTOM" />
+          </el-select>
+        </div>
+        <div>
+          <div class="text-xs mb-1 text-gray-500">Thời gian tạo</div>
+          <el-date-picker
+            v-model="poolFilter.dateRange"
+            type="daterange"
+            range-separator="đến"
+            start-placeholder="Từ ngày"
+            end-placeholder="Đến ngày"
+            format="DD/MM/YYYY"
+            value-format="YYYY-MM-DD"
+            clearable
+            style="width: 260px"
+            @change="handlePoolFilter"
+          />
+        </div>
         <div v-if="isAdmin" class="w-48">
           <div class="text-xs mb-1 text-gray-500">Doanh nghiệp</div>
           <el-select v-model="poolFilter.tenantId" placeholder="Chọn Tenant" filterable clearable @change="handlePoolFilter">
             <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </div>
-        <div class="flex-1 flex justify-end gap-2">
+        <div class="flex-1 flex justify-end gap-2 items-end">
           <el-button type="primary" :icon="Search" @click="handlePoolFilter">Tìm kiếm</el-button>
           <el-button @click="handleResetPoolFilter">Đặt lại</el-button>
         </div>

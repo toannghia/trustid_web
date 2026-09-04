@@ -55,6 +55,7 @@ const showBatchId = ref(false);
 const showDetailDialog = ref(false);
 const selectedRow = ref<any>(null);
 const isEdit = ref(false);
+const isEditingProductionBatch = ref(false);
 
 const SUGGESTED_FIELDS = [
   { key: 'Giống cây', category: 'crop' },
@@ -452,6 +453,7 @@ const handleAdd = () => {
   };
   activeSections.value = ['general', 'origin'];
   displayQuantity.value = 1;
+  isEditingProductionBatch.value = false;
   inputUnit.value = 'ton';
   showBatchDialog.value = true;
 };
@@ -532,6 +534,9 @@ const handleEdit = (row: any) => {
   };
 
 
+  // Xác định lô đã đưa vào sản xuất chưa
+  isEditingProductionBatch.value = !!(row.isUsedInProduction);
+
   activeSections.value = ['general', 'origin'];
   showBatchDialog.value = true;
 };
@@ -578,6 +583,13 @@ const saveBatch = async () => {
     const unitObj = weightUnits.find(u => u.value === inputUnit.value);
     const rate = unitObj ? unitObj.rate : 1;
     payload.quantity = displayQuantity.value * rate;
+
+    // ★ Khi sửa lô đã sản xuất, không gửi quantity/product_id/target_warehouse_id
+    if (isEdit.value && isEditingProductionBatch.value) {
+      delete payload.quantity;
+      delete payload.product_id;
+      delete payload.target_warehouse_id;
+    }
 
     // Convert customFields array back to object for DB
     const customFieldsObj: Record<string, any> = {};
@@ -936,8 +948,11 @@ onMounted(fetchData);
               <el-tooltip content="Chỉnh sửa" placement="top">
                 <el-button type="primary" :icon="Edit" circle size="small" @click="handleEdit(row)" />
               </el-tooltip>
-              <el-tooltip content="Xóa" placement="top">
+              <el-tooltip v-if="!row.isUsedInProduction" content="Xóa" placement="top">
                 <el-button type="danger" :icon="Delete" circle size="small" @click="handleDelete(row)" />
+              </el-tooltip>
+              <el-tooltip v-else content="Lô đã đưa vào sản xuất, không thể xóa" placement="top">
+                <el-button type="info" :icon="Delete" circle size="small" disabled />
               </el-tooltip>
             </div>
           </template>
@@ -1360,20 +1375,30 @@ onMounted(fetchData);
               </div>
             </template>
             <div class="grid grid-cols-2 gap-x-8">
+              <!-- ★ Cảnh báo khi lô đã sản xuất -->
+              <div v-if="isEdit && isEditingProductionBatch" class="col-span-2 mb-4">
+                <el-alert
+                  title="Lô đã đưa vào sản xuất"
+                  description="Không thể thay đổi Sản phẩm, Kho nhập hàng và Khối lượng. Chỉ có thể chỉnh sửa thông tin nguồn gốc."
+                  type="warning"
+                  show-icon
+                  :closable="false"
+                />
+              </div>
               <el-form-item label="Tên sản phẩm" required>
-                <el-select v-model="batchForm.product_id" filterable placeholder="Chọn sản phẩm" class="w-full">
+                <el-select v-model="batchForm.product_id" filterable placeholder="Chọn sản phẩm" class="w-full" :disabled="isEdit && isEditingProductionBatch">
                   <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="Kho nhập hàng" required>
-                <el-select v-model="batchForm.target_warehouse_id" filterable placeholder="Chọn kho nhập nguyên liệu" class="w-full">
+                <el-select v-model="batchForm.target_warehouse_id" filterable placeholder="Chọn kho nhập nguyên liệu" class="w-full" :disabled="isEdit && isEditingProductionBatch">
                   <el-option v-for="w in warehouses" :key="w.id" :label="w.name" :value="w.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="Khối lượng nhập" required>
                 <div class="flex w-full gap-2">
-                  <el-input-number v-model="displayQuantity" :min="0.1" :step="0.1" class="!flex-1" />
-                  <el-select v-model="inputUnit" class="!w-32">
+                  <el-input-number v-model="displayQuantity" :min="0.1" :step="0.1" class="!flex-1" :disabled="isEdit && isEditingProductionBatch" />
+                  <el-select v-model="inputUnit" class="!w-32" :disabled="isEdit && isEditingProductionBatch">
                     <el-option v-for="u in weightUnits" :key="u.value" :label="u.label" :value="u.value" />
                   </el-select>
                 </div>

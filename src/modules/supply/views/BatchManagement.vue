@@ -1,7 +1,7 @@
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Quản lý Lô Đóng Gói Trực Tiếp</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Quản lý lô đóng gói trực tiếp</h1>
       <el-button type="primary" :icon="Plus" @click="router.push('/supply/packaging')">
         Tạo phiếu đóng gói mới
       </el-button>

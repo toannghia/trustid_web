@@ -77,6 +77,9 @@ const txngApi = {
     getCatalogByKey: (key: string) =>
         api.get(`/txng/catalogs/${key}`),
 
+    getCatalogItemDetail: (key: string, id: string) =>
+        api.get(`/txng/catalogs/${key}/item/${id}`),
+
     // Enterprise
     getEnterpriseList: () =>
         api.get('/txng/enterprise'),
