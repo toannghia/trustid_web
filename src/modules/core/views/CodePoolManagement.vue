@@ -105,6 +105,11 @@ const selectedTenantGenerated = computed(() => {
   return currentTenant.value ? ((currentTenant.value as any).totalGenerated || 0) : 0;
 });
 
+const isOverQuota = computed(() => {
+  if (selectedTenantQuota.value === null || selectedTenantQuota.value === undefined) return false;
+  return (generateForm.quantity || 0) > selectedTenantQuota.value;
+});
+
 // --- FUNCTIONS ---
 const fetchPools = async () => {
   loading.value = true;
@@ -184,7 +189,10 @@ const handleImport = async () => {
 };
 
 const handleGenerate = async () => {
-  if (generateForm.quantity <= 0) return ElMessage.error('Số lượng phải lớn hơn 0');
+  if (!generateForm.quantity || generateForm.quantity <= 0) return ElMessage.error('Số lượng mã phải lớn hơn 0');
+  if (isOverQuota.value) {
+    return ElMessage.error(`Số lượng mã vượt quá hạn mức khả dụng còn lại (${selectedTenantQuota.value?.toLocaleString()} mã)`);
+  }
   if (!generateForm.name) return ElMessage.error('Vui lòng nhập tên lô mã');
   if (isAdmin.value && !generateForm.tenantId) return ElMessage.error('Vui lòng chọn Doanh nghiệp');
   try {
@@ -367,13 +375,25 @@ onMounted(() => {
           <el-input v-model="generateForm.name" placeholder="Ví dụ: Mã vải thiều 2026" style="--el-border-radius-base: 8px;" />
         </el-form-item>
         <el-form-item label="Số lượng" required>
-          <div class="flex items-center gap-2 w-full">
-            <el-input-number v-model="generateForm.quantity" :min="1" :step="100" style="width: 150px; --el-border-radius-base: 8px;" />
-            <span v-if="selectedTenantQuota !== null" class="text-sm flex items-center gap-1 ml-2">
-              <span class="font-bold text-black" title="Đã tạo">{{ selectedTenantGenerated?.toLocaleString() }}</span>
-              <span class="text-gray-400">/</span>
-              <span class="font-bold text-green-600" title="Hạn mức">{{ selectedTenantQuota.toLocaleString() }}</span>
-            </span>
+          <div class="flex items-center gap-3 w-full flex-wrap">
+            <el-input-number 
+              v-model="generateForm.quantity" 
+              :min="0" 
+              :step="100" 
+              style="width: 150px; --el-border-radius-base: 8px;" 
+            />
+            <div v-if="selectedTenantQuota !== null" class="text-xs flex items-center gap-2">
+              <span 
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200"
+                :title="`Tổng cấp: ${((selectedTenantQuota || 0) + (selectedTenantGenerated || 0)).toLocaleString()} mã | Đã tạo: ${(selectedTenantGenerated || 0).toLocaleString()} mã`"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Khả dụng: <b>{{ selectedTenantQuota.toLocaleString() }}</b> mã
+              </span>
+              <span class="text-gray-400" title="Tổng số mã đã tạo lũy kế từ trước đến nay">
+                (Đã tạo: {{ selectedTenantGenerated?.toLocaleString() }})
+              </span>
+            </div>
           </div>
         </el-form-item>
         <el-form-item label="Tiền tố (Prefix)">
@@ -394,7 +414,16 @@ onMounted(() => {
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px;">
           <el-button @click="generateDialogVisible = false" style="border-radius: 8px; padding: 10px 20px;">Hủy</el-button>
-          <el-button type="primary" :icon="Plus" @click="handleGenerate" :loading="loading" style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;">Bắt đầu sinh mã</el-button>
+          <el-button 
+            type="primary" 
+            :icon="Plus" 
+            :disabled="!generateForm.quantity || generateForm.quantity <= 0 || isOverQuota"
+            @click="handleGenerate" 
+            :loading="loading" 
+            style="border-radius: 8px; padding: 10px 20px; border: none; color: #fff; background: #00875A;"
+          >
+            Bắt đầu sinh mã
+          </el-button>
         </div>
       </template>
     </el-dialog>
