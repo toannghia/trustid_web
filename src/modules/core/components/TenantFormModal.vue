@@ -2,10 +2,14 @@
 import { ref, reactive, watch, nextTick, computed } from 'vue';
 import { tenantApi } from '../api/tenant';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { Plus, Connection, CopyDocument } from '@element-plus/icons-vue';
+import { 
+    Plus, Connection, CopyDocument, OfficeBuilding, 
+    Postcard, Tickets, Message, Phone, Link, 
+    Location, Picture, StarFilled, InfoFilled, Delete, Edit 
+} from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
-import axios from 'axios';
 import MediaManager from './MediaManager.vue';
 
 // Address Data
@@ -31,6 +35,14 @@ const formRef = ref<FormInstance>();
 const submitting = ref(false);
 const quillKey = ref(0);
 const showMediaInfo = ref(false);
+
+const originalFormState = ref('');
+const isFormChanged = computed(() => {
+    return JSON.stringify(form) !== originalFormState.value;
+});
+const isSubmitDisabled = computed(() => {
+    return props.isEdit && !isFormChanged.value;
+});
 
 const form = reactive<any>({
     id: '',
@@ -106,8 +118,6 @@ const handleProvinceChange = () => {
     wards.value = prov ? prov.wards : [];
 };
 
-const fileInput = ref<HTMLInputElement | null>(null);
-
 watch(() => props.modelValue, (val) => {
     if (val) {
         if (props.isEdit && props.initialData) {
@@ -118,7 +128,11 @@ watch(() => props.modelValue, (val) => {
         quillKey.value++; 
         nextTick(() => {
             formRef.value?.clearValidate();
+            originalFormState.value = JSON.stringify(form);
         });
+        setTimeout(() => {
+            originalFormState.value = JSON.stringify(form);
+        }, 100);
     }
 });
 
@@ -180,32 +194,19 @@ const handleMediaSelect = (url: any) => {
     if (formRef.value) formRef.value.validateField('logo');
 };
 
+const removeLogo = (e?: Event) => {
+    if (e) e.stopPropagation();
+    form.logo = '';
+    if (formRef.value && form.isNdaEnabled) {
+        formRef.value.validateField('logo');
+    }
+};
+
 watch(() => form.isTrustedPartner, (enabled) => {
     if (!enabled) {
         form.trustedPartnerOrder = null;
     }
 });
-
-const triggerUpload = () => fileInput.value?.click();
-
-const handleFileChange = async (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    if (target.files && target.files[0]) {
-        const file = target.files[0];
-        const formData = new FormData();
-        formData.append('file', file);
-        try {
-             const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/files/upload`, formData, {
-                 headers: { 'Content-Type': 'multipart/form-data' }
-             });
-             form.logo = data.url || data.path || data; 
-             // Clear validation for logo if it was erroring
-             if (formRef.value) formRef.value.validateField('logo');
-        } catch (e) {
-            ElMessage.error('Upload logo thất bại');
-        }
-    }
-};
 
 const getImageUrl = (path: string) => {
     if (!path) return '';
@@ -215,7 +216,7 @@ const getImageUrl = (path: string) => {
 };
 
 const handleSubmit = async (formEl: FormInstance | undefined) => {
-    if (!formEl) return;
+    if (!formEl || isSubmitDisabled.value) return;
     
     await formEl.validate(async (valid) => {
         if (valid) {
@@ -252,7 +253,6 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
             }
         } else {
             ElMessage.warning('Vui lòng kiểm tra lại các trường thông tin còn thiếu.');
-            // return false; 
         }
     });
 };
@@ -284,192 +284,349 @@ const getNdaStatusType = (status: string | undefined | null) => {
     if (s === 'REJECTED' || s.startsWith('FAILED')) return 'danger';
     return 'info';
 };
-
 </script>
 
 <template>
     <el-dialog 
         :model-value="modelValue" 
-        :title="isEdit ? 'Cập nhật Doanh Nghiệp' : 'Thêm Doanh Nghiệp Mới'" 
         width="95%"
-        style="max-width: 900px" 
-        top="5vh"
+        style="max-width: 960px" 
+        top="4vh"
         :close-on-click-modal="false"
+        :show-close="false"
+        class="branded-tenant-dialog"
         @update:model-value="handleClose"
-        class="responsive-dialog"
     >
-        <el-form 
-            ref="formRef"
-            :model="form"
-            :rules="rules"
-            label-width="140px"
-            label-position="top"
-        >
-            <el-row :gutter="20">
-                <!-- Left Column: Logo -->
-                <el-col :xs="24" :sm="6">
-                    <el-form-item prop="logo" class="w-full">
-                        <div 
-                            class="border-2 border-dashed border-gray-300 rounded-lg h-40 w-full flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition relative overflow-hidden"
-                            :class="{'border-red-500': form.isNdaEnabled && !form.logo}"
-                            @click="openMediaManager"
-                        >
-                            <img v-if="form.logo" :src="getImageUrl(form.logo)" class="w-full h-full object-contain" />
-                            <div v-else class="text-center text-gray-400">
-                                <el-icon class="text-3xl mb-2"><Plus /></el-icon>
-                                <div class="text-sm">Chọn / Upload Logo <span v-if="form.isNdaEnabled" class="text-red-500">*</span></div>
-                            </div>
-                        </div>
-                    </el-form-item>
-                    
-                    <div class="mt-4 bg-gray-50 p-2 rounded text-sm mb-4 sm:mb-0">
-                         <el-checkbox v-model="form.isNdaEnabled" border class="w-full">
-                            <span class="font-bold">Đồng bộ NDA Trace</span>
-                         </el-checkbox>
-                         <p v-if="form.isNdaEnabled" class="text-xs text-blue-600 mt-1">
-                             <span class="font-bold">Lưu ý:</span> Khi bật đồng bộ, bạn cần nhập chính xác MST, GLN và Logo doanh nghiệp.
-                         </p>
-
-                         <!-- NDA STATUS & DID DISPLAY -->
-                         <div v-if="form.isNdaEnabled" class="mt-3 pt-3 border-t border-gray-200">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-gray-600">Trạng thái NDA:</span>
-                                <el-tag :type="getNdaStatusType(form.ndaStatus)" size="small">
-                                    {{ getNdaStatusText(form.ndaStatus) }}
-                                </el-tag>
-                            </div>
-                            
-                            <div v-if="form.ndaDid">
-                                <span class="text-xs font-bold text-gray-600 mb-1 block">Mã định danh (DID):</span>
-                                <el-input v-model="form.ndaDid" readonly size="small" :prefix-icon="Connection">
-                                    <template #append>
-                                        <el-button @click="copyToClipboard(form.ndaDid)">
-                                            <el-icon><CopyDocument /></el-icon>
-                                        </el-button>
-                                    </template>
-                                </el-input>
-                            </div>
-                         </div>
-
-                         <div class="mt-3 pt-3 border-t border-gray-200">
-                            <el-switch
-                                v-model="form.isTrustedPartner"
-                                active-text="Doanh nghiệp uy tín"
-                                class="mb-2"
-                            />
-                            <el-input-number
-                                v-model="form.trustedPartnerOrder"
-                                :disabled="!form.isTrustedPartner"
-                                :min="0"
-                                :step="1"
-                                :precision="0"
-                                controls-position="right"
-                                placeholder="Thứ tự"
-                                class="w-full"
-                            />
-                            <p class="text-xs text-gray-500 mt-1">
-                                Bật để hiển thị trên app, số nhỏ sẽ đứng trước.
-                            </p>
-                         </div>
-                    </div>
-                </el-col>
-
-                <!-- Right Column: Basic Info -->
-                <el-col :xs="24" :sm="18">
-                    <el-row :gutter="10">
-                        <el-col :span="24">
-                            <el-form-item label="Tên Doanh Nghiệp" prop="name">
-                                <el-input v-model="form.name" placeholder="Tên đầy đủ của doanh nghiệp" />
-                            </el-form-item>
-                        </el-col>
-                        
-                        <el-col :xs="24" :sm="12">
-                            <el-form-item label="Mã số thuế" prop="taxCode">
-                                <template #label>
-                                    Mã số thuế <span v-if="form.isNdaEnabled" class="text-red-500">*</span>
-                                </template>
-                                <el-input v-model="form.taxCode" placeholder="Nhập MST" />
-                            </el-form-item>
-                        </el-col>
-                        <el-col :xs="24" :sm="12">
-                             <el-form-item label="Mã GLN (Global Location Number)" prop="gln">
-                                 <template #label>
-                                    Mã GLN <span v-if="form.isNdaEnabled" class="text-red-500">*</span>
-                                </template>
-                                <el-input v-model="form.gln" placeholder="Nhập mã GLN 13 số" maxlength="13" />
-                            </el-form-item>
-                        </el-col>
-
-                        <el-col :xs="24" :sm="12">
-                            <el-form-item label="Email" prop="email">
-                                <el-input v-model="form.email" placeholder="Email liên hệ" />
-                            </el-form-item>
-                        </el-col>
-                        <el-col :xs="24" :sm="12">
-                             <el-form-item label="Điện thoại" prop="phone">
-                                <el-input v-model="form.phone" placeholder="Số điện thoại" />
-                            </el-form-item>
-                        </el-col>
-                        
-                        <el-col :xs="24" :sm="12">
-                             <el-form-item label="Website" prop="website">
-                                <el-input v-model="form.website" placeholder="https://..." />
-                            </el-form-item>
-                        </el-col>
-                        <el-col :xs="24" :sm="12">
-                             <el-form-item label="Mã GCP (GS1 Prefix)" prop="gcpPrefix">
-                                <el-input v-model="form.gcpPrefix" placeholder="Mã GS1 (Không bắt buộc)" />
-                            </el-form-item>
-                        </el-col>
-                    </el-row>
-                </el-col>
-            </el-row>
-
-            <el-divider content-position="left">Địa chỉ đăng ký</el-divider>
-
-            <el-row :gutter="15">
-                <el-col :xs="24" :sm="8">
-                    <el-form-item label="Tỉnh / Thành phố" prop="province">
-                        <el-select v-model="form.province" placeholder="Chọn Tỉnh" @change="handleProvinceChange" filterable allow-create class="w-full">
-                                <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
-                        </el-select>
-                    </el-form-item>
-                </el-col>
-                <el-col :xs="24" :sm="8">
-                     <el-form-item label="Phường / Xã" prop="ward">
-                        <el-select v-model="form.ward" placeholder="Chọn Xã" filterable allow-create class="w-full">
-                            <el-option v-for="w in wards" :key="w.name" :label="w.name" :value="w.name" />
-                        </el-select>
-                    </el-form-item>
-                </el-col>
-                <el-col :xs="24" :sm="8">
-                    <el-form-item label="Địa chỉ chi tiết" prop="address">
-                        <el-input v-model="form.address" placeholder="Số nhà, tên đường..." />
-                    </el-form-item>
-                </el-col>
-            </el-row>
-
-            <div class="mt-2">
-                <label class="el-form-item__label block mb-2">Giới thiệu về doanh nghiệp</label>
-                <div class="h-48 w-full mb-8">
-                    <QuillEditor 
-                        :key="quillKey"
-                        v-model:content="form.description" 
-                        contentType="html" 
-                        theme="snow" 
-                        toolbar="essential" 
-                    />
+        <!-- Header chuẩn TrustID -->
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                    <span style="color: #fff; font-size: 16px; font-weight: 600; letter-spacing: 0.2px;">
+                        {{ isEdit ? 'Cập nhật Doanh nghiệp' : 'Thêm Doanh nghiệp Mới' }}
+                    </span>
+                </div>
+                <div 
+                    style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); transition: all 0.2s;" 
+                    class="hover:bg-white/20"
+                    @click="handleClose"
+                >
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
                 </div>
             </div>
-        </el-form>
+        </template>
 
+        <!-- Body mở rộng tự nhiên -->
+        <div class="p-6 bg-slate-50/50">
+            <el-form 
+                ref="formRef"
+                :model="form"
+                :rules="rules"
+                label-position="top"
+                style="--el-border-radius-base: 8px;"
+            >
+                <div class="space-y-5">
+                    <!-- TẦNG 1: 2 CỘT ĐỐI XỨNG CÂN BẰNG (Top Section) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                        <!-- Cột Trái (4/12): Logo, NDA, Doanh nghiệp uy tín -->
+                        <div class="lg:col-span-4 space-y-4">
+                            <!-- Card 1: Logo -->
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                                        <el-icon class="text-slate-500"><Picture /></el-icon>
+                                        Logo Doanh nghiệp
+                                        <span v-if="form.isNdaEnabled" class="text-red-500">*</span>
+                                    </span>
+                                    <span v-if="form.logo" class="text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-full">
+                                        Đã có logo
+                                    </span>
+                                </div>
+
+                                <el-form-item prop="logo" class="mb-0">
+                                    <div 
+                                        class="w-full h-44 rounded-xl border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden group transition-all"
+                                        :class="[
+                                            form.isNdaEnabled && !form.logo ? 'border-red-400 bg-red-50/20' : 'border-slate-200 hover:border-emerald-500 bg-slate-50/50'
+                                        ]"
+                                    >
+                                        <!-- When logo exists -->
+                                        <template v-if="form.logo">
+                                            <img :src="getImageUrl(form.logo)" class="w-full h-full object-contain p-2" />
+                                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                <el-button size="small" type="primary" :icon="Edit" @click="openMediaManager">
+                                                    Đổi ảnh
+                                                </el-button>
+                                                <el-button size="small" type="danger" :icon="Delete" @click="removeLogo">
+                                                    Xóa
+                                                </el-button>
+                                            </div>
+                                        </template>
+
+                                        <!-- When no logo -->
+                                        <template v-else>
+                                            <div 
+                                                class="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4 text-center"
+                                                @click="openMediaManager"
+                                            >
+                                                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2 group-hover:bg-emerald-50 transition-colors">
+                                                    <el-icon class="text-xl text-slate-400 group-hover:text-emerald-600 transition-colors"><Plus /></el-icon>
+                                                </div>
+                                                <div class="text-xs font-medium text-slate-600 group-hover:text-emerald-600">Chọn hoặc Tải Logo</div>
+                                                <div class="text-[11px] text-slate-400 mt-1">Định dạng PNG, JPG, SVG</div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </el-form-item>
+                            </div>
+
+                            <!-- Card 2: NDA Trace -->
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                                            <el-icon class="text-base"><Connection /></el-icon>
+                                        </div>
+                                        <span class="text-sm font-semibold text-slate-800">Cổng NDA Trace</span>
+                                    </div>
+                                    <el-switch 
+                                        v-model="form.isNdaEnabled"
+                                        active-color="#00875A"
+                                    />
+                                </div>
+
+                                <div v-if="form.isNdaEnabled" class="bg-blue-50/80 border border-blue-100 rounded-lg p-2.5 text-xs text-blue-700 flex items-start gap-1.5 leading-relaxed">
+                                    <el-icon class="text-sm shrink-0 mt-0.5"><InfoFilled /></el-icon>
+                                    <span>Bắt buộc nhập <strong>Mã số thuế</strong>, <strong>GLN (13 số)</strong> và <strong>Logo</strong> để đồng bộ dữ liệu quốc gia.</span>
+                                </div>
+
+                                <!-- NDA Status & DID (When Edit) -->
+                                <div v-if="form.isNdaEnabled" class="pt-2 border-t border-slate-100 space-y-2.5">
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-slate-500 font-medium">Trạng thái NDA:</span>
+                                        <el-tag :type="getNdaStatusType(form.ndaStatus)" size="small" effect="light" class="font-semibold">
+                                            {{ getNdaStatusText(form.ndaStatus) }}
+                                        </el-tag>
+                                    </div>
+
+                                    <div v-if="form.ndaDid">
+                                        <span class="text-[11px] font-medium text-slate-500 mb-1 block">Mã định danh (DID):</span>
+                                        <el-input v-model="form.ndaDid" readonly size="small" :prefix-icon="Connection">
+                                            <template #append>
+                                                <el-button @click="copyToClipboard(form.ndaDid)" title="Copy DID">
+                                                    <el-icon><CopyDocument /></el-icon>
+                                                </el-button>
+                                            </template>
+                                        </el-input>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Trusted Partner -->
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
+                                            <el-icon class="text-base"><StarFilled /></el-icon>
+                                        </div>
+                                        <span class="text-sm font-semibold text-slate-800">Doanh nghiệp uy tín</span>
+                                    </div>
+                                    <el-switch 
+                                        v-model="form.isTrustedPartner"
+                                        active-color="#00875A"
+                                    />
+                                </div>
+
+                                <div v-if="form.isTrustedPartner" class="pt-2 space-y-1.5">
+                                    <span class="text-xs text-slate-600 font-medium block">Thứ tự hiển thị ưu tiên</span>
+                                    <el-input-number
+                                        v-model="form.trustedPartnerOrder"
+                                        :min="0"
+                                        :step="1"
+                                        :precision="0"
+                                        controls-position="right"
+                                        placeholder="Ví dụ: 1, 2, 3..."
+                                        class="w-full"
+                                    />
+                                    <p class="text-[11px] text-slate-400">
+                                        Hiển thị huy hiệu nổi bật trên ứng dụng di động (số nhỏ đứng trước).
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cột Phải (8/12): Thông tin Doanh nghiệp -->
+                        <div class="lg:col-span-8">
+                            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+                                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                                        <el-icon class="text-base"><OfficeBuilding /></el-icon>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Thông tin doanh nghiệp</h4>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <el-form-item label="Tên Doanh Nghiệp" prop="name" class="mb-3">
+                                        <el-input 
+                                            v-model="form.name" 
+                                            placeholder="Nhập đầy đủ tên doanh nghiệp..." 
+                                            :prefix-icon="OfficeBuilding"
+                                        />
+                                    </el-form-item>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <el-form-item prop="taxCode" class="mb-3">
+                                            <template #label>
+                                                <span class="text-slate-700 font-medium">Mã số thuế <span v-if="form.isNdaEnabled" class="text-red-500">*</span></span>
+                                            </template>
+                                            <el-input 
+                                                v-model="form.taxCode" 
+                                                placeholder="Nhập mã số thuế..." 
+                                                :prefix-icon="Postcard"
+                                            />
+                                        </el-form-item>
+
+                                        <el-form-item prop="gln" class="mb-3">
+                                            <template #label>
+                                                <span class="text-slate-700 font-medium">Mã GLN (13 số) <span v-if="form.isNdaEnabled" class="text-red-500">*</span></span>
+                                            </template>
+                                            <el-input 
+                                                v-model="form.gln" 
+                                                placeholder="Nhập GLN 13 số..." 
+                                                maxlength="13" 
+                                                :prefix-icon="Tickets"
+                                            />
+                                        </el-form-item>
+
+                                        <el-form-item label="Email liên hệ" prop="email" class="mb-3">
+                                            <el-input 
+                                                v-model="form.email" 
+                                                placeholder="contact@company.com" 
+                                                :prefix-icon="Message"
+                                            />
+                                        </el-form-item>
+
+                                        <el-form-item label="Số điện thoại" prop="phone" class="mb-3">
+                                            <el-input 
+                                                v-model="form.phone" 
+                                                placeholder="Số điện thoại liên hệ" 
+                                                :prefix-icon="Phone"
+                                            />
+                                        </el-form-item>
+
+                                        <el-form-item label="Website" prop="website" class="mb-0">
+                                            <el-input 
+                                                v-model="form.website" 
+                                                placeholder="https://..." 
+                                                :prefix-icon="Link"
+                                            />
+                                        </el-form-item>
+
+                                        <el-form-item label="Mã GCP (GS1 Prefix)" prop="gcpPrefix" class="mb-0">
+                                            <el-input 
+                                                v-model="form.gcpPrefix" 
+                                                placeholder="Ví dụ: 893..." 
+                                                :prefix-icon="Tickets"
+                                            />
+                                        </el-form-item>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TẦNG 2: ĐỊA CHỈ TRỤ SỞ ĐĂNG KÝ (FULL 12/12) -->
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                            <div class="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                <el-icon class="text-base"><Location /></el-icon>
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Địa chỉ trụ sở đăng ký</h4>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <el-form-item label="Tỉnh / Thành phố" prop="province" class="mb-0">
+                                <el-select 
+                                    v-model="form.province" 
+                                    placeholder="Chọn Tỉnh/TP" 
+                                    @change="handleProvinceChange" 
+                                    filterable 
+                                    allow-create 
+                                    class="w-full"
+                                >
+                                    <el-option v-for="p in provinces" :key="p.name" :label="p.name" :value="p.name" />
+                                </el-select>
+                            </el-form-item>
+
+                            <el-form-item label="Phường / Xã" prop="ward" class="mb-0">
+                                <el-select 
+                                    v-model="form.ward" 
+                                    placeholder="Chọn Phường/Xã" 
+                                    filterable 
+                                    allow-create 
+                                    class="w-full"
+                                >
+                                    <el-option v-for="w in wards" :key="w.name" :label="w.name" :value="w.name" />
+                                </el-select>
+                            </el-form-item>
+
+                            <el-form-item label="Địa chỉ chi tiết" prop="address" class="mb-0">
+                                <el-input 
+                                    v-model="form.address" 
+                                    placeholder="Số nhà, tên đường, thôn/xóm..." 
+                                    :prefix-icon="Location"
+                                />
+                            </el-form-item>
+                        </div>
+                    </div>
+
+                    <!-- TẦNG 3: GIỚI THIỆU VỀ DOANH NGHIỆP (FULL 12/12) -->
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
+                        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                            <div class="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                                <el-icon class="text-base"><Edit /></el-icon>
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Giới thiệu về doanh nghiệp</h4>
+                        </div>
+
+                        <div class="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                            <QuillEditor 
+                                :key="quillKey"
+                                v-model:content="form.description" 
+                                contentType="html" 
+                                theme="snow" 
+                                toolbar="essential" 
+                            />
+                        </div>
+                    </div>
+                </div>
+            </el-form>
+        </div>
+
+        <!-- Footer -->
         <template #footer>
-            <span class="dialog-footer">
-                <el-button @click="handleClose">Hủy bỏ</el-button>
-                <el-button type="primary" :loading="submitting" @click="handleSubmit(formRef)">
+            <div style="display: flex; align-items: center; justify-content: flex-end; padding: 16px 24px; background: #fff; border-top: 1px solid #f1f5f9; gap: 10px;">
+                <el-button @click="handleClose" style="border-radius: 8px; padding: 9px 20px;">Hủy bỏ</el-button>
+                <el-button 
+                    type="primary" 
+                    :loading="submitting" 
+                    :disabled="isSubmitDisabled"
+                    @click="handleSubmit(formRef)"
+                    :style="{
+                        borderRadius: '8px',
+                        padding: '9px 24px',
+                        fontWeight: '600',
+                        background: isSubmitDisabled ? 'rgba(0, 135, 90, 0.35)' : '#00875A',
+                        borderColor: isSubmitDisabled ? 'transparent' : '#00875A',
+                        color: isSubmitDisabled ? 'rgba(255, 255, 255, 0.85)' : '#fff',
+                        cursor: isSubmitDisabled ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease-in-out'
+                    }"
+                >
                     {{ isEdit ? 'Cập nhật' : 'Lưu lại' }}
                 </el-button>
-            </span>
+            </div>
         </template>
     </el-dialog>
 
@@ -479,3 +636,40 @@ const getNdaStatusType = (status: string | undefined | null) => {
         @select="handleMediaSelect"
     />
 </template>
+
+<style scoped>
+:deep(.ql-container) {
+  min-height: 120px;
+  font-family: inherit;
+  font-size: 14px;
+}
+:deep(.ql-toolbar) {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc;
+}
+:deep(.ql-container.ql-snow) {
+  border: none !important;
+}
+
+</style>
+
+<style>
+.branded-tenant-dialog {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-tenant-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-tenant-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-tenant-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>

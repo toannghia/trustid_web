@@ -2,7 +2,11 @@
 import { ref, onMounted, computed, reactive } from 'vue';
 import { tenantApi } from '../api/tenant';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Setting, Top, Edit, CirclePlus, User, CopyDocument, Connection, Histogram } from '@element-plus/icons-vue';
+import { 
+    Setting, Top, Edit, CirclePlus, User, CopyDocument, 
+    Connection, Histogram, Coordinate, ShoppingCart, Cpu 
+} from '@element-plus/icons-vue';
+import brandLogo from '@/assets/images/TrusID-TV_w.png';
 import TenantFormModal from '../components/TenantFormModal.vue';
 
 const copyToClipboard = (text: string) => {
@@ -124,26 +128,110 @@ const getImageUrl = (path: string) => {
 const isTrustedPartner = (row: any) => row.isTrustedPartner || row.is_trusted_partner || false;
 const trustedPartnerOrder = (row: any) => row.trustedPartnerOrder ?? row.trusted_partner_order ?? null;
 
-// ... (Quota & Module Config Mock Logic as before) ...
+// ... (Quota & Module Config Logic) ...
 const quotaModal = ref(false);
+const quotaTenant = ref<any>(null);
 const quotaForm = reactive({ tenantId: '', amount: 1000 });
-const handleGrantQuota = (row: any) => { quotaForm.tenantId = row.id; quotaForm.amount = 1000; quotaModal.value = true; };
-const submitQuota = async () => { /* ... reuse logic ... */ try { await tenantApi.grantQuota(quotaForm.tenantId, quotaForm.amount); ElMessage.success('OK'); quotaModal.value = false; fetchTenants(); } catch(e) { ElMessage.error('Fail'); } };
+const submittingQuota = ref(false);
+
+const handleGrantQuota = (row: any) => { 
+    quotaTenant.value = row;
+    quotaForm.tenantId = row.id; 
+    quotaForm.amount = 1000; 
+    quotaModal.value = true; 
+};
+
+const submitQuota = async () => { 
+    if (!quotaForm.tenantId) return;
+    if (!quotaForm.amount || quotaForm.amount <= 0) {
+        ElMessage.warning('Vui lòng nhập số lượng mã tem hợp lệ');
+        return;
+    }
+    submittingQuota.value = true;
+    try { 
+        await tenantApi.grantQuota(quotaForm.tenantId, quotaForm.amount); 
+        ElMessage.success(`Cấp thành công ${quotaForm.amount.toLocaleString()} mã tem`); 
+        quotaModal.value = false; 
+        fetchTenants(); 
+    } catch(e: any) { 
+        console.error(e);
+        ElMessage.error(e.response?.data?.message || 'Lỗi khi cấp hạn mức mã tem'); 
+    } finally {
+        submittingQuota.value = false;
+    }
+};
 
 const moduleModal = ref(false);
 const workingTenant = ref<any>(null);
-const workingModules = ref({ farm: false, iot: false, retail: false });
+const workingModules = ref({ farm: false, retail: false, iot: false });
+const originalModules = ref({ farm: false, retail: false, iot: false });
+const savingModules = ref(false);
+
+const isModulesChanged = computed(() => {
+    return workingModules.value.farm !== originalModules.value.farm ||
+           workingModules.value.retail !== originalModules.value.retail ||
+           workingModules.value.iot !== originalModules.value.iot;
+});
+
 const openModuleModal = (row: any) => { 
     workingTenant.value = row; 
-    workingModules.value = row.module_config || { farm: true, iot: false, retail: true }; 
+    const config = row.module_config || row.moduleConfig || {};
+    const initConf = {
+        farm: config.farm ?? true,
+        retail: config.retail ?? true,
+        iot: config.iot ?? false
+    };
+    workingModules.value = { ...initConf }; 
+    originalModules.value = { ...initConf };
     moduleModal.value = true; 
 };
+
 const saveModules = async () => {
-    if(!workingTenant.value) return;
+    if (!workingTenant.value || !isModulesChanged.value) return;
+    savingModules.value = true;
     try {
-        await tenantApi.update(workingTenant.value.id, { module_config: workingModules.value });
-        ElMessage.success('Updated'); moduleModal.value = false; fetchTenants();
-    } catch(e) { ElMessage.error('Fail'); }
+        const tenant = workingTenant.value;
+        const newModuleConfig = {
+            farm: workingModules.value.farm,
+            retail: workingModules.value.retail,
+            iot: workingModules.value.iot,
+            supply: true
+        };
+
+        const payload = {
+            ...tenant,
+            name: tenant.name,
+            taxCode: tenant.taxCode || tenant.tax_code,
+            gln: tenant.gln || '',
+            website: tenant.website || '',
+            gcpPrefix: tenant.gcpPrefix || tenant.gcp_prefix || '',
+            email: tenant.email,
+            phone: tenant.phone,
+            address: tenant.address,
+            province: tenant.province || '',
+            ward: tenant.ward || '',
+            logo: tenant.logo || '',
+            description: tenant.description || '',
+            isNdaEnabled: tenant.isNdaEnabled || tenant.is_nda_enabled || false,
+            isTrustedPartner: tenant.isTrustedPartner || tenant.is_trusted_partner || false,
+            trustedPartnerOrder: tenant.trustedPartnerOrder ?? tenant.trusted_partner_order ?? null,
+            module_config: newModuleConfig,
+            moduleConfig: newModuleConfig
+        };
+
+        await tenantApi.update(tenant.id, payload);
+        ElMessage.success('Cập nhật cấu hình phân hệ thành công'); 
+        moduleModal.value = false; 
+        fetchTenants();
+    } catch (e: any) { 
+        console.error('Lỗi saveModules:', e);
+        const errorMsg = Array.isArray(e.response?.data?.message)
+            ? e.response.data.message.join(', ')
+            : (e.response?.data?.message || e.message || 'Cập nhật phân hệ thất bại');
+        ElMessage.error(errorMsg); 
+    } finally {
+        savingModules.value = false;
+    }
 };
 
 // --- RESOURCE QUOTA MANAGEMENT ---
@@ -152,10 +240,23 @@ const resourceQuotaTenant = ref<any>(null);
 const resourceQuotaLoading = ref(false);
 const resourceQuotaSaving = ref(false);
 
+const currentResourceQuota = reactive({
+    CATEGORY: -1 as number,
+    USER: -1 as number,
+    PRODUCT: -1 as number,
+});
+
 const resourceQuotaForm = reactive({
     CATEGORY: -1 as number, // -1 = unlimited
     USER: -1 as number,
     PRODUCT: -1 as number,
+});
+
+const isResourceQuotaChanged = computed(() => {
+    if (resourceQuotaLoading.value) return false;
+    return resourceQuotaForm.PRODUCT !== currentResourceQuota.PRODUCT ||
+           resourceQuotaForm.CATEGORY !== currentResourceQuota.CATEGORY ||
+           resourceQuotaForm.USER !== currentResourceQuota.USER;
 });
 
 const openResourceQuotaModal = async (row: any) => {
@@ -163,6 +264,9 @@ const openResourceQuotaModal = async (row: any) => {
     resourceQuotaForm.CATEGORY = -1;
     resourceQuotaForm.USER = -1;
     resourceQuotaForm.PRODUCT = -1;
+    currentResourceQuota.CATEGORY = -1;
+    currentResourceQuota.USER = -1;
+    currentResourceQuota.PRODUCT = -1;
     resourceQuotaModal.value = true;
     resourceQuotaLoading.value = true;
     try {
@@ -171,9 +275,18 @@ const openResourceQuotaModal = async (row: any) => {
         for (const q of quotas) {
             const type = q.resourceType || q.resource_type;
             const limit = q.limitAmount ?? q.limit_amount ?? -1;
-            if (type === 'CATEGORY') resourceQuotaForm.CATEGORY = limit;
-            if (type === 'USER') resourceQuotaForm.USER = limit;
-            if (type === 'PRODUCT') resourceQuotaForm.PRODUCT = limit;
+            if (type === 'CATEGORY') {
+                resourceQuotaForm.CATEGORY = limit;
+                currentResourceQuota.CATEGORY = limit;
+            }
+            if (type === 'USER') {
+                resourceQuotaForm.USER = limit;
+                currentResourceQuota.USER = limit;
+            }
+            if (type === 'PRODUCT') {
+                resourceQuotaForm.PRODUCT = limit;
+                currentResourceQuota.PRODUCT = limit;
+            }
         }
     } catch (e) {
         console.error(e);
@@ -183,7 +296,7 @@ const openResourceQuotaModal = async (row: any) => {
 };
 
 const saveResourceQuota = async () => {
-    if (!resourceQuotaTenant.value) return;
+    if (!resourceQuotaTenant.value || !isResourceQuotaChanged.value) return;
     resourceQuotaSaving.value = true;
     try {
         const tenantId = resourceQuotaTenant.value.id;
@@ -192,10 +305,10 @@ const saveResourceQuota = async () => {
             tenantApi.setQuota(tenantId, 'USER', resourceQuotaForm.USER),
             tenantApi.setQuota(tenantId, 'PRODUCT', resourceQuotaForm.PRODUCT),
         ]);
-        ElMessage.success('Đã lưu cấu hình hạn mức');
+        ElMessage.success('Đã lưu cấu hình hạn mức tài nguyên');
         resourceQuotaModal.value = false;
     } catch (e: any) {
-        ElMessage.error(e.response?.data?.message || 'Lỗi lưu hạn mức');
+        ElMessage.error(e.response?.data?.message || 'Lỗi lưu hạn mức tài nguyên');
     } finally {
         resourceQuotaSaving.value = false;
     }
@@ -348,12 +461,14 @@ onMounted(() => {
              </template>
         </el-table-column>
         
-        <el-table-column label="Modules" width="180" v-if="columns[6].visible">
+        <el-table-column label="Modules" width="220" v-if="columns[6].visible">
            <template #default="scope">
              <div class="flex flex-wrap gap-1" v-if="scope.row.moduleConfig || scope.row.module_config">
-                <el-tag size="small" v-if="(scope.row.moduleConfig || scope.row.module_config).farm">Farm</el-tag>
+                <el-tag size="small" type="success" v-if="(scope.row.moduleConfig || scope.row.module_config).farm">Farm</el-tag>
                 <el-tag size="small" type="warning" v-if="(scope.row.moduleConfig || scope.row.module_config).retail">Retail</el-tag>
+                <el-tag size="small" color="#f3e8ff" style="color: #7e22ce; border-color: #e9d5ff;" v-if="(scope.row.moduleConfig || scope.row.module_config).iot">IoT</el-tag>
              </div>
+             <span v-else class="text-xs text-slate-400 italic">Mặc định</span>
            </template>
         </el-table-column>
 
@@ -398,53 +513,272 @@ onMounted(() => {
         @saved="fetchTenants"
     />
 
-    <!-- Module Mock Modal Reuse (Simplified) -->
+    <!-- Branded Module Config Modal -->
     <el-dialog 
         v-model="moduleModal" 
-        title="Module Config" 
-        width="90%"
-        style="max-width: 400px"
-        class="responsive-dialog"
+        width="95%"
+        style="max-width: 540px" 
+        :close-on-click-modal="false"
+        :show-close="false"
+        class="branded-module-dialog"
     >
-        <div class="space-y-4">
-             <div class="flex justify-between"><span class="font-medium">Farm Module</span> <el-switch v-model="workingModules.farm" /></div>
-             <div class="flex justify-between"><span class="font-medium">IoT Module</span> <el-switch v-model="workingModules.iot" /></div>
-             <div class="flex justify-between"><span class="font-medium">Retail Module</span> <el-switch v-model="workingModules.retail" /></div>
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img :src="brandLogo" alt="TrustID" style="height: 28px; object-fit: contain;" />
+                    <div style="height: 24px; width: 1px; background: rgba(255,255,255,0.3);"></div>
+                    <div>
+                        <div style="color: #fff; font-size: 16px; font-weight: 600; letter-spacing: 0.2px;">
+                            Cấu hình phân hệ hoạt động
+                        </div>
+                        <div v-if="workingTenant" style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 2px;" class="truncate max-w-[340px]">
+                            {{ workingTenant.name }}
+                        </div>
+                    </div>
+                </div>
+                <div 
+                    style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); transition: all 0.2s;" 
+                    class="hover:bg-white/20"
+                    @click="moduleModal = false"
+                >
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
+
+        <div class="p-6 bg-slate-50/50 space-y-3.5">
+            <!-- Farm Module -->
+            <div 
+                class="rounded-xl border p-4 transition-all flex items-center justify-between gap-3 cursor-pointer"
+                :class="workingModules.farm ? 'bg-white border-emerald-300 shadow-sm ring-1 ring-emerald-100' : 'bg-white/60 border-slate-200 opacity-75'"
+                @click="workingModules.farm = !workingModules.farm"
+            >
+                <div class="flex items-start gap-3">
+                    <div 
+                        class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                        :class="workingModules.farm ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'"
+                    >
+                        <el-icon class="text-xl"><Coordinate /></el-icon>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">Nông trại (Farm Module)</span>
+                            <el-tag :type="workingModules.farm ? 'success' : 'info'" size="small" effect="light" class="text-[11px] font-semibold">
+                                {{ workingModules.farm ? 'Đang bật' : 'Đang tắt' }}
+                            </el-tag>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Quản lý vùng trồng, lô thửa, nhật ký canh tác điện tử, mùa vụ & thu hoạch.
+                        </p>
+                    </div>
+                </div>
+                <div @click.stop>
+                    <el-switch 
+                        v-model="workingModules.farm" 
+                        active-color="#00875A"
+                    />
+                </div>
+            </div>
+
+            <!-- Retail Module -->
+            <div 
+                class="rounded-xl border p-4 transition-all flex items-center justify-between gap-3 cursor-pointer"
+                :class="workingModules.retail ? 'bg-white border-amber-300 shadow-sm ring-1 ring-amber-100' : 'bg-white/60 border-slate-200 opacity-75'"
+                @click="workingModules.retail = !workingModules.retail"
+            >
+                <div class="flex items-start gap-3">
+                    <div 
+                        class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                        :class="workingModules.retail ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'"
+                    >
+                        <el-icon class="text-xl"><ShoppingCart /></el-icon>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">Phân phối & Bán lẻ (Retail Module)</span>
+                            <el-tag :type="workingModules.retail ? 'warning' : 'info'" size="small" effect="light" class="text-[11px] font-semibold">
+                                {{ workingModules.retail ? 'Đang bật' : 'Đang tắt' }}
+                            </el-tag>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Quản lý mạng lưới đại lý, điểm bán lẻ, kích hoạt bảo hành & xuất bán POS.
+                        </p>
+                    </div>
+                </div>
+                <div @click.stop>
+                    <el-switch 
+                        v-model="workingModules.retail" 
+                        active-color="#00875A"
+                    />
+                </div>
+            </div>
+
+            <!-- IoT Module -->
+            <div 
+                class="rounded-xl border p-4 transition-all flex items-center justify-between gap-3 cursor-pointer"
+                :class="workingModules.iot ? 'bg-white border-purple-300 shadow-sm ring-1 ring-purple-100' : 'bg-white/60 border-slate-200 opacity-75'"
+                @click="workingModules.iot = !workingModules.iot"
+            >
+                <div class="flex items-start gap-3">
+                    <div 
+                        class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                        :class="workingModules.iot ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-400'"
+                    >
+                        <el-icon class="text-xl"><Cpu /></el-icon>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">Thiết bị IoT (IoT Module)</span>
+                            <el-tag :type="workingModules.iot ? '' : 'info'" size="small" effect="light" class="text-[11px] font-semibold" :style="workingModules.iot ? 'background-color: #f3e8ff; color: #7e22ce; border-color: #e9d5ff;' : ''">
+                                {{ workingModules.iot ? 'Đang bật' : 'Đang tắt' }}
+                            </el-tag>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Kết nối trạm khí tượng, cảm biến đo độ ẩm đất, vi khí hậu & giám sát tự động.
+                        </p>
+                    </div>
+                </div>
+                <div @click.stop>
+                    <el-switch 
+                        v-model="workingModules.iot" 
+                        active-color="#00875A"
+                    />
+                </div>
+            </div>
         </div>
-        <template #footer><el-button type="primary" @click="saveModules">Save</el-button></template>
+
+        <!-- Footer -->
+        <template #footer>
+            <div style="display: flex; align-items: center; justify-content: flex-end; padding: 16px 24px; background: #fff; border-top: 1px solid #f1f5f9; gap: 10px;">
+                <el-button @click="moduleModal = false" style="border-radius: 8px; padding: 9px 20px;">Hủy bỏ</el-button>
+                <el-button 
+                    type="primary" 
+                    :loading="savingModules" 
+                    :disabled="!isModulesChanged"
+                    @click="saveModules"
+                    :style="{
+                        borderRadius: '8px',
+                        padding: '9px 24px',
+                        fontWeight: '600',
+                        background: !isModulesChanged ? 'rgba(0, 135, 90, 0.35)' : '#00875A',
+                        borderColor: !isModulesChanged ? 'transparent' : '#00875A',
+                        color: !isModulesChanged ? 'rgba(255, 255, 255, 0.85)' : '#fff',
+                        cursor: !isModulesChanged ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease-in-out'
+                    }"
+                >
+                    Lưu cấu hình
+                </el-button>
+            </div>
+        </template>
     </el-dialog>
-    <!-- Quota Mock Modal Reuse -->
+    <!-- Grant Quota Modal -->
     <el-dialog 
         v-model="quotaModal" 
-        title="Thêm hạn mức mã tem " 
+        :show-close="false"
         width="90%"
-        style="max-width: 300px"
-        class="responsive-dialog"
+        style="max-width: 420px"
+        class="responsive-dialog branded-module-dialog"
     >
-        <el-input-number v-model="quotaForm.amount" :step="1000" class="w-full"/>
-        <template #footer><el-button type="primary" @click="submitQuota">Grant</el-button></template>
+        <!-- Custom Branded Header -->
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img :src="brandLogo" alt="TrustID Logo" style="height: 28px; width: auto; object-fit: contain;" />
+                    <div style="width: 1px; height: 18px; background: rgba(255, 255, 255, 0.25);"></div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: #ffffff; font-size: 15px; font-weight: 700; letter-spacing: 0.3px; line-height: 1.2;">
+                            Thêm hạn mức mã tem
+                        </span>
+                        <span v-if="quotaTenant?.name" style="color: rgba(255, 255, 255, 0.7); font-size: 11px; margin-top: 2px;">
+                            {{ quotaTenant.name }}
+                        </span>
+                    </div>
+                </div>
+                <div 
+                    style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); transition: all 0.2s;" 
+                    class="hover:bg-white/20"
+                    @click="quotaModal = false"
+                >
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
+
+        <div class="p-6 bg-slate-50/50">
+            <label class="block text-xs font-semibold text-slate-700 mb-2">
+                Số lượng mã tem cấp thêm:
+            </label>
+            <el-input-number 
+                v-model="quotaForm.amount" 
+                :min="1" 
+                :step="1000" 
+                class="w-full"
+                controls-position="right"
+            />
+        </div>
+
+        <!-- Footer -->
+        <template #footer>
+            <div style="display: flex; align-items: center; justify-content: flex-end; padding: 16px 24px; background: #fff; border-top: 1px solid #f1f5f9; gap: 10px;">
+                <el-button @click="quotaModal = false" style="border-radius: 8px; padding: 9px 20px;">Hủy bỏ</el-button>
+                <el-button 
+                    type="primary" 
+                    :loading="submittingQuota" 
+                    @click="submitQuota"
+                    style="border-radius: 8px; padding: 9px 24px; font-weight: 600; background: #00875A; border: none; color: #fff;"
+                >
+                    Cấp hạn mức
+                </el-button>
+            </div>
+        </template>
     </el-dialog>
 
     <!-- Resource Quota Management Modal -->
     <el-dialog
         v-model="resourceQuotaModal"
-        :title="`Cấu hình hạn mức - ${resourceQuotaTenant?.name || ''}`"
-        width="95%"
-        style="max-width: 520px"
-        class="responsive-dialog"
+        :show-close="false"
+        width="90%"
+        style="max-width: 480px"
+        class="responsive-dialog branded-module-dialog"
         :close-on-click-modal="false"
     >
-        <div v-loading="resourceQuotaLoading">
-            <el-alert
-                title="Giá trị -1 nghĩa là Không giới hạn. Đặt số cụ thể để giới hạn."
-                type="info"
-                :closable="false"
-                show-icon
-                class="mb-4"
-            />
+        <!-- Custom Branded Header -->
+        <template #header>
+            <div style="background: #0F2B46; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img :src="brandLogo" alt="TrustID Logo" style="height: 28px; width: auto; object-fit: contain;" />
+                    <div style="width: 1px; height: 18px; background: rgba(255, 255, 255, 0.25);"></div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: #ffffff; font-size: 15px; font-weight: 700; letter-spacing: 0.3px; line-height: 1.2;">
+                            Cấu hình hạn mức tài nguyên
+                        </span>
+                        <span v-if="resourceQuotaTenant?.name" style="color: rgba(255, 255, 255, 0.7); font-size: 11px; margin-top: 2px;">
+                            {{ resourceQuotaTenant.name }}
+                        </span>
+                    </div>
+                </div>
+                <div 
+                    style="margin-left: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); transition: all 0.2s;" 
+                    class="hover:bg-white/20"
+                    @click="resourceQuotaModal = false"
+                >
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 300; line-height: 1;">&times;</span>
+                </div>
+            </div>
+        </template>
 
-            <el-form label-position="left" label-width="180px">
-                <el-form-item label="Số sản phẩm">
+        <div class="p-6 bg-slate-50/50" v-loading="resourceQuotaLoading">
+            <div class="mb-4 text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center gap-2">
+                <span class="font-bold">ℹ️ Lưu ý:</span>
+                <span>Đặt giá trị <b>-1</b> để Không giới hạn số lượng tài nguyên.</span>
+            </div>
+
+            <div class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Số lượng sản phẩm tối đa:
+                    </label>
                     <el-input-number
                         v-model="resourceQuotaForm.PRODUCT"
                         :min="-1"
@@ -452,12 +786,15 @@ onMounted(() => {
                         controls-position="right"
                         class="w-full"
                     />
-                    <div class="text-xs text-gray-400 mt-1">
-                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.PRODUCT) }}</span>
+                    <div class="text-[11px] text-slate-400 mt-1">
+                        Hạn mức đang áp dụng: <span class="font-semibold text-slate-600">{{ getQuotaDisplayText(currentResourceQuota.PRODUCT) }}</span>
                     </div>
-                </el-form-item>
+                </div>
 
-                <el-form-item label="Số danh mục">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Số lượng danh mục tối đa:
+                    </label>
                     <el-input-number
                         v-model="resourceQuotaForm.CATEGORY"
                         :min="-1"
@@ -465,12 +802,15 @@ onMounted(() => {
                         controls-position="right"
                         class="w-full"
                     />
-                    <div class="text-xs text-gray-400 mt-1">
-                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.CATEGORY) }}</span>
+                    <div class="text-[11px] text-slate-400 mt-1">
+                        Hạn mức đang áp dụng: <span class="font-semibold text-slate-600">{{ getQuotaDisplayText(currentResourceQuota.CATEGORY) }}</span>
                     </div>
-                </el-form-item>
+                </div>
 
-                <el-form-item label="Số tài khoản người dùng">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Số tài khoản người dùng tối đa:
+                    </label>
                     <el-input-number
                         v-model="resourceQuotaForm.USER"
                         :min="-1"
@@ -478,17 +818,56 @@ onMounted(() => {
                         controls-position="right"
                         class="w-full"
                     />
-                    <div class="text-xs text-gray-400 mt-1">
-                        Hiện tại: <span class="font-semibold text-gray-600">{{ getQuotaDisplayText(resourceQuotaForm.USER) }}</span>
+                    <div class="text-[11px] text-slate-400 mt-1">
+                        Hạn mức đang áp dụng: <span class="font-semibold text-slate-600">{{ getQuotaDisplayText(currentResourceQuota.USER) }}</span>
                     </div>
-                </el-form-item>
-            </el-form>
+                </div>
+            </div>
         </div>
+
+        <!-- Footer -->
         <template #footer>
-            <el-button @click="resourceQuotaModal = false">Đóng</el-button>
-            <el-button type="primary" :loading="resourceQuotaSaving" @click="saveResourceQuota">Lưu hạn mức</el-button>
+            <div style="display: flex; align-items: center; justify-content: flex-end; padding: 16px 24px; background: #fff; border-top: 1px solid #f1f5f9; gap: 10px;">
+                <el-button @click="resourceQuotaModal = false" style="border-radius: 8px; padding: 9px 20px;">Hủy bỏ</el-button>
+                <el-button 
+                    type="primary" 
+                    :loading="resourceQuotaSaving" 
+                    :disabled="!isResourceQuotaChanged"
+                    @click="saveResourceQuota"
+                    :style="{
+                        borderRadius: '8px',
+                        padding: '9px 24px',
+                        fontWeight: '600',
+                        background: !isResourceQuotaChanged ? 'rgba(0, 135, 90, 0.35)' : '#00875A',
+                        borderColor: !isResourceQuotaChanged ? 'transparent' : '#00875A',
+                        color: !isResourceQuotaChanged ? 'rgba(255, 255, 255, 0.85)' : '#fff',
+                        cursor: !isResourceQuotaChanged ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease-in-out'
+                    }"
+                >
+                    Lưu hạn mức
+                </el-button>
+            </div>
         </template>
     </el-dialog>
 
   </div>
 </template>
+
+<style>
+.branded-module-dialog {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.branded-module-dialog .el-dialog__header {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.branded-module-dialog .el-dialog__body {
+  padding: 0 !important;
+}
+.branded-module-dialog .el-dialog__footer {
+  padding: 0 !important;
+}
+</style>
